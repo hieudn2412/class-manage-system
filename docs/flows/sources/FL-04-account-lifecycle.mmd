@@ -1,0 +1,31 @@
+flowchart TD
+  START([Bắt đầu]) --> WHO{"Ai tạo?"}
+  WHO -->|"Super Admin"| TENANT["Tạo tenant + Admin ban đầu"]
+  WHO -->|"Admin / Học vụ"| ACCOUNT["Tạo GV / HS trong tenant"]
+
+  TENANT --> VALIDATE["Kiểm tra mã tenant và dữ liệu bắt buộc"]
+  ACCOUNT --> USERVALIDATE["Kiểm tra username trong tenant + vai trò hợp lệ"]
+  VALIDATE -->|Sai| ERR["Hiển thị lỗi, không tạo dữ liệu"]
+  USERVALIDATE -->|Sai| ERR
+  VALIDATE -->|Đúng| TEMP["Sinh mật khẩu tạm"]
+  USERVALIDATE -->|Đúng| TEMP
+  TEMP --> ACTIVE["Tài khoản Active / MustChangePassword"]
+  ACTIVE --> LOGIN["Đăng nhập bằng mật khẩu tạm"]
+  LOGIN --> CHANGE["Bắt buộc đổi mật khẩu"]
+  CHANGE --> READY["Phiên hoạt động theo tenant + vai trò"]
+
+  READY --> RESET{"Quên / reset?"}
+  RESET -->|Email có sẵn| EMAIL["Gửi link một lần"]
+  RESET -->|Không email| ADMINRESET["Admin đặt lại mật khẩu tạm"]
+  EMAIL --> REVOKE["Thu hồi phiên và credential cũ"]
+  ADMINRESET --> REVOKE
+  REVOKE --> CHANGE
+
+  READY --> LOCK{"Khóa tài khoản hoặc tenant?"}
+  LOCK -->|Có| BLOCK["Chặn đăng nhập, giữ dữ liệu và audit"]
+  BLOCK --> UNLOCK["Người có quyền mở lại"]
+  UNLOCK --> READY
+
+  classDef terminal fill:#fff,stroke:#111,stroke-width:2px;
+  class START,READY terminal;
+

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+target/
+.env
+*.log
+.idea/
+coverage/
+playwright-report/
+test-results/
+artifacts/
+.env
+.env.local
+*.log
+.DS_Store

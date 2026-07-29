@@ -1,0 +1,33 @@
+flowchart TD
+  DRAFT["Class.Draft"] --> SCHEDULED["Class.Scheduled"]
+  SCHEDULED -->|"Tới buổi đầu"| ACTIVE["Class.Active"]
+
+  ACTIVE --> ADD["Admin / Học vụ chọn học sinh có sẵn"]
+  ADD --> VALID{"Đã active trong lớp?"}
+  VALID -->|Có| DUP["Từ chối tạo trùng"]
+  VALID -->|Không| ENR["Tạo nguyên tử: Enrollment.Active + Tuition.Unpaid"]
+  ENR --> ACCESS["Cấp quyền lịch, BTVN, tài liệu, record"]
+  ACTIVE --> TEACHER["Giáo viên xem roster chỉ đọc"]
+  TEACHER --> ATTEND["Chỉ điểm danh học sinh thuộc danh sách buổi"]
+
+  ENR --> REMOVE{"Kết thúc enrollment?"}
+  REMOVE -->|"Giáo viên"| DENY["Từ chối: không có quyền thay đổi roster"]
+  REMOVE -->|"Admin / Học vụ + lý do"| LEFT["Enrollment.Left / Transferred"]
+  LEFT --> REVOKE["Thu hồi quyền lớp, giữ lịch sử"]
+  LEFT --> FINANCE["Giữ giao dịch; hoàn tiền là luồng riêng"]
+
+  ACTIVE --> PROGRESS{"Đủ số buổi hoàn tất?"}
+  PROGRESS -->|Chưa| ACTIVE
+  PROGRESS -->|Đủ| AWAIT["Class.AwaitingClose"]
+  AWAIT --> CHECK["Quản lý kiểm tra hồ sơ/BTVN"]
+  CHECK -->|Chưa đủ| AWAIT
+  CHECK -->|Đóng lớp| CLOSED["Class.Closed"]
+  CLOSED --> REVOKE
+  CLOSED -->|"Admin mở lại + lý do"| AWAIT
+
+  DRAFT --> CANCEL["Class.Cancelled"]
+  SCHEDULED --> CANCEL
+  ACTIVE --> CANCEL
+  AWAIT --> CANCEL
+  CANCEL --> REVOKE
+  CANCEL --> KEEP["Giữ buổi cũ, enrollment và tài chính"]

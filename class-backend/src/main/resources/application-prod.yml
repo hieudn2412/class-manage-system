@@ -1,0 +1,7 @@
+# Production is deliberately disabled while the project is local-development only.
+# Activating this profile fails during config loading before a datasource or web server starts.
+spring:
+  config:
+    activate:
+      on-profile: prod
+    import: "file:./PRODUCTION_PROFILE_IS_DISABLED.yml"

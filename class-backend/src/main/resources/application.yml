@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: class-backend
+  profiles:
+    default: dev
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:55433/class_management}
+    username: ${DATABASE_USERNAME:class_app}
+    password: ${DATABASE_PASSWORD:class_app_dev}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX:10}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        format_sql: false
+  flyway:
+    enabled: true
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: true
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+app:
+  security:
+    jwt-secret: ${JWT_SECRET:dev-only-secret-must-be-at-least-32-bytes-long}
+    access-token-ttl: ${ACCESS_TOKEN_TTL:PT8H}
+    max-login-attempts: ${MAX_LOGIN_ATTEMPTS:5}
+    login-block-duration: ${LOGIN_BLOCK_DURATION:PT1M}
+  scheduling:
+    zone-id: Asia/Ho_Chi_Minh
+    preview-ttl: ${PREVIEW_TTL:PT15M}
+    max-generation-days: ${MAX_GENERATION_DAYS:3660}
+  teaching:
+    zone-id: Asia/Ho_Chi_Minh
+    check-in-before-start: PT30M
+    scheduler-delay-ms: ${TEACHING_SCHEDULER_DELAY_MS:30000}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://127.0.0.1:4173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  packages-to-scan: com.classops.backend
+
+logging:
+  pattern:
+    level: "%5p [traceId=%X{traceId:-}]"

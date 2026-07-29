@@ -1,0 +1,26 @@
+flowchart TD
+  TODAY["Buổi hôm nay Scheduled"] --> WINDOW{"Trong cửa sổ -30 phút đến hết buổi?"}
+  WINDOW -->|Không| DENY["Chặn check-in; hướng dẫn liên hệ quản lý"]
+  WINDOW -->|Có| MODE{"Buổi Online?"}
+  MODE -->|Có| LINK["GV nhập link Online của đúng buổi"]
+  MODE -->|Không| CHECKIN["Ghi CheckIn timestamp + IP + device"]
+  LINK --> CHECKIN
+  CHECKIN --> IDEMP{"Đã check-in trước đó?"}
+  IDEMP -->|Có| SAME["Trả trạng thái hiện tại, không nhân đôi"]
+  IDEMP -->|Không| INPROGRESS["Session.CheckedIn"]
+  SAME --> INPROGRESS
+  INPROGRESS --> END_TIME{"Đến giờ kết thúc"}
+  END_TIME --> LOCK["Khóa row buổi + snapshot roster từ enrollment hiệu lực"]
+  LOCK --> COMPLETE["Session.Completed"]
+  COMPLETE --> ACCRUAL["Tạo SalaryAccrual idempotent"]
+  COMPLETE --> DOCS{"Đủ attendance + record?"}
+  DOCS -->|Có| CLEAN["Hồ sơ đầy đủ"]
+  DOCS -->|Không| MISSING["Cờ MissingDocumentation"]
+  MISSING --> FILL["GV bổ sung sau; giữ Completed và lương"]
+  FILL --> CLEAN
+
+  TODAY --> NO_CHECKIN{"Đến giờ kết thúc nhưng không check-in"}
+  NO_CHECKIN --> AWAIT["Session.AwaitingVerification"]
+  AWAIT --> MANAGER{"Quản lý xác minh"}
+  MANAGER -->|"Đã dạy"| LOCK
+  MANAGER -->|"Không dạy"| CANCEL["Session.Cancelled; không lương"]

@@ -1,0 +1,1103 @@
+openapi: 3.1.0
+info:
+  title: Class Operations API
+  version: 1.2.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-ClassOps-Proprietary
+  description: |
+    API cho các màn React hiện có: xác thực, lập lịch lớp và vận hành giáo viên.
+    Sau đăng nhập, tenant luôn được suy ra từ JWT.
+    API tạo lớp/ca/override không nhận link online theo DEC-046.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Authentication
+    description: Tenant resolution, JWT login and temporary-password lifecycle.
+  - name: Management dashboard
+    description: Tenant-scoped operational KPIs and attention items.
+  - name: Class scheduling
+    description: Draft, preview, publish and lookup APIs for class planning.
+  - name: Weekly schedules
+    description: Tenant-wide and teacher-specific calendars plus one-session overrides.
+  - name: Teaching operations
+    description: Dashboard giáo viên, lớp/buổi trong phạm vi, check-in và hồ sơ sư phạm.
+paths:
+  /tenants/{slug}:
+    get:
+      operationId: getTenant
+      tags: [Authentication]
+      security: []
+      summary: Lấy thông tin tenant trước đăng nhập
+      parameters:
+        - $ref: "#/components/parameters/TenantSlug"
+      responses:
+        "200":
+          description: Tenant tồn tại
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Tenant"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "423": {$ref: "#/components/responses/Locked"}
+  /auth/login:
+    post:
+      operationId: login
+      tags: [Authentication]
+      security: []
+      summary: Đăng nhập trong một tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                tenantSlug: {type: string, example: anh-duong}
+                username: {type: string, example: admin.anhduong}
+                password: {type: string, format: password, example: Demo@123}
+      responses:
+        "200":
+          description: JWT và hồ sơ phiên
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AuthSession"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "423": {$ref: "#/components/responses/Locked"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+  /auth/forgot-password:
+    post:
+      operationId: requestPasswordReset
+      tags: [Authentication]
+      security: []
+      summary: Ghi nhận yêu cầu quên mật khẩu mà không tiết lộ tài khoản
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantSlug, username]
+              properties:
+                tenantSlug: {type: string, example: anh-duong}
+                username: {type: string, example: admin.anhduong}
+      responses:
+        "202":
+          description: Luôn trả cùng một thông điệp xác nhận
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/MessageResponse"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+  /auth/change-password:
+    post:
+      operationId: changeTemporaryPassword
+      tags: [Authentication]
+      summary: Đổi mật khẩu tạm và phát hành JWT mới
+      description: JWT cũ mất hiệu lực sau khi tokenVersion được tăng.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newPassword]
+              properties:
+                newPassword: {type: string, format: password, minLength: 8}
+      responses:
+        "200":
+          description: Phiên mới có passwordState READY
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AuthSession"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /dashboard:
+    get:
+      operationId: getManagementDashboard
+      tags: [Management dashboard]
+      summary: Dashboard vận hành của tenant trong JWT
+      responses:
+        "200":
+          description: KPI và việc cần xử lý từ dữ liệu PostgreSQL
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/DashboardData"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /class-scheduling/options:
+    get:
+      operationId: getClassSchedulingOptions
+      tags: [Class scheduling]
+      summary: Danh sách giáo viên và phòng thuộc tenant
+      responses:
+        "200":
+          description: Options
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SchedulingOptions"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /students:
+    get:
+      operationId: searchStudents
+      tags: [Class scheduling]
+      summary: Tìm học sinh có sẵn để quản lý thêm vào lớp
+      parameters:
+        - {$ref: "#/components/parameters/Search"}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200":
+          description: Trang học sinh (1-based)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - {$ref: "#/components/schemas/Page"}
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items: {$ref: "#/components/schemas/StudentOption"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+  /class-scheduling/previews:
+    post:
+      operationId: createClassSchedulePreview
+      tags: [Class scheduling]
+      summary: Sinh preview lịch và xung đột
+      description: Preview có TTL và không giữ chỗ. Publish luôn kiểm tra lại.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ClassDraftInput"}
+      responses:
+        "200":
+          description: Preview mới
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SchedulePreview"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+  /classes:
+    get:
+      operationId: listClasses
+      tags: [Class scheduling]
+      summary: Danh sách lớp tenant
+      parameters:
+        - {$ref: "#/components/parameters/Search"}
+        - {name: month, in: query, schema: {type: string, pattern: '^\d{4}-\d{2}$'}}
+        - {name: status, in: query, schema: {type: string}}
+        - {name: teacherId, in: query, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {name: sort, in: query, schema: {type: string, enum: [name, progress, expectedEndDate]}}
+      responses:
+        "200":
+          description: Trang lớp
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Page"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+    post:
+      operationId: createClassDraft
+      tags: [Class scheduling]
+      summary: Lưu lớp Draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ClassDraftInput"}
+      responses:
+        "200":
+          description: Draft đã lưu; chưa tạo session/enrollment/học phí
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ClassDraftRecord"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+  /classes/{classId}:
+    parameters:
+      - {$ref: "#/components/parameters/ClassId"}
+    get:
+      operationId: getClass
+      tags: [Class scheduling]
+      summary: Chi tiết lớp
+      responses:
+        "200": {description: Chi tiết lớp}
+        "404": {$ref: "#/components/responses/NotFound"}
+    put:
+      operationId: updateClassDraft
+      tags: [Class scheduling]
+      summary: Cập nhật lớp Draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ClassDraftInput"}
+      responses:
+        "200":
+          description: Draft mới
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ClassDraftRecord"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /classes/{classId}/draft:
+    get:
+      operationId: getClassDraft
+      tags: [Class scheduling]
+      summary: Tải lại form của Draft
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+      responses:
+        "200":
+          description: Draft
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ClassDraftRecord"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /classes/{classId}/publish:
+    post:
+      operationId: publishClass
+      tags: [Class scheduling]
+      summary: Công bố lớp nguyên tử
+      description: |
+        Khóa Draft, kiểm tra preview/xung đột lại, sau đó tạo sessions, enrollment,
+        một khoản học phí UNPAID cho mỗi học sinh, audit, notification và outbox.
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [previewId]
+              properties:
+                previewId: {type: string, format: uuid}
+                acknowledgedWarningIds:
+                  type: array
+                  uniqueItems: true
+                  items: {type: string}
+      responses:
+        "200": {description: Lớp Scheduled}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /schedules/management:
+    get:
+      operationId: getManagementSchedule
+      tags: [Weekly schedules]
+      summary: Lịch tuần toàn trung tâm
+      parameters:
+        - {$ref: "#/components/parameters/WeekStart"}
+        - {name: teacherId, in: query, schema: {type: string, format: uuid}}
+        - {name: roomId, in: query, schema: {type: string, format: uuid}}
+      responses:
+        "200":
+          description: Lịch, kèm canManageSessionSchedule cho UI read-only
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/WeekSchedule"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+  /schedules/me:
+    get:
+      operationId: getOwnSchedule
+      tags: [Weekly schedules]
+      summary: Lịch của giáo viên từ JWT, không nhận teacherId
+      parameters:
+        - {$ref: "#/components/parameters/WeekStart"}
+      responses:
+        "200":
+          description: Lịch cá nhân
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/WeekSchedule"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+  /sessions/{sessionId}/schedule-preview:
+    post:
+      operationId: previewSessionSchedule
+      tags: [Weekly schedules]
+      summary: Kiểm tra override hình thức/phòng một buổi
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/SessionScheduleInput"}
+      responses:
+        "200":
+          description: Preview một buổi
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SchedulePreview"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/schedule:
+    patch:
+      operationId: updateSessionSchedule
+      tags: [Weekly schedules]
+      summary: Lưu override hình thức/phòng; không thay link online
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - {$ref: "#/components/schemas/SessionScheduleInput"}
+                - type: object
+                  required: [previewId]
+                  properties:
+                    previewId: {type: string, format: uuid}
+                    acknowledgedWarningIds:
+                      type: array
+                      items: {type: string}
+      responses:
+        "200":
+          description: Lịch tuần sau cập nhật
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/WeekSchedule"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /teachers/me/dashboard:
+    get:
+      operationId: getTeacherDashboard
+      tags: [Teaching operations]
+      summary: KPI và các buổi hôm nay của giáo viên trong JWT
+      responses:
+        "200":
+          description: Dashboard giáo viên
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TeacherDashboardData"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /teachers/me/classes:
+    get:
+      operationId: getMyTeachingClasses
+      tags: [Teaching operations]
+      summary: Lớp đang hoặc đã thuộc phạm vi giáo viên
+      parameters:
+        - {$ref: "#/components/parameters/Search"}
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: ["", DRAFT, SCHEDULED, ACTIVE, AWAITING_CLOSE, CLOSED, CANCELLED]
+        - name: role
+          in: query
+          schema: {type: string, enum: ["", PRIMARY, ACTUAL]}
+        - name: from
+          in: query
+          schema: {type: string, format: date}
+        - name: to
+          in: query
+          schema: {type: string, format: date}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200":
+          description: Trang lớp theo phạm vi giáo viên
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TeacherClassPage"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /teachers/me/classes/{classId}/sessions:
+    get:
+      operationId: getMyClassSessions
+      tags: [Teaching operations]
+      summary: Lịch sử buổi trong nhiệm kỳ/phạm vi giáo viên
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200":
+          description: Header lớp và trang buổi
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TeacherClassSessions"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+  /sessions/{sessionId}:
+    get:
+      operationId: getSessionOperationsDetail
+      tags: [Teaching operations]
+      summary: Chi tiết buổi, roster, hồ sơ và quyền thao tác
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+      responses:
+        "200":
+          description: Workspace buổi học
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SessionOperationsDetail"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /sessions/{sessionId}/check-ins:
+    post:
+      operationId: checkInTeachingSession
+      tags: [Teaching operations]
+      summary: Giáo viên thực tế check-in trong cửa sổ do backend tính
+      description: Online bắt buộc URL http/https; tại lớp không chấp nhận URL.
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CheckInInput"}
+      responses:
+        "200":
+          description: Trạng thái buổi sau check-in
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SessionOperationsDetail"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/pedagogical-record:
+    patch:
+      operationId: savePedagogicalRecord
+      tags: [Teaching operations]
+      summary: Lưu nguyên tử lesson report, điểm danh và nhận xét học sinh
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/PedagogicalRecordInput"}
+      responses:
+        "200":
+          description: Chi tiết mới nhất
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SessionOperationsDetail"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/students/{studentId}/test-results:
+    post:
+      operationId: createSessionTestResult
+      tags: [Teaching operations]
+      summary: Thêm điểm kiểm tra cho học sinh thuộc roster
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/StudentId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/TestResultInput"}
+      responses:
+        "201":
+          description: Kết quả vừa tạo
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TestResult"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/students/{studentId}/test-results/{resultId}:
+    put:
+      operationId: updateSessionTestResult
+      tags: [Teaching operations]
+      summary: Sửa điểm kiểm tra bằng optimistic version
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/StudentId"}
+        - {$ref: "#/components/parameters/TestResultId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/TestResultInput"}
+      responses:
+        "200":
+          description: Kết quả mới nhất
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TestResult"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/verification-decisions:
+    post:
+      operationId: decideMissingCheckInSession
+      tags: [Teaching operations]
+      summary: Quản lý xác nhận đã dạy hoặc hủy buổi thiếu check-in
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/VerificationDecisionInput"}
+      responses:
+        "200":
+          description: Buổi Completed hoặc Cancelled
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SessionOperationsDetail"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    TenantSlug: {name: slug, in: path, required: true, schema: {type: string}}
+    ClassId: {name: classId, in: path, required: true, schema: {type: string, format: uuid}}
+    SessionId: {name: sessionId, in: path, required: true, schema: {type: string, format: uuid}}
+    StudentId: {name: studentId, in: path, required: true, schema: {type: string, format: uuid}}
+    TestResultId: {name: resultId, in: path, required: true, schema: {type: string, format: uuid}}
+    Search: {name: search, in: query, schema: {type: string, default: ""}}
+    Page: {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+    PageSize: {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+    WeekStart:
+      name: weekStart
+      in: query
+      required: true
+      description: Thứ Hai theo Asia/Ho_Chi_Minh
+      schema: {type: string, format: date}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 150}
+  responses:
+    ValidationError:
+      description: Dữ liệu không hợp lệ
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    Unauthorized:
+      description: JWT không hợp lệ
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    Forbidden:
+      description: Không có quyền
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    NotFound:
+      description: Không tìm thấy tài nguyên trong tenant
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    Conflict:
+      description: |
+        Preview stale, TEACHER_OVERLAP, ROOM_OVERLAP, STUDENT_OVERLAP,
+        optimistic lock hoặc idempotency conflict.
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    Locked:
+      description: Tenant hoặc tài khoản đã bị khóa mềm
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+    TooManyRequests:
+      description: Vượt ngưỡng đăng nhập sai theo tài khoản hoặc địa chỉ
+      headers:
+        Retry-After:
+          schema: {type: integer, minimum: 1}
+      content:
+        application/problem+json:
+          schema: {$ref: "#/components/schemas/Problem"}
+  schemas:
+    Tenant:
+      type: object
+      required: [id, slug, name, status]
+      properties:
+        id: {type: string, format: uuid}
+        slug: {type: string}
+        name: {type: string}
+        status: {type: string, enum: [ACTIVE, LOCKED]}
+    AuthSession:
+      type: object
+      required: [token, user, tenant, expiresAt]
+      properties:
+        token: {type: string}
+        user:
+          type: object
+          properties:
+            id: {type: string, format: uuid}
+            tenantId: {type: string, format: uuid}
+            username: {type: string}
+            displayName: {type: string}
+            roles: {type: array, items: {type: string}}
+            status: {type: string}
+            passwordState: {type: string}
+        tenant: {$ref: "#/components/schemas/Tenant"}
+        expiresAt: {type: string, format: date-time}
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu sẽ được gửi tới email đã đăng ký.
+    DashboardData:
+      type: object
+      required: [date, greetingName, kpis, attentionItems, classStates]
+      properties:
+        date: {type: string, format: date}
+        greetingName: {type: string}
+        kpis:
+          type: array
+          items:
+            type: object
+            required: [id, label, value, detail]
+            properties:
+              id: {type: string}
+              label: {type: string}
+              value: {type: string}
+              detail: {type: string}
+              delta: {type: [string, "null"]}
+        attentionItems:
+          type: array
+          items:
+            type: object
+            required: [id, title, detail, actionLabel, severity]
+            properties:
+              id: {type: string}
+              title: {type: string}
+              detail: {type: string}
+              actionLabel: {type: string}
+              severity: {type: string, enum: [warning, danger, info]}
+              targetSessionId: {type: [string, "null"], format: uuid}
+        classStates:
+          type: array
+          items:
+            type: object
+            required: [status, label, count]
+            properties:
+              status:
+                type: string
+                enum: [Active, AwaitingClose, Closed]
+              label: {type: string}
+              count: {type: integer, minimum: 0}
+    TeacherOption:
+      type: object
+      required: [id, name]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+    RoomOption:
+      type: object
+      required: [id, code, name, capacity, status]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        capacity: {type: integer, minimum: 1}
+        status: {type: string, enum: [ACTIVE, INACTIVE]}
+    StudentOption:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+    SchedulingOptions:
+      type: object
+      required: [teachers, rooms]
+      properties:
+        teachers: {type: array, items: {$ref: "#/components/schemas/TeacherOption"}}
+        rooms: {type: array, items: {$ref: "#/components/schemas/RoomOption"}}
+    WeeklyPattern:
+      type: object
+      description: Không có URL online.
+      required: [id, weekday, startTime, endTime, mode]
+      properties:
+        id: {type: string}
+        weekday: {type: integer, minimum: 1, maximum: 7, description: ISO Monday=1}
+        startTime: {type: string, pattern: '^\d{2}:\d{2}(:\d{2})?$', example: "19:00"}
+        endTime: {type: string, pattern: '^\d{2}:\d{2}(:\d{2})?$', example: "20:30"}
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomId: {type: [string, "null"], format: uuid}
+    SessionOverride:
+      type: object
+      description: Chỉ đổi hình thức/phòng của ứng viên; không có URL.
+      required: [sessionKey, mode]
+      properties:
+        sessionKey: {type: string, example: "mon-evening@2026-08-03"}
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomId: {type: [string, "null"], format: uuid}
+    ClassDraftInput:
+      type: object
+      required:
+        - name
+        - primaryTeacherId
+        - startDate
+        - totalSessions
+        - tuitionAmount
+        - hourlyRate
+        - defaultMode
+      properties:
+        name: {type: string, minLength: 1}
+        description: {type: string, default: ""}
+        primaryTeacherId: {type: string, format: uuid}
+        startDate: {type: string, format: date}
+        totalSessions: {type: integer, minimum: 1}
+        tuitionAmount: {type: number, exclusiveMinimum: 0}
+        hourlyRate: {type: number, exclusiveMinimum: 0}
+        capacity: {type: [integer, "null"], minimum: 1}
+        defaultMode: {type: string, enum: [IN_PERSON, ONLINE]}
+        studentIds: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
+        patterns: {type: array, items: {$ref: "#/components/schemas/WeeklyPattern"}}
+        overrides: {type: array, items: {$ref: "#/components/schemas/SessionOverride"}}
+    ClassDraftRecord:
+      allOf:
+        - {$ref: "#/components/schemas/ClassDraftInput"}
+        - type: object
+          required: [id, code, status, version]
+          properties:
+            id: {type: string, format: uuid}
+            code: {type: string}
+            status: {const: Draft}
+            version: {type: integer, format: int64}
+    ScheduleConflict:
+      type: object
+      required: [id, code, severity, proposedSessionKey, studentNames, conflictingSession]
+      properties:
+        id: {type: string}
+        code: {type: string, enum: [TEACHER_OVERLAP, ROOM_OVERLAP, STUDENT_OVERLAP]}
+        severity: {type: string, enum: [BLOCKING, WARNING]}
+        proposedSessionKey: {type: string}
+        studentNames: {type: array, items: {type: string}}
+        conflictingSession: {type: object}
+    PreviewSession:
+      type: object
+      properties:
+        key: {type: string}
+        ordinal: {type: integer}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        teacherId: {type: string, format: uuid}
+        teacherName: {type: string}
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomId: {type: [string, "null"], format: uuid}
+        roomName: {type: [string, "null"]}
+    SchedulePreview:
+      type: object
+      required:
+        [previewId, generatedAt, expiresAt, inputVersion, sessions, skippedHolidays, expectedEndDate, conflicts]
+      properties:
+        previewId: {type: string, format: uuid}
+        generatedAt: {type: string, format: date-time}
+        expiresAt: {type: string, format: date-time}
+        inputVersion: {type: string}
+        sessions: {type: array, items: {$ref: "#/components/schemas/PreviewSession"}}
+        skippedHolidays: {type: array, items: {type: object}}
+        expectedEndDate: {type: string, format: date}
+        conflicts: {type: array, items: {$ref: "#/components/schemas/ScheduleConflict"}}
+    SessionScheduleInput:
+      type: object
+      description: Không có onlineUrl theo DEC-046.
+      required: [mode, version]
+      properties:
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomId: {type: [string, "null"], format: uuid}
+        version: {type: integer, format: int64, minimum: 0}
+    CalendarSession:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        classId: {type: string, format: uuid}
+        classCode: {type: string}
+        className: {type: string}
+        ordinal: {type: integer}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        plannedTeacherId: {type: string, format: uuid}
+        actualTeacherId: {type: string, format: uuid}
+        teacherName: {type: string}
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomId: {type: [string, "null"], format: uuid}
+        roomName: {type: [string, "null"]}
+        onlineUrl:
+          type: string
+          readOnly: true
+          description: Link do check-in tương lai thiết lập; scheduling API không ghi.
+        isSubstitution: {type: boolean}
+        version: {type: integer, format: int64}
+    WeekSchedule:
+      type: object
+      properties:
+        weekStart: {type: string, format: date}
+        weekEnd: {type: string, format: date}
+        sessions: {type: array, items: {$ref: "#/components/schemas/CalendarSession"}}
+        canManageSessionSchedule: {type: boolean}
+    TeacherDashboardData:
+      type: object
+      required: [date, teacherName, metrics, sessions]
+      properties:
+        date: {type: string, format: date}
+        teacherName: {type: string}
+        metrics:
+          type: object
+          required:
+            [todaySessions, checkInAvailable, missingDocumentation, monthTeachingHours, monthAccruedSalary]
+          properties:
+            todaySessions: {type: integer, minimum: 0}
+            checkInAvailable: {type: integer, minimum: 0}
+            missingDocumentation: {type: integer, minimum: 0}
+            monthTeachingHours: {type: number, minimum: 0}
+            monthAccruedSalary: {type: number, minimum: 0}
+        sessions:
+          type: array
+          items: {$ref: "#/components/schemas/TodayTeachingSession"}
+    TodayTeachingSession:
+      type: object
+      required:
+        [id, classId, classCode, className, ordinal, startAt, endAt, mode, status,
+         checkInState, checkInOpensAt, substitution]
+      properties:
+        id: {type: string, format: uuid}
+        classId: {type: string, format: uuid}
+        classCode: {type: string}
+        className: {type: string}
+        ordinal: {type: integer, minimum: 1}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomName: {type: [string, "null"]}
+        status: {$ref: "#/components/schemas/SessionStatus"}
+        checkInState: {$ref: "#/components/schemas/CheckInState"}
+        checkInOpensAt: {type: string, format: date-time}
+        substitution: {type: boolean}
+    TeacherClassItem:
+      type: object
+      required:
+        [id, code, name, status, teacherRole, startDate, completedSessions, totalSessions]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        status: {type: string}
+        teacherRole: {type: string, enum: [PRIMARY, ACTUAL]}
+        startDate: {type: string, format: date}
+        expectedEndDate: {type: [string, "null"], format: date}
+        completedSessions: {type: integer, minimum: 0}
+        totalSessions: {type: integer, minimum: 1}
+        latestSessionAt: {type: [string, "null"], format: date-time}
+    TeacherClassPage:
+      allOf:
+        - {$ref: "#/components/schemas/Page"}
+        - type: object
+          properties:
+            items:
+              type: array
+              items: {$ref: "#/components/schemas/TeacherClassItem"}
+    TeacherClassSessions:
+      type: object
+      required: [learningClass, sessions]
+      properties:
+        learningClass:
+          type: object
+          required: [id, code, name, status, completedSessions, totalSessions]
+          properties:
+            id: {type: string, format: uuid}
+            code: {type: string}
+            name: {type: string}
+            status: {type: string}
+            completedSessions: {type: integer}
+            totalSessions: {type: integer}
+        sessions:
+          allOf:
+            - {$ref: "#/components/schemas/Page"}
+            - type: object
+              properties:
+                items:
+                  type: array
+                  items: {$ref: "#/components/schemas/TeacherSessionSummary"}
+    TeacherSessionSummary:
+      type: object
+      required:
+        [id, ordinal, startAt, endAt, status, actualTeacherName, actualTeacher, readOnly,
+         lessonName, participatedStudents, rosterStudents, missingDocumentation, testResultCount]
+      properties:
+        id: {type: string, format: uuid}
+        ordinal: {type: integer}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        status: {$ref: "#/components/schemas/SessionStatus"}
+        actualTeacherName: {type: string}
+        actualTeacher: {type: boolean}
+        readOnly: {type: boolean}
+        lessonName: {type: string}
+        participatedStudents: {type: integer}
+        rosterStudents: {type: integer}
+        missingDocumentation: {type: boolean}
+        testResultCount: {type: integer}
+    SessionStatus:
+      type: string
+      enum: [SCHEDULED, IN_PROGRESS, COMPLETED, PENDING_CONFIRMATION, CANCELLED]
+    CheckInState:
+      type: string
+      enum: [TOO_EARLY, OPEN, CHECKED_IN, WINDOW_CLOSED, COMPLETED, CANCELLED]
+    AttendanceStatus:
+      type: string
+      enum: [PRESENT, LATE, LEFT_EARLY, ABSENT_EXCUSED, ABSENT_UNEXCUSED]
+    TestResult:
+      type: object
+      required: [id, testName, score, maxScore, testDate, comment, version]
+      properties:
+        id: {type: string, format: uuid}
+        testName: {type: string}
+        score: {type: number, minimum: 0}
+        maxScore: {type: number, exclusiveMinimum: 0}
+        testDate: {type: string, format: date}
+        comment: {type: string}
+        version: {type: integer, format: int64}
+    RosterStudent:
+      type: object
+      required:
+        [studentId, code, name, attendanceNote, attendanceVersion, sessionComment,
+         commentVersion, testResults]
+      properties:
+        studentId: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        attendanceStatus:
+          oneOf:
+            - {$ref: "#/components/schemas/AttendanceStatus"}
+            - type: "null"
+        attendanceNote: {type: string}
+        attendanceVersion: {type: integer, format: int64}
+        sessionComment: {type: string}
+        commentVersion: {type: integer, format: int64}
+        testResults:
+          type: array
+          items: {$ref: "#/components/schemas/TestResult"}
+    SessionOperationsDetail:
+      type: object
+      required:
+        [id, classId, classCode, className, ordinal, startAt, endAt, mode, status,
+         actualTeacherName, actualTeacher, canEdit, canVerify, checkInState, checkInOpensAt,
+         rosterFrozen, rosterRevision, missingDocumentation, version, lessonReport, students,
+         participatedStudents]
+      properties:
+        id: {type: string, format: uuid}
+        classId: {type: string, format: uuid}
+        classCode: {type: string}
+        className: {type: string}
+        ordinal: {type: integer}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomName: {type: [string, "null"]}
+        onlineLink: {type: [string, "null"], format: uri}
+        status: {$ref: "#/components/schemas/SessionStatus"}
+        actualTeacherName: {type: string}
+        actualTeacher: {type: boolean}
+        canEdit: {type: boolean}
+        canVerify: {type: boolean}
+        checkInState: {$ref: "#/components/schemas/CheckInState"}
+        checkInOpensAt: {type: string, format: date-time}
+        checkIn:
+          type: [object, "null"]
+          properties:
+            checkedInAt: {type: string, format: date-time}
+            onlineLink: {type: [string, "null"], format: uri}
+        rosterFrozen: {type: boolean}
+        rosterRevision: {type: string}
+        missingDocumentation: {type: boolean}
+        version: {type: integer, format: int64}
+        lessonReport:
+          type: object
+          required: [lessonName, lessonContent, version]
+          properties:
+            lessonName: {type: string}
+            lessonContent: {type: string}
+            recordUrl: {type: [string, "null"], format: uri}
+            version: {type: integer, format: int64}
+        students:
+          type: array
+          items: {$ref: "#/components/schemas/RosterStudent"}
+        participatedStudents: {type: integer, minimum: 0}
+    CheckInInput:
+      type: object
+      required: [version]
+      properties:
+        onlineLink: {type: [string, "null"], format: uri}
+        version: {type: integer, format: int64, minimum: 0}
+    PedagogicalRecordInput:
+      type: object
+      required: [rosterRevision, lessonReport, students]
+      properties:
+        rosterRevision: {type: string}
+        lessonReport:
+          type: object
+          required: [lessonName, lessonContent, version]
+          properties:
+            lessonName: {type: string}
+            lessonContent: {type: string}
+            recordUrl: {type: [string, "null"], format: uri}
+            version: {type: integer, format: int64, minimum: 0}
+        students:
+          type: array
+          items:
+            type: object
+            required:
+              [studentId, attendanceNote, attendanceVersion, sessionComment, commentVersion]
+            properties:
+              studentId: {type: string, format: uuid}
+              attendanceStatus:
+                oneOf:
+                  - {$ref: "#/components/schemas/AttendanceStatus"}
+                  - type: "null"
+              attendanceNote: {type: string}
+              attendanceVersion: {type: integer, format: int64, minimum: 0}
+              sessionComment: {type: string}
+              commentVersion: {type: integer, format: int64, minimum: 0}
+    TestResultInput:
+      type: object
+      required: [testName, score, maxScore, testDate, version]
+      properties:
+        testName: {type: string, minLength: 1}
+        score: {type: number, minimum: 0}
+        maxScore: {type: number, exclusiveMinimum: 0}
+        testDate: {type: string, format: date}
+        comment: {type: string}
+        version: {type: integer, format: int64, minimum: 0}
+    VerificationDecisionInput:
+      type: object
+      required: [decision, reason, version]
+      properties:
+        decision: {type: string, enum: [CONFIRM_TAUGHT, CANCEL]}
+        reason: {type: string, minLength: 1}
+        version: {type: integer, format: int64, minimum: 0}
+    Page:
+      type: object
+      required: [items, page, pageSize, totalItems, totalPages]
+      properties:
+        items: {type: array, items: {}}
+        page: {type: integer, minimum: 1}
+        pageSize: {type: integer, minimum: 1}
+        totalItems: {type: integer, format: int64}
+        totalPages: {type: integer}
+    Problem:
+      type: object
+      required: [type, title, status, detail, code, message, timestamp, traceId]
+      properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        instance: {type: string}
+        code: {type: string}
+        message: {type: string}
+        fieldErrors: {type: object, additionalProperties: {type: string}}
+        details: {type: object, additionalProperties: true}
+        retryAfterSeconds: {type: integer, minimum: 1}
+        timestamp: {type: string, format: date-time}
+        traceId: {type: string}

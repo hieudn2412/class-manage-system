@@ -1,0 +1,43 @@
+flowchart TD
+  OPEN["GV mở Lớp của tôi"] --> FILTER["Tìm tên/mã; lọc trạng thái, thời gian, vai trò"]
+  FILTER --> CLASS["Chọn lớp đang dạy hoặc đã từng dạy"]
+  CLASS --> TERM["Tải mọi buổi trong thời gian GV được phân công"]
+  TERM --> SELECT["Chọn một buổi đã dạy"]
+  SELECT --> SCOPE{"Đúng tenant và thuộc nhiệm kỳ?"}
+  SCOPE -->|Không| DENY["Từ chối an toàn + security audit"]
+  SCOPE -->|Có| OWNER{"GV đăng nhập là GV thực tế của buổi?"}
+  OWNER -->|Không| READONLY["Hiển thị chi tiết chỉ đọc"]
+  OWNER -->|Có| FROZEN{"Buổi đã hoàn tất?"}
+  FROZEN -->|Không| ROSTER["Tính roster động từ enrollment hiệu lực tại ngày học"]
+  FROZEN -->|Có| SNAPSHOT["Tải roster snapshot đã khóa"]
+  SNAPSHOT --> ROSTERDATA["Điểm danh + BTVN + nhận xét + điểm kiểm tra"]
+  ROSTER --> ROSTERDATA
+
+  ROSTERDATA --> OUTSIDE{"Thêm học sinh ngoài roster?"}
+  OUTSIDE -->|Có| DENYROSTER["Từ chối; liên hệ Admin / Học vụ"]
+  OUTSIDE -->|Không| STATUS["Sửa: Có mặt / Muộn / Về sớm / Vắng phép / Vắng không phép"]
+  STATUS --> COUNT["Tự tính số tham gia"]
+  ROSTERDATA --> HOMEWORK["Sửa trạng thái + nhận xét BTVN trên dữ liệu HomeworkReview"]
+  ROSTERDATA --> COMMENT["Sửa nhận xét buổi cho từng HS, kể cả vắng"]
+  ROSTERDATA --> LESSON["Sửa tên/nội dung thực dạy + URL record"]
+  ROSTERDATA --> TEST["Thêm/sửa điểm kiểm tra: tên, điểm/tối đa, ngày, nhận xét"]
+  TEST --> VALID{"0 <= điểm <= tối đa và tối đa > 0?"}
+  VALID -->|Không| ERROR["Giữ form, báo lỗi tại trường"]
+  VALID -->|Có| SAVE["Lưu thay đổi"]
+  COUNT --> SAVE
+  HOMEWORK --> SAVE
+  COMMENT --> SAVE
+  LESSON --> URL{"URL trống hoặc http/https hợp lệ?"}
+  URL -->|Không| ERROR
+  URL -->|Có| SAVE
+
+  SAVE --> CONFLICT{"Dữ liệu đã đổi từ lúc tải?"}
+  CONFLICT -->|Có| RELOAD["Không ghi đè; hiển thị bản mới và yêu cầu đối chiếu"]
+  CONFLICT -->|Không| AUDIT["Lưu nguyên tử + audit cũ-mới từng trường"]
+  AUDIT --> STABLE["Giữ Completed/Closed và lương không đổi"]
+  STABLE --> FLAG{"Đủ điểm danh + record?"}
+  FLAG -->|Có| CLEAR["Xóa MissingDocumentation"]
+  FLAG -->|Không| KEEP["Giữ cờ hồ sơ thiếu"]
+  STABLE --> VIEW{"HS còn quyền lớp?"}
+  VIEW -->|Có| LATEST["HS xem đánh giá/điểm mới nhất"]
+  VIEW -->|Không| HISTORY["Chỉ lưu lịch sử cho người có quyền nội bộ"]

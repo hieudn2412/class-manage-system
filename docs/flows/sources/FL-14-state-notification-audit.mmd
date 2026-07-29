@@ -1,0 +1,26 @@
+flowchart LR
+  subgraph STATES["Trạng thái nghiệp vụ"]
+    CLASS["Class: Draft → Scheduled → Active → AwaitingClose → Closed/Cancelled"]
+    SESSION["Session: Scheduled → CheckedIn/AwaitingVerification → Completed/Cancelled"]
+    HW["Homework: Draft → Published → Closed"]
+    TUITION["Tuition: Unpaid → Paid → PartiallyRefunded/FullyRefunded"]
+    SALARY["Salary: Accrued + Adjustments − Payments = Outstanding"]
+  end
+
+  STATES --> EVENT["Domain event sau khi giao dịch commit"]
+  EVENT --> DEDUPE{"Event key đã xử lý?"}
+  DEDUPE -->|Có| STOP["Không tạo trùng"]
+  DEDUPE -->|Không| APP["Tạo in-app notification"]
+  APP --> EMAIL{"Người nhận có email?"}
+  EMAIL -->|Có| SEND["Gửi email"]
+  EMAIL -->|Không| DONE["Hoàn tất"]
+  SEND --> RESULT{"Gửi thành công?"}
+  RESULT -->|Có| DONE
+  RESULT -->|Không| RETRY["Ghi lỗi + retry; không rollback nghiệp vụ"]
+  RETRY --> SEND
+
+  STATES --> AUDIT["Audit actor, tenant, object, before/after, reason, time"]
+  AUDIT --> SCOPE{"Người xem có quyền phạm vi?"}
+  SCOPE -->|Có| VIEW["Danh sách audit lọc + phân trang"]
+  SCOPE -->|Không| DENY["Từ chối + security log"]
+  VIEW -. "Không có sửa/xóa" .-> DENY

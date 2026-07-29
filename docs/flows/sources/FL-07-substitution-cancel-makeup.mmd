@@ -1,0 +1,22 @@
+flowchart TD
+  CONTACT["Giáo viên liên hệ quản lý ngoài hệ thống"] --> ACTION{"Quản lý xử lý buổi"}
+  ACTION -->|"Thay giáo viên"| PICK["Chọn GV thay"]
+  PICK --> CONFLICT{"GV thay trùng lịch?"}
+  CONFLICT -->|Có| REJECT["Chặn và hiển thị ca trùng"]
+  REJECT --> PICK
+  CONFLICT -->|Không| APPLY["Cập nhật GV dự kiến/thực tế ngay"]
+  APPLY --> NOTIFY["Cập nhật lịch 2 GV + thông báo + audit"]
+  NOTIFY --> PAY["Lương tương lai thuộc GV thay"]
+
+  ACTION -->|"Giữ GV cũ"| KEEP["Không thay đổi dữ liệu"]
+  ACTION -->|"Hủy buổi"| CANCEL["Session.Cancelled + lý do"]
+  CANCEL --> SALARY["Không tính tiến độ / không lương"]
+  CANCEL --> MAKEUP{"Có dạy bù?"}
+  MAKEUP -->|Không| END([Kết thúc])
+  MAKEUP -->|Có| NEW["Tạo buổi bù liên kết buổi gốc"]
+  NEW --> CHECK{"Trùng GV / phòng?"}
+  CHECK -->|Có| FIX["Sửa ca / GV / phòng"]
+  FIX --> CHECK
+  CHECK -->|Không| SCHEDULED["MakeupSession.Scheduled"]
+  SCHEDULED --> NOTIFY2["Cập nhật lịch HS/GV + thông báo"]
+

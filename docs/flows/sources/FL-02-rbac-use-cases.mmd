@@ -1,0 +1,30 @@
+flowchart TB
+  SA["Super Admin"] --> U1["Quản lý tenant"]
+  ADM["Admin trung tâm"] --> U2["Quản lý toàn bộ tenant"]
+  OPS["Quản lý học vụ"] --> U3["Tài khoản, lớp, lịch, buổi, khảo sát"]
+  ACC["Kế toán"] --> U4["Học phí, lương, báo cáo tài chính"]
+  TEA["Giáo viên"] --> U5["Lịch, lớp đang/đã dạy, buổi, BTVN, điểm kiểm tra, lương cá nhân"]
+  STU["Học sinh"] --> U6["Lịch/lớp active, BTVN, tài liệu, phản hồi"]
+
+  U2 --> R1["RBAC + tenant scope"]
+  U3 --> R1
+  U4 --> R1
+  U5 --> R1
+  U6 --> R1
+
+  R1 --> P1{"Có quyền và đúng tenant?"}
+  P1 -->|"Có"| DATA["Cho phép theo object scope"]
+  P1 -->|"Không"| DENY["Từ chối an toàn + security audit"]
+
+  ADM --> MULTI["Có thể cộng quyền nhiều vai trò"]
+  ACC --> MULTI
+  MULTI --> R1
+
+  SA -. "Không được xem nghiệp vụ tenant" .-> DENY
+  STU -. "Không xem học phí / không sửa hồ sơ" .-> DENY
+  OPS -. "Không xem tài chính / tệp HR" .-> DENY
+
+  classDef actor fill:#fff,stroke:#111,stroke-width:2px;
+  classDef deny fill:#eee,stroke:#111,stroke-dasharray:4 3;
+  class SA,ADM,OPS,ACC,TEA,STU actor;
+  class DENY deny;

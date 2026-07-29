@@ -1,0 +1,36 @@
+flowchart LR
+  SA["Super Admin"] -->|"Tạo / khóa tenant"| PLATFORM["Nền tảng SaaS"]
+
+  subgraph TA["Tenant A — Trung tâm Ánh Dương"]
+    AADM["Admin / Học vụ / Kế toán"]
+    AT["Giáo viên"]
+    AS["Học sinh"]
+    ADATA[("Dữ liệu tenant A")]
+    AADM --> APP_A["Ứng dụng tenant A"]
+    AT --> APP_A
+    AS --> APP_A
+    APP_A --> ADATA
+  end
+
+  subgraph TB["Tenant B — Trung tâm Minh Tâm"]
+    BUSER["Người dùng tenant B"]
+    BDATA[("Dữ liệu tenant B")]
+    BUSER --> APP_B["Ứng dụng tenant B"]
+    APP_B --> BDATA
+  end
+
+  PLATFORM -->|"Cấp phiên có tenant_id"| APP_A
+  PLATFORM -->|"Cấp phiên có tenant_id"| APP_B
+  APP_A -. "Bị chặn ở mọi lớp truy cập" .-> BDATA
+  APP_B -. "Bị chặn ở mọi lớp truy cập" .-> ADATA
+
+  APP_A -->|"Sự kiện"| MAIL["Dịch vụ email"]
+  APP_B -->|"Sự kiện"| MAIL
+  APP_A -->|"Tệp private"| STORE["Kho file có kiểm tra quyền"]
+  APP_B -->|"Tệp private"| STORE
+
+  classDef boundary fill:#fff,stroke:#111,stroke-width:2px;
+  classDef blocked fill:#f4f4f4,stroke:#555,stroke-dasharray:5 5;
+  class PLATFORM,APP_A,APP_B boundary;
+  class ADATA,BDATA,STORE blocked;
+

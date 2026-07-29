@@ -1,0 +1,23 @@
+flowchart TD
+  A["Quản lý nhập lớp: tổng buổi, ngày bắt đầu, GV chính, học phí, đơn giá"] --> B["Thêm nhiều ca lặp tuần"]
+  B --> C["Chọn hình thức, phòng và sức chứa; không nhập link Online"]
+  C --> D["Đọc lịch nghỉ tenant"]
+  D --> E["Sinh ứng viên buổi theo thứ tự thời gian"]
+  E --> F{"Rơi vào ngày nghỉ?"}
+  F -->|Có| SKIP["Bỏ qua ngày, tiếp tục ca kế tiếp"]
+  F -->|Không| G{"Trùng GV hoặc phòng?"}
+  G -->|Có| BLOCK["Chặn, chỉ rõ xung đột để sửa"]
+  G -->|Không| H{"Học sinh dự kiến trùng?"}
+  H -->|Có| WARN["Cảnh báo; quản lý xác nhận hoặc sửa"]
+  H -->|Không| SAVE["Thêm buổi Scheduled"]
+  WARN -->|Xác nhận| SAVE
+  WARN -->|Sửa| B
+  SAVE --> COUNT{"Đã đủ tổng số buổi?"}
+  COUNT -->|Chưa| E
+  COUNT -->|Đủ| PREVIEW["Hiển thị lịch + ngày kết thúc dự kiến"]
+  PREVIEW --> CONFIRM{"Xác nhận công bố?"}
+  CONFIRM -->|Không| B
+  CONFIRM -->|Có| PUBLISH["Lớp Scheduled + audit + thông báo"]
+
+  BLOCK --> B
+  SKIP --> E

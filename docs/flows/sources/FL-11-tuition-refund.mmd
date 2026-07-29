@@ -1,0 +1,20 @@
+flowchart TD
+  ENROLL["Admin / Học vụ thêm học sinh"] --> ATOMIC["Tạo nguyên tử Enrollment.Active + TuitionCharge.Unpaid"]
+  ATOMIC --> CHARGE["Khoản phải thu theo học phí cố định của lớp"]
+  CHARGE --> PAY["Kế toán nhập đủ số tiền + ngày + phương thức + tham chiếu"]
+  PAY --> VALID{"Số tiền đúng mức và chưa có payment?"}
+  VALID -->|Không| ERROR["Từ chối; v1 không trả góp / không nhân đôi"]
+  VALID -->|Có| PAID["Tuition.Paid + giao dịch thu"]
+  PAID --> REPORT["Ghi thực thu theo ngày thanh toán"]
+  PAID --> REFUND{"Hoàn tiền?"}
+  REFUND -->|Không| END([Kết thúc])
+  REFUND -->|Có| AMOUNT{"Số hoàn <= số dư chưa hoàn?"}
+  AMOUNT -->|Không| ERROR2["Từ chối và hiển thị mức tối đa"]
+  AMOUNT -->|Có, một phần| PARTIAL["PartiallyRefunded"]
+  AMOUNT -->|Có, toàn bộ| FULL["FullyRefunded"]
+  PARTIAL --> NET["Giảm thu ròng theo ngày hoàn"]
+  FULL --> NET
+  PAID --> REMOVE{"Admin / Học vụ kết thúc enrollment?"}
+  REMOVE --> KEEP["Thu hồi quyền lớp; giữ nguyên giao dịch"]
+  KEEP --> REFUND
+  ATOMIC --> TEACHER["Giáo viên chỉ xem roster; không thêm/bỏ enrollment"]

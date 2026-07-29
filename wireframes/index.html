@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Prototype low-fi hệ thống quản lý dạy học SaaS">
+  <title>EDU OPS — Wireframe</title>
+  <link rel="stylesheet" href="assets/wireframes.css">
+</head>
+<body>
+  <a class="skip-link" href="#screenContent">Bỏ qua điều hướng</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Điều hướng wireframe">
+      <div class="brand-block">
+        <span class="brand-mark" aria-hidden="true">▦</span>
+        <div>
+          <strong>EDU OPS</strong>
+          <small>LOW-FI / v1.2</small>
+        </div>
+      </div>
+
+      <label class="role-picker">
+        <span>Góc nhìn</span>
+        <select id="roleSelect" aria-label="Chọn góc nhìn vai trò">
+          <option value="all">Tất cả màn hình</option>
+          <option value="platform">Super Admin</option>
+          <option value="management">Quản lý / Kế toán</option>
+          <option value="teacher">Giáo viên</option>
+          <option value="student">Học sinh</option>
+        </select>
+      </label>
+
+      <nav id="sideNav"></nav>
+
+      <div class="sidebar-note">
+        <span class="eyebrow">Prototype note</span>
+        <p>Dữ liệu minh họa. Không có thao tác nào gửi ra mạng hoặc sửa dữ liệu thật.</p>
+      </div>
+    </aside>
+
+    <button class="sidebar-scrim" id="sidebarScrim" aria-label="Đóng menu" tabindex="-1"></button>
+
+    <main class="main-shell">
+      <header class="topbar">
+        <button class="icon-button mobile-only" id="menuButton" aria-label="Mở menu" aria-expanded="false" aria-controls="sidebar">☰</button>
+        <div class="breadcrumb">
+          <span id="screenCode">WF-03</span>
+          <strong id="screenTitle">Dashboard trung tâm</strong>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" data-action="notifications" aria-label="Thông báo, có 4 thông báo chưa đọc">♢<span class="dot">4</span></button>
+          <button class="user-chip" data-action="profile">
+            <span class="avatar">NA</span>
+            <span><strong>Nguyễn An</strong><small>Admin trung tâm</small></span>
+          </button>
+        </div>
+      </header>
+
+      <section class="review-strip" aria-label="Điều khiển trạng thái demo">
+        <div>
+          <span class="eyebrow">State lab</span>
+          <strong>Kiểm tra trạng thái</strong>
+        </div>
+        <div class="segmented" role="group" aria-label="Chọn trạng thái demo">
+          <button class="is-active" data-demo-state="normal">Bình thường</button>
+          <button data-demo-state="loading">Đang tải</button>
+          <button data-demo-state="empty">Trống</button>
+          <button data-demo-state="error">Lỗi</button>
+          <button data-demo-state="confirm">Xác nhận</button>
+        </div>
+        <div class="trace-block">
+          <span id="traceRequirements">FR-RPT-001</span>
+          <span id="traceFlow">FL-14</span>
+        </div>
+      </section>
+
+      <section class="content-wrap">
+        <div id="stateStage">
+          <article id="screenContent" tabindex="-1" aria-live="polite"></article>
+        </div>
+      </section>
+
+      <footer class="prototype-footer">
+        <span>EDU OPS / wireframe build-ready</span>
+        <span>Tiếng Việt · VND · Asia/Ho_Chi_Minh · WCAG 2.1 AA</span>
+      </footer>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" tabindex="-1">
+      <div class="modal-icon" aria-hidden="true">!</div>
+      <h2 id="modalTitle">Xác nhận thao tác</h2>
+      <p id="modalMessage">Thao tác sẽ được lưu vào nhật ký thay đổi.</p>
+      <label class="field">
+        <span>Lý do <em>*</em></span>
+        <textarea rows="3" placeholder="Nhập lý do để tiếp tục"></textarea>
+      </label>
+      <div class="modal-actions">
+        <button class="button button-secondary" data-modal-close>Quay lại</button>
+        <button class="button button-primary" data-modal-confirm>Xác nhận</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+    <strong>Đã lưu thay đổi</strong>
+    <span>Nhật ký thao tác đã được cập nhật.</span>
+  </div>
+
+  <script src="assets/wireframes.js"></script>
+</body>
+</html>

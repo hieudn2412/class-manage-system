@@ -1,0 +1,20 @@
+flowchart TD
+  CREATE["Admin / Học vụ tạo đợt theo lớp, GV, thời gian"] --> OPEN["Campaign.Open + thông báo HS active"]
+  OPEN --> ELIGIBLE{"HS active trong lớp?"}
+  ELIGIBLE -->|Không| DENY["Không thấy form"]
+  ELIGIBLE -->|Có| WRITE["Nhập góp ý tự do"]
+  WRITE --> UPSERT["Upsert một phản hồi / HS / GV / đợt"]
+  UPSERT --> EDIT{"Đợt còn Open?"}
+  EDIT -->|Có| WRITE
+  EDIT -->|Không| LOCK["Phản hồi read-only"]
+
+  OPEN --> MANAGER["Quản lý xem nội dung + danh tính + lịch sử sửa"]
+  OPEN --> COUNT{"Số phản hồi hợp lệ >= 5?"}
+  COUNT -->|Không| HIDE["GV chỉ thấy chưa đủ ngưỡng"]
+  COUNT -->|Có| ANON["GV xem nội dung tổng hợp ẩn danh"]
+  OPEN --> CLOSE["Đến close time / quản lý đóng"]
+  CLOSE --> CLOSED["Campaign.Closed"]
+  CLOSED --> LOCK
+  CLOSED --> MANAGER
+  CLOSED --> COUNT
+

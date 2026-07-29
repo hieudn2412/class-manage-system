@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: class_management
+      POSTGRES_USER: class_app
+      POSTGRES_PASSWORD: class_app_dev
+    ports:
+      - "55433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U class_app -d class_management"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - class-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  class-postgres-data:

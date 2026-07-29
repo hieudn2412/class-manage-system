@@ -1,0 +1,24 @@
+flowchart TD
+  SESSION["Session.Completed"] --> SOURCE{"Nguồn hoàn tất"}
+  SOURCE -->|"Check-in + hết giờ"| CALC
+  SOURCE -->|"Quản lý xác nhận"| CALC
+  CALC["Lấy GV thực tế, phút lịch, đơn giá lớp hiệu lực"] --> FORMULA["amount = minutes / 60 × hourly_rate"]
+  FORMULA --> UPSERT["Upsert SalaryAccrual idempotent + snapshot"]
+  UPSERT --> MONTH["Tổng hợp tháng"]
+  MONTH --> ADJUST["Cộng/trừ có lý do"]
+  ADJUST --> DUE["Phải trả = accrual + adjustments"]
+  DUE --> PAYMENT["Ghi một hoặc nhiều SalaryPayment"]
+  PAYMENT --> BALANCE["Còn lại = phải trả - đã trả"]
+  BALANCE --> STATE{"Số dư"}
+  STATE -->|Dương| OWED["Còn phải trả"]
+  STATE -->|Bằng 0| SETTLED["Đã cân bằng"]
+  STATE -->|Âm| OVER["Đã trả thừa"]
+
+  SESSION --> EDIT{"Sửa ngày / thời lượng / GV thực tế?"}
+  EDIT -->|Có| RECALC["Tính lại bằng rate hiệu lực mới tương ứng"]
+  RECALC --> AUDIT["Audit accrual cũ-mới"]
+  AUDIT --> MONTH
+  EDIT -->|Không| MONTH
+
+  CANCEL["Session.Cancelled"] --> NO_PAY["Không accrual / đảo accrual sai có audit"]
+

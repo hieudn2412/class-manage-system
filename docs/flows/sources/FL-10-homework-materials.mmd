@@ -1,0 +1,26 @@
+flowchart TD
+  TEACHER["GV / Quản lý"] --> ASSIGN["Tạo BTVN gắn buổi, deadline, đối tượng"]
+  ASSIGN --> DRAFT["Homework.Draft"]
+  DRAFT --> PUBLISH["Homework.Published + thông báo"]
+  PUBLISH --> STUDENT{"HS còn enrollment active?"}
+  STUDENT -->|Không| DENY["Từ chối BTVN / tài liệu / record"]
+  STUDENT -->|Có| SUBMIT["Chọn tối đa 10 JPG/PNG/HEIC"]
+  SUBMIT --> VALID{"Loại / số lượng / dung lượng hợp lệ?"}
+  VALID -->|Không| ERROR["Báo lỗi, không tạo lượt dở"]
+  VALID -->|Có| TIME{"Sau deadline?"}
+  TIME -->|Không| NORMAL["Submission.Submitted"]
+  TIME -->|Có| LATE["Submission.Late"]
+  NORMAL --> REVIEW_ENTRY{"GV mở từ BTVN hoặc chi tiết buổi"}
+  LATE --> REVIEW_ENTRY
+  REVIEW_ENTRY --> REVIEW["Xem cùng HomeworkReview hiện tại"]
+  REVIEW --> DECIDE{"Kết quả chữa"}
+  DECIDE -->|"Yêu cầu làm lại"| REVISION["RevisionRequested"]
+  REVISION --> SUBMIT
+  DECIDE -->|"Đã chữa"| DONE["Reviewed + nhận xét + thông báo"]
+  PUBLISH --> CLOSE["GV đóng Homework"]
+  CLOSE --> CLOSED["Homework.Closed; chặn lượt mới"]
+
+  TEACHER --> MATERIAL["Đăng PDF/audio cho lớp hoặc buổi"]
+  MATERIAL --> ACCESS{"Enrollment active và lớp chưa đóng?"}
+  ACCESS -->|Có| VIEW["Xem/nghe/tải"]
+  ACCESS -->|Không| DENY
