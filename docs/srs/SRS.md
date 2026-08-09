@@ -140,6 +140,10 @@ Thực thể khái niệm và quan hệ chi tiết được mô tả tại `FL-0
 | BR-TST-002 | Điểm kiểm tra độc lập với BTVN; quy tắc “BTVN không dùng điểm” vẫn giữ nguyên. |
 | BR-ENR-001 | Chỉ Admin/Học vụ được tạo hoặc kết thúc enrollment; khi tạo phải đồng thời sinh đúng một khoản học phí `Unpaid` theo mức cố định của lớp. |
 | BR-ENR-002 | Giáo viên chỉ xem roster và điểm danh trong phạm vi học sinh thuộc danh sách buổi; không được thêm/bỏ enrollment hoặc đưa học sinh ngoài lớp vào buổi. |
+| BR-ENR-003 | Enrollment dùng `[effective_from, effective_to)` theo `Asia/Ho_Chi_Minh`; thêm/rời có hiệu lực ngay và chỉ được thao tác khi lớp `Scheduled`, `Active` hoặc `AwaitingClose`. |
+| BR-ENR-004 | Mỗi lớp/học sinh chỉ có một enrollment `Active`; vào lại tạo bản ghi và khoản `Unpaid` mới, bản ghi cũ không sửa lại. Lô nhiều học sinh là all-or-nothing. |
+| BR-ENR-005 | Vượt sức chứa lớp/phòng tương lai hoặc trùng lịch học sinh là cảnh báo có ID; quản lý phải xác nhận ID trước khi giao dịch được thực hiện. |
+| BR-CLS-003 | Scheduler chuyển `Scheduled → Active` không quá một chu kỳ 30 giây từ giờ bắt đầu buổi đầu chưa hủy; check-in là fallback idempotent. `Cancelled` là terminal. |
 | BR-HW-001 | Mỗi lượt nộp tối đa 10 ảnh JPG/PNG/HEIC; file vượt chính sách bị từ chối trước khi hoàn tất lượt nộp. |
 | BR-HW-002 | Sau hạn vẫn cho nộp và gắn `Late` cho đến khi bài được đóng. |
 | BR-FBK-001 | Giáo viên chỉ xem phản hồi ẩn danh khi đợt có ít nhất 5 phản hồi hợp lệ. |
@@ -162,21 +166,22 @@ Mỗi hàng gồm acceptance criterion ngắn dạng Given/When/Then và liên k
 | FR-TEN-002 | Super Admin tạo tenant và tài khoản Admin ban đầu. | `AC-TEN-002`: Given tên/mã hợp lệ, when tạo, then tenant hoạt động, Admin nhận mật khẩu tạm và audit được ghi. | FL-04; WF-02 |
 | FR-TEN-003 | Super Admin khóa/mở tenant với lý do. | `AC-TEN-003`: When khóa, then toàn bộ tài khoản tenant bị từ chối đăng nhập nhưng dữ liệu giữ nguyên; mở lại khôi phục quyền. | FL-04; WF-02 |
 | FR-TEN-004 | Super Admin không được điều hướng/xem dữ liệu nghiệp vụ tenant. | `AC-TEN-004`: When cố truy cập URL nghiệp vụ, then trả từ chối quyền và ghi security audit. | FL-01, FL-04; WF-02 |
-| FR-IAM-001 | Admin/Học vụ tạo tài khoản giáo viên và học sinh với mã tự sinh. | `AC-IAM-001`: Given username chưa trùng, when lưu, then tài khoản `Active`, mã bất biến và mật khẩu tạm được cấp. | FL-04; WF-09, WF-10 |
+| FR-IAM-001 | Admin tạo mọi tài khoản tenant; Học vụ chỉ tạo/sửa/khóa/reset GV/HS thuần với mã tự sinh đồng thời an toàn. | `AC-IAM-001`: Given username chưa trùng, when lưu, then tài khoản `ACTIVE + READY`, mã `GV/HS-0001` bất biến và mật khẩu `123456` được cấp. | FL-04; WF-09, WF-10 |
 | FR-IAM-002 | Admin gán nhiều vai trò cho nhân sự; không gán vai trò quản lý cho học sinh. | `AC-IAM-002`: When gán Admin+Kế toán, then người dùng nhận hợp quyền; when gán Kế toán cho học sinh, then bị từ chối. | FL-02, FL-04; WF-10 |
-| FR-IAM-003 | Người dùng bắt buộc đổi mật khẩu tạm ở lần đầu. | `AC-IAM-003`: Given mật khẩu tạm, when đăng nhập, then chỉ màn đổi mật khẩu truy cập được cho tới khi đổi thành công. | FL-04; WF-01 |
-| FR-IAM-004 | Quên mật khẩu qua email nếu có hoặc do Admin đặt lại. | `AC-IAM-004`: When reset, then liên kết/mật khẩu cũ và các phiên đang hoạt động mất hiệu lực. | FL-04; WF-01, WF-10 |
+| FR-IAM-003 | Trong local development, tài khoản tạo/reset dùng `123456` và vào thẳng `READY`; production vẫn vô hiệu hóa. | `AC-IAM-003`: Given tài khoản vừa tạo, when đăng nhập bằng `123456`, then vào workspace đúng scope mà không có dữ liệu demo. | FL-04; WF-01 |
+| FR-IAM-004 | Admin/Học vụ đặt lại credential theo phạm vi quyền và bắt buộc ghi lý do. | `AC-IAM-004`: When reset, then mật khẩu thành `123456`, trạng thái `READY`, `token_version` tăng và JWT cũ bị từ chối ở request kế tiếp. | FL-04; WF-10 |
 | FR-IAM-005 | Giới hạn đăng nhập sai và hiển thị lỗi không tiết lộ tài khoản tồn tại. | `AC-IAM-005`: After ngưỡng cấu hình, then tài khoản/địa chỉ bị trì hoãn tạm thời và thông điệp dùng chung. | FL-04; WF-01 |
 | FR-IAM-006 | Admin khóa/mở tài khoản; không xóa dữ liệu nghiệp vụ. | `AC-IAM-006`: When khóa giáo viên, then không đăng nhập được nhưng lịch sử buổi/lương vẫn truy xuất bởi người có quyền. | FL-04; WF-10 |
 | FR-IAM-007 | Học sinh chỉ xem hồ sơ và đổi mật khẩu. | `AC-IAM-007`: When học sinh gửi thao tác sửa hồ sơ, then bị từ chối; đổi mật khẩu hợp lệ vẫn thành công. | FL-02, FL-04; WF-23 |
+| FR-IAM-008 | Không cho Admin tự khóa, tự bỏ role Admin hoặc làm tenant mất Admin hoạt động cuối cùng; mọi ghi dùng optimistic version. | `AC-IAM-008`: Given dữ liệu stale hoặc Admin cuối, when cập nhật, then trả `VERSION_CONFLICT`, `SELF_MANAGEMENT_FORBIDDEN` hoặc `LAST_ACTIVE_ADMIN` và rollback. | FL-04, FL-14; WF-10 |
 
 ### 6.2 Hồ sơ người dùng
 
 | ID | Yêu cầu | Acceptance criterion | Tham chiếu |
 |---|---|---|---|
 | FR-PPL-001 | Hồ sơ học sinh gồm mã, họ tên, username, tên/SĐT phụ huynh và trạng thái. | `AC-PPL-001`: Given thiếu tên hoặc SĐT phụ huynh, when tạo, then hiển thị lỗi trường và không tạo bản ghi. | FL-03, FL-04; WF-09, WF-10 |
-| FR-PPL-002 | Hồ sơ giáo viên gồm thông tin liên hệ, môn/kỹ năng, ngày bắt đầu, trạng thái, bằng cấp, hợp đồng và giấy tờ. | `AC-PPL-002`: When Admin tải tệp hợp lệ, then tệp gắn đúng giáo viên và có audit. | FL-03, FL-04; WF-10 |
-| FR-PPL-003 | Chỉ Admin xem tệp hợp đồng/giấy tờ HR; Học vụ chỉ xem thông tin chuyên môn. | `AC-PPL-003`: Given Học vụ, when mở hồ sơ, then tab/tệp HR không hiển thị và truy cập trực tiếp bị từ chối. | FL-02, FL-04; WF-10 |
+| FR-PPL-002 | Hồ sơ giáo viên đợt này chỉ gồm mã bất biến, tên, email và vai trò; HR/chuyên môn/hợp đồng ngoài phạm vi. | `AC-PPL-002`: When sửa, then mã/profileType/username không đổi và before/after được audit. | FL-03, FL-04; WF-10 |
+| FR-PPL-003 | Học vụ không thấy hoặc thao tác tài khoản có bất kỳ role quản lý nào. | `AC-PPL-003`: Given GV kiêm Admin, when Học vụ tìm hoặc mở ID trực tiếp, then tài khoản không được lộ. | FL-02, FL-04; WF-09, WF-10 |
 | FR-PPL-004 | Danh bạ hỗ trợ tìm theo mã/tên/username và lọc vai trò/trạng thái. | `AC-PPL-004`: When tìm không dấu theo tên, then trả người khớp trong tenant hiện tại. | FL-04; WF-09 |
 
 ### 6.3 Lớp, phòng và lịch
@@ -192,7 +197,7 @@ Mỗi hàng gồm acceptance criterion ngắn dạng Given/When/Then và liên k
 | FR-CLS-007 | Danh sách lớp mặc định gồm lớp có ít nhất một buổi trong tháng hiện tại; lọc theo tên/GV/thời gian/trạng thái. | `AC-CLS-007`: Given lớp active không có buổi tháng này, then không xuất hiện mặc định nhưng xuất hiện khi bỏ bộ lọc tháng. | FL-05; WF-04 |
 | FR-CLS-008 | Chi tiết lớp hiển thị tiến độ, bài hiện tại, kết thúc dự kiến, chuyên cần, BTVN và buổi thiếu hồ sơ. | `AC-CLS-008`: When một buổi hoàn tất, then tiến độ và dự kiến được cập nhật không tính buổi hủy. | FL-06, FL-08; WF-06 |
 | FR-CLS-009 | Giáo viên nhập tên/nội dung thực dạy sau buổi và không lập lộ trình bắt buộc trước lớp. | `AC-CLS-009`: Given buổi đã qua, when GV lưu nội dung, then hiển thị ở lịch sử lớp và audit thay đổi. | FL-06, FL-09; WF-20 |
-| FR-CLS-010 | Khi đủ số buổi, lớp tự chuyển `AwaitingClose`; Admin/Học vụ đóng sau kiểm tra. | `AC-CLS-010`: When hoàn tất buổi cuối, then lớp chưa đóng ngay; after quản lý đóng, then học sinh mất quyền nội dung. | FL-06; WF-06 |
+| FR-CLS-010 | Khi đủ số buổi, lớp tự chuyển `AwaitingClose`; Admin/Học vụ đóng sau kiểm tra điểm danh và record. | `AC-CLS-010`: When còn buổi thiếu điểm danh/record, then đóng yêu cầu xác nhận cảnh báo; after quản lý đóng, then học sinh mất quyền nội dung nhưng enrollment vẫn giữ. | FL-06; WF-06 |
 | FR-CLS-011 | Admin mở lại lớp đã đóng với lý do. | `AC-CLS-011`: When mở lại, then enrollment hợp lệ được khôi phục quyền, trạng thái trước/sau và lý do được audit. | FL-06; WF-06 |
 | FR-CLS-012 | Hủy lớp giữ lịch sử, hủy các buổi tương lai và chấm dứt quyền học sinh. | `AC-CLS-012`: When hủy lớp giữa chừng, then buổi đã dạy/tài chính giữ nguyên, buổi tương lai `Cancelled`. | FL-06, FL-07; WF-06 |
 | FR-CLS-013 | Giáo viên xem danh sách tất cả lớp đang dạy hoặc đã từng được phân công/dạy thực tế; hỗ trợ tìm theo tên/mã và lọc trạng thái, thời gian, vai trò. | `AC-CLS-013`: Given giáo viên có nhiều lớp, when tìm tên và lọc `Đã đóng`, then chỉ lớp khớp trong đúng tenant và phạm vi giáo viên xuất hiện. | FL-02, FL-06, FL-09; WF-19 |
@@ -208,6 +213,9 @@ Mỗi hàng gồm acceptance criterion ngắn dạng Given/When/Then và liên k
 | FR-ENR-004 | Giáo viên không được thêm hoặc bỏ học sinh khỏi lớp; roster lớp ở chế độ chỉ đọc. | `AC-ENR-004`: Given tài khoản giáo viên, when gọi thao tác hoặc API thay đổi enrollment, then bị từ chối và enrollment không đổi; giáo viên vẫn điểm danh được học sinh thuộc danh sách buổi. | FL-06, FL-09; WF-19, WF-20 |
 | FR-ENR-005 | Admin/Học vụ được kết thúc enrollment; giao dịch tài chính không bị xóa. | `AC-ENR-005`: When quản lý kết thúc, then quyền lớp mất ngay và Kế toán có thể tạo refund riêng. | FL-06, FL-11; WF-06, WF-14 |
 | FR-ENR-006 | Học sinh chỉ truy cập lớp khi enrollment active và lớp chưa đóng/hủy. | `AC-ENR-006`: When enrollment chuyển Left hoặc lớp Closed, then URL tài liệu/record bị từ chối ngay. | FL-06, FL-10; WF-24 |
+| FR-ENR-007 | Quản lý lọc roster theo Hiện tại/Lịch sử, tìm kiếm và phân trang; Kế toán chỉ đọc. | `AC-ENR-007`: Given lịch sử vào–rời–vào lại, when chọn Lịch sử, then các enrollment cũ và học phí gốc tương ứng xuất hiện, không có thao tác sửa. | FL-06; WF-06 |
+| FR-ENR-008 | Học sinh có landing “Lớp của tôi”, gồm lớp còn quyền và thẻ lịch sử bị khóa. | `AC-ENR-008`: Given lớp Closed hoặc enrollment Left, when mở danh sách, then metadata vẫn có nhưng thẻ không có link; gọi URL nội dung trực tiếp trả `403 STUDENT_CLASS_ACCESS_REVOKED`. | FL-06; WF-24 |
+| FR-ENR-009 | Trong lớp còn quyền, học sinh xem buổi thuộc thời gian enrollment với nội dung thực dạy, điểm danh, điểm và nhận xét bài kiểm tra của mình, record và nhận xét buổi; không thấy học phí. | `AC-ENR-009`: When mở lớp đang học, then chỉ dữ liệu của chính học sinh được trả; tenant/lớp chưa từng enrollment trả 404 không lộ metadata. | FL-06, FL-09; WF-24 |
 
 ### 6.5 Buổi học, dạy thay, check-in và điểm danh
 
@@ -356,7 +364,9 @@ Admin/Học vụ thêm HS
   |
   +--> Active + TuitionUnpaid --> Active + TuitionPaid
              |
-             +--> Left / Transferred (chỉ Admin/Học vụ)
+             +--> Left / Transferred (effective_to không bao gồm)
+                         |
+                         +--> Vào lại = Enrollment.Active + TuitionUnpaid mới
 
 Class Closed/Cancelled => quyền truy cập bị thu hồi dù lịch sử enrollment còn giữ
 ```
@@ -477,6 +487,8 @@ Thông điệp lỗi phải: chỉ rõ hành động thất bại, không lộ d
 | TS-20 | Dùng prototype ở 1440px và 390px bằng bàn phím | Không link chết/lỗi console; focus rõ; tác vụ chính thực hiện được |
 | TS-21 | GV có nhiều lớp tìm/lọc, mở lớp và chọn buổi cũ | Chỉ lớp đúng phạm vi xuất hiện; danh sách buổi đúng nhiệm kỳ, mới nhất trước và phân biệt buổi chỉ đọc |
 | TS-22 | GV sửa buổi mình dạy sau khi lớp Closed, thêm điểm 8.5/10 rồi thử 11/10; thử sửa buổi GV khác | Dữ liệu hợp lệ lưu và audit, trạng thái/lương không đổi; điểm vượt tối đa và sửa buổi người khác bị từ chối |
+| TS-23 | Thêm lô có một học sinh sai, sau đó thêm vượt sức chứa và xác nhận cảnh báo | Lô sai rollback toàn bộ enrollment/học phí/audit; lô xác nhận tạo đúng một lần dù replay idempotency key |
+| TS-24 | Học sinh rời rồi vào lại; đóng, mở lại và hủy lớp | Có hai enrollment/học phí độc lập; Closed khóa URL, mở lại khôi phục enrollment Active, Cancelled khóa vĩnh viễn và chỉ hủy buổi tương lai |
 
 ## 12. Ma trận truy vết tổng hợp
 

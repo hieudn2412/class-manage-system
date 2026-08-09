@@ -23,6 +23,17 @@ public class CurrentActor {
         return UUID.fromString(jwt().getSubject());
     }
 
+    public String scope() {
+        return jwt().getClaimAsString("accountScope");
+    }
+
+    public void requirePlatform() {
+        if (!"PLATFORM".equals(scope())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "PLATFORM_SCOPE_REQUIRED",
+                "Chỉ tài khoản Super Admin được truy cập chức năng nền tảng.");
+        }
+    }
+
     public UUID tenantId() {
         String claim = jwt().getClaimAsString("tenantId");
         if (claim == null) {
@@ -42,6 +53,7 @@ public class CurrentActor {
     }
 
     public boolean hasPermission(String permission) {
-        return jwt().getClaimAsStringList("permissions").contains(permission);
+        List<String> permissions = jwt().getClaimAsStringList("permissions");
+        return permissions != null && permissions.contains(permission);
     }
 }

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Outlet, Route, Routes } from "react-router-dom";
 import { vi } from "vitest";
@@ -20,10 +20,20 @@ const detail: SessionOperationsDetail = {
   startAt: "2026-07-25T19:00:00+07:00",
   endAt: "2026-07-25T20:30:00+07:00",
   mode: "IN_PERSON",
+  roomId: "room-101",
   roomName: "Phòng 101",
   onlineLink: null,
   status: "IN_PROGRESS",
+  plannedTeacherId: "teacher-lan",
+  actualTeacherId: "teacher-lan",
   actualTeacherName: "Nguyễn Thùy Lan",
+  substitution: false,
+  makeup: false,
+  makeupRootSessionId: null,
+  replacesSessionId: null,
+  replacementSessionId: null,
+  cancellationReason: null,
+  allowedActions: [],
   actualTeacher: true,
   canEdit: true,
   canVerify: false,
@@ -39,10 +49,11 @@ const detail: SessionOperationsDetail = {
   version: 1,
   lessonReport: {
     lessonName: "",
-    lessonContent: "",
+    lessonContent: "Nội dung đã lưu trước đó",
     recordUrl: null,
     version: 0,
   },
+  sessionTest: null,
   students: [
     {
       studentId: "student-1",
@@ -53,7 +64,7 @@ const detail: SessionOperationsDetail = {
       attendanceVersion: 0,
       sessionComment: "",
       commentVersion: 0,
-      testResults: [],
+      testResult: null,
     },
   ],
   participatedStudents: 0,
@@ -63,7 +74,7 @@ describe("WF-20 workspace buổi dạy", () => {
   it("không mặc định có mặt, lưu explicit và kiểm tra điểm tối đa", async () => {
     saveSession(createTestSession(), false);
     vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
-    vi.spyOn(teachingRepository, "getSession").mockResolvedValue(detail);
+    const getSession = vi.spyOn(teachingRepository, "getSession").mockResolvedValue(detail);
     const save = vi.spyOn(teachingRepository, "savePedagogicalRecord").mockResolvedValue({
       ...detail,
       lessonReport: { ...detail.lessonReport, lessonName: "Phân số" },
@@ -75,14 +86,39 @@ describe("WF-20 workspace buổi dạy", () => {
         },
       ],
     });
-    vi.spyOn(teachingRepository, "createTestResult").mockResolvedValue({
-      id: "result-1",
-      testName: "Kiểm tra nhanh",
-      score: 8.5,
-      maxScore: 10,
-      testDate: "2026-07-25",
-      comment: "",
-      version: 0,
+    const detailWithTest: SessionOperationsDetail = {
+      ...detail,
+      sessionTest: {
+        id: "test-1",
+        testName: "Kiểm tra nhanh",
+        maxScore: 10,
+        testDate: "2026-07-25",
+        comment: "Ôn tập nội dung trong buổi",
+        version: 0,
+      },
+      students: [
+        {
+          ...detail.students[0]!,
+          testResult: { id: "result-1", score: null, comment: "", version: 0 },
+        },
+      ],
+    };
+    const createTest = vi
+      .spyOn(teachingRepository, "createSessionTest")
+      .mockResolvedValue(detailWithTest);
+    const updateTest = vi.spyOn(teachingRepository, "updateSessionTest").mockResolvedValue({
+      ...detailWithTest,
+      students: [
+        {
+          ...detailWithTest.students[0]!,
+          testResult: {
+            ...detailWithTest.students[0]!.testResult!,
+            score: 8.5,
+            comment: "Nắm kiến thức tốt",
+            version: 1,
+          },
+        },
+      ],
     });
     const user = userEvent.setup();
 
@@ -106,11 +142,12 @@ describe("WF-20 workspace buổi dạy", () => {
       await screen.findByRole("heading", { name: "Toán tư duy 4A · Buổi 3" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/bài tập về nhà/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Nội dung thực dạy")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Trạng thái đi học")).toHaveValue("");
 
     await user.type(screen.getByLabelText("Tên bài học"), "Phân số");
     await user.selectOptions(screen.getByLabelText("Trạng thái đi học"), "LATE");
-    await user.type(screen.getByLabelText("Nhận xét buổi học"), "Cần chuẩn bị bài kỹ hơn");
+    await user.type(screen.getByLabelText("Đánh giá buổi học"), "Cần chuẩn bị bài kỹ hơn");
     await user.click(screen.getByRole("button", { name: "Lưu hồ sơ buổi" }));
 
     expect(save).toHaveBeenCalledWith(
@@ -126,12 +163,51 @@ describe("WF-20 workspace buổi dạy", () => {
         ],
       }),
     );
+    expect(save.mock.calls[0]?.[2].lessonReport.lessonContent).toBe(
+      "Nội dung đã lưu trước đó",
+    );
 
-    await user.click(screen.getByRole("button", { name: "Thêm điểm kiểm tra" }));
-    await user.type(screen.getByLabelText("Tên bài kiểm tra"), "Kiểm tra nhanh");
-    await user.clear(screen.getByLabelText("Điểm đạt"));
-    await user.type(screen.getByLabelText("Điểm đạt"), "11");
-    await user.click(screen.getByRole("button", { name: "Lưu điểm" }));
-    expect(await screen.findByText("Điểm đạt không được lớn hơn điểm tối đa.")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Điểm \/ 10/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Tạo bài kiểm tra" }));
+    const testDialog = screen.getByRole("dialog", { name: "Tạo bài kiểm tra cho buổi" });
+    const testDialogView = within(testDialog);
+    await user.type(testDialogView.getByLabelText("Tên bài kiểm tra"), "Kiểm tra nhanh");
+    await user.type(
+      testDialogView.getByLabelText("Nhận xét chung bài kiểm tra"),
+      "Ôn tập nội dung trong buổi",
+    );
+    getSession.mockResolvedValue(detailWithTest);
+    await user.click(testDialogView.getByRole("button", { name: "Tạo bài kiểm tra" }));
+    expect(createTest).toHaveBeenCalledWith(
+      "anh-duong",
+      "session-1",
+      expect.objectContaining({ testName: "Kiểm tra nhanh", maxScore: 10 }),
+    );
+
+    const score = await screen.findByLabelText("Điểm / 10");
+    await user.type(score, "11");
+    await user.click(screen.getByRole("button", { name: "Lưu điểm kiểm tra" }));
+    expect(await screen.findByText("Điểm không được vượt quá 10.")).toBeInTheDocument();
+    await user.clear(score);
+    await user.type(score, "8.5");
+    await user.type(screen.getByLabelText("Nhận xét bài kiểm tra"), "Nắm kiến thức tốt");
+    await user.click(screen.getByRole("button", { name: "Lưu hồ sơ và điểm" }));
+    await waitFor(() =>
+      expect(updateTest).toHaveBeenCalledWith(
+        "anh-duong",
+        "session-1",
+        "test-1",
+        expect.objectContaining({
+          results: [
+            expect.objectContaining({
+              studentId: "student-1",
+              score: 8.5,
+              comment: "Nắm kiến thức tốt",
+            }),
+          ],
+        }),
+      ),
+    );
+    expect(save).toHaveBeenCalledTimes(2);
   });
 });

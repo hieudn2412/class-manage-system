@@ -28,12 +28,14 @@ public class AuthService {
     private final TenantRepository tenantRepository;
     private final UserRepository userRepository;
     private final LoginAttemptService loginAttempts;
+    private final PlatformLoginAttemptService platformLoginAttempts;
     private final CurrentActor actor;
     private final EntityManager entityManager;
 
     public AuthService(JdbcClient jdbc, PasswordEncoder passwordEncoder, JwtEncoder jwtEncoder,
                        SecurityProperties properties, TenantRepository tenantRepository,
                        UserRepository userRepository, LoginAttemptService loginAttempts,
+                       PlatformLoginAttemptService platformLoginAttempts,
                        CurrentActor actor, EntityManager entityManager) {
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
@@ -42,6 +44,7 @@ public class AuthService {
         this.tenantRepository = tenantRepository;
         this.userRepository = userRepository;
         this.loginAttempts = loginAttempts;
+        this.platformLoginAttempts = platformLoginAttempts;
         this.actor = actor;
         this.entityManager = entityManager;
     }
@@ -74,7 +77,39 @@ public class AuthService {
                 "Tài khoản đang bị khóa. Vui lòng liên hệ quản lý trung tâm.");
         }
         loginAttempts.clear(tenant.id(), username, clientIp);
-        return issueSession(user, tenant);
+        jdbc.sql("UPDATE users SET last_login_at=now() WHERE tenant_id=:tenantId AND id=:userId")
+            .param("tenantId", tenant.id()).param("userId", user.getId()).update();
+        return issueTenantSession(user, tenant);
+    }
+
+    @Transactional
+    public AuthSession platformLogin(String username, String password, String clientIp) {
+        String normalized = username.trim();
+        platformLoginAttempts.ensureAllowed(normalized, clientIp);
+        PlatformAccount account = jdbc.sql("""
+                SELECT id, username, display_name, password_hash, status,
+                       password_state, token_version
+                FROM platform_users WHERE lower(username)=lower(:username)
+                """)
+            .param("username", normalized)
+            .query((rs, row) -> new PlatformAccount(
+                rs.getObject("id", UUID.class), rs.getString("username"),
+                rs.getString("display_name"), rs.getString("password_hash"),
+                rs.getString("status"), rs.getString("password_state"),
+                rs.getInt("token_version")))
+            .optional().orElse(null);
+        if (account == null || !passwordEncoder.matches(password, account.passwordHash())) {
+            platformLoginAttempts.recordFailure(normalized, clientIp);
+            throw invalidCredentials();
+        }
+        if (!"ACTIVE".equals(account.status())) {
+            throw new ApiException(HttpStatus.LOCKED, "ACCOUNT_LOCKED",
+                "Tài khoản Super Admin đang bị khóa.");
+        }
+        platformLoginAttempts.clear(normalized, clientIp);
+        jdbc.sql("UPDATE platform_users SET last_login_at=now() WHERE id=:id")
+            .param("id", account.id()).update();
+        return issuePlatformSession(account);
     }
 
     @Transactional
@@ -172,10 +207,10 @@ public class AuthService {
         TenantEntity tenant = tenantRepository.findById(tenantId)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "TENANT_NOT_FOUND",
                 "Không tìm thấy trung tâm."));
-        return issueSession(updated, tenantDto(tenant));
+        return issueTenantSession(updated, tenantDto(tenant));
     }
 
-    private AuthSession issueSession(UserEntity user, TenantDto tenant) {
+    private AuthSession issueTenantSession(UserEntity user, TenantDto tenant) {
         List<String> roles = jdbc.sql("""
                 SELECT role_code FROM user_roles
                 WHERE tenant_id = :tenantId AND user_id = :userId ORDER BY role_code
@@ -192,6 +227,7 @@ public class AuthService {
             .issuedAt(now)
             .expiresAt(expiresAt)
             .subject(user.getId().toString())
+            .claim("accountScope", "TENANT")
             .claim("tenantId", tenant.id().toString())
             .claim("tenantSlug", tenant.slug())
             .claim("roles", roles)
@@ -203,7 +239,30 @@ public class AuthService {
             JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
         UserDto dto = new UserDto(user.getId(), user.getTenantId(), user.getUsername(),
             user.getDisplayName(), roles, user.getStatus(), user.getPasswordState());
-        return new AuthSession(token, dto, tenant, expiresAt);
+        return new AuthSession(token, "TENANT", dto, tenant, expiresAt);
+    }
+
+    private AuthSession issuePlatformSession(PlatformAccount account) {
+        List<String> roles = jdbc.sql("""
+                SELECT role_code FROM platform_user_roles
+                WHERE user_id=:userId ORDER BY role_code
+                """)
+            .param("userId", account.id()).query(String.class).list();
+        List<String> permissions = PermissionCatalog.union(roles);
+        Instant now = Instant.now();
+        Instant expiresAt = now.plus(properties.accessTokenTtl());
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+            .issuer("class-backend").issuedAt(now).expiresAt(expiresAt)
+            .subject(account.id().toString())
+            .claim("accountScope", "PLATFORM")
+            .claim("roles", roles).claim("permissions", permissions)
+            .claim("tokenVersion", account.tokenVersion())
+            .claim("passwordState", account.passwordState()).build();
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(
+            JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
+        UserDto user = new UserDto(account.id(), null, account.username(), account.displayName(),
+            roles, account.status(), account.passwordState());
+        return new AuthSession(token, "PLATFORM", user, null, expiresAt);
     }
 
     private TenantDto tenantDto(TenantEntity entity) {
@@ -222,9 +281,15 @@ public class AuthService {
                           List<String> roles, String status, String passwordState) {
     }
 
-    public record AuthSession(String token, UserDto user, TenantDto tenant, Instant expiresAt) {
+    public record AuthSession(String token, String scope, UserDto user, TenantDto tenant,
+                              Instant expiresAt) {
     }
 
     public record MessageResponse(String message) {
+    }
+
+    private record PlatformAccount(UUID id, String username, String displayName,
+                                   String passwordHash, String status, String passwordState,
+                                   int tokenVersion) {
     }
 }

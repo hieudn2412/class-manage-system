@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BookOpen } from "lucide-react";
+import { ArrowRight, BookOpen, FilterX } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "../../app/providers/TenantProvider";
@@ -43,42 +43,62 @@ export const MyClassesPage = () => {
       teachingRepository.getClasses(tenant.slug, { search, status, role, page, pageSize: 12 }),
     placeholderData: (previous) => previous,
   });
+  const hasFilters = Boolean(search || status || role);
 
   return (
-    <>
+    <div className="teaching-page teacher-classes-page">
       <PageHeader
         eyebrow="WF-19 · WF-26"
         title="Lớp của tôi"
         subtitle="Danh sách lớp bạn là giáo viên chính hoặc từng trực tiếp tham gia giảng dạy."
       />
-      <section className="panel-flat teacher-class-filters" aria-label="Tìm và lọc lớp">
-        <Input
-          label="Tìm theo tên hoặc mã lớp"
-          value={search}
-          onChange={(event) => setFilter("search", event.target.value)}
-          placeholder="Ví dụ: Toán tư duy"
-        />
-        <Select
-          label="Trạng thái lớp"
-          value={status}
-          onChange={(e) => setFilter("status", e.target.value)}
-        >
-          <option value="">Tất cả trạng thái</option>
-          <option value="SCHEDULED">Đã xếp lịch</option>
-          <option value="ACTIVE">Đang dạy</option>
-          <option value="AWAITING_CLOSE">Chờ kết thúc</option>
-          <option value="CLOSED">Đã đóng</option>
-          <option value="CANCELLED">Đã hủy</option>
-        </Select>
-        <Select
-          label="Vai trò giảng dạy"
-          value={role}
-          onChange={(e) => setFilter("role", e.target.value)}
-        >
-          <option value="">Tất cả vai trò</option>
-          <option value="PRIMARY">Giáo viên chính</option>
-          <option value="ACTUAL">Đã trực tiếp dạy</option>
-        </Select>
+      <section className="panel-flat teaching-filter-panel" aria-label="Tìm và lọc lớp">
+        <div className="teacher-class-filters">
+          <Input
+            label="Tìm theo tên hoặc mã lớp"
+            value={search}
+            onChange={(event) => setFilter("search", event.target.value)}
+            placeholder="Ví dụ: Toán tư duy"
+          />
+          <Select
+            label="Trạng thái lớp"
+            value={status}
+            onChange={(e) => setFilter("status", e.target.value)}
+          >
+            <option value="">Tất cả trạng thái</option>
+            <option value="SCHEDULED">Đã xếp lịch</option>
+            <option value="ACTIVE">Đang dạy</option>
+            <option value="AWAITING_CLOSE">Chờ kết thúc</option>
+            <option value="CLOSED">Đã đóng</option>
+            <option value="CANCELLED">Đã hủy</option>
+          </Select>
+          <Select
+            label="Vai trò giảng dạy"
+            value={role}
+            onChange={(e) => setFilter("role", e.target.value)}
+          >
+            <option value="">Tất cả vai trò</option>
+            <option value="PRIMARY">Giáo viên chính</option>
+            <option value="ACTUAL">Đã trực tiếp dạy</option>
+          </Select>
+        </div>
+        <div className="teaching-filter-summary" aria-live="polite">
+          <span>
+            {query.data ? (
+              <>
+                Tìm thấy <strong>{query.data.totalItems}</strong> lớp
+              </>
+            ) : (
+              "Đang cập nhật danh sách"
+            )}
+          </span>
+          {hasFilters ? (
+            <Button variant="ghost" onClick={() => setParams(new URLSearchParams({ page: "1" }))}>
+              <FilterX size={16} aria-hidden="true" />
+              Xóa bộ lọc
+            </Button>
+          ) : null}
+        </div>
       </section>
 
       {query.isPending ? (
@@ -94,14 +114,14 @@ export const MyClassesPage = () => {
       ) : query.data.items.length === 0 ? (
         <StatePanel
           kind="empty"
-          title={search || status || role ? "Không tìm thấy lớp phù hợp" : "Bạn chưa có lớp nào"}
+          title={hasFilters ? "Không tìm thấy lớp phù hợp" : "Bạn chưa có lớp nào"}
           description={
-            search || status || role
+            hasFilters
               ? "Hãy thay đổi từ khóa hoặc bộ lọc."
               : "Lớp sẽ xuất hiện khi quản lý phân công hoặc bạn trực tiếp dạy một buổi."
           }
           action={
-            search || status || role ? (
+            hasFilters ? (
               <Button
                 variant="secondary"
                 onClick={() => setParams(new URLSearchParams({ page: "1" }))}
@@ -116,8 +136,8 @@ export const MyClassesPage = () => {
           <div className="teacher-class-grid">
             {query.data.items.map((item) => (
               <article className="panel teacher-class-card" key={item.id}>
-                <header>
-                  <span>
+                <header className="teacher-class-card-head">
+                  <span className="teacher-class-identity">
                     <small className="class-code">{item.code}</small>
                     <h2>{item.name}</h2>
                   </span>
@@ -157,18 +177,33 @@ export const MyClassesPage = () => {
                     </dd>
                   </div>
                 </dl>
-                <div
-                  className="progress-track"
-                  aria-label={`Tiến độ ${item.completedSessions}/${item.totalSessions}`}
-                >
+                <div className="teacher-class-progress">
+                  <span>
+                    <small>Tiến độ khóa học</small>
+                    <strong>
+                      {Math.round(
+                        Math.min(
+                          (item.completedSessions / Math.max(item.totalSessions, 1)) * 100,
+                          100,
+                        ),
+                      )}
+                      %
+                    </strong>
+                  </span>
                   <div
-                    className="progress-value"
-                    style={{
-                      width: `${Math.min((item.completedSessions / Math.max(item.totalSessions, 1)) * 100, 100)}%`,
-                    }}
-                  />
+                    className="progress-track"
+                    aria-label={`Tiến độ ${item.completedSessions}/${item.totalSessions}`}
+                  >
+                    <div
+                      className="progress-value"
+                      style={{
+                        width: `${Math.min((item.completedSessions / Math.max(item.totalSessions, 1)) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
                 </div>
                 <Button
+                  className="teacher-class-action"
                   variant="secondary"
                   onClick={() => void navigate(`/t/${tenant.slug}/app/my-classes/${item.id}`)}
                 >
@@ -187,6 +222,6 @@ export const MyClassesPage = () => {
           />
         </>
       )}
-    </>
+    </div>
   );
 };

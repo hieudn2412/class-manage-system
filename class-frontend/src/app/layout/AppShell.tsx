@@ -43,7 +43,11 @@ export const AppShell = () => {
   const canManageSchedule = hasPermission(session.user.roles, PERMISSIONS.VIEW_MANAGEMENT_SCHEDULE);
   const canViewOwnSchedule = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_SCHEDULE);
   const canViewOwnTeaching = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_TEACHING);
+  const canViewOwnLearning = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_LEARNING);
   const canFinance = hasPermission(session.user.roles, PERMISSIONS.VIEW_FINANCE);
+  const canViewSalary = hasPermission(session.user.roles, PERMISSIONS.VIEW_SALARY);
+  const canViewOwnSalary = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_SALARY);
+  const canAccounts = hasPermission(session.user.roles, PERMISSIONS.MANAGE_TENANT_ACCOUNTS) || hasPermission(session.user.roles, PERMISSIONS.MANAGE_LEARNING_ACCOUNTS);
   const isPlatform = hasPermission(session.user.roles, PERMISSIONS.VIEW_PLATFORM_TENANTS);
 
   const navItems: NavItem[] = [
@@ -68,18 +72,22 @@ export const AppShell = () => {
             : []),
           { label: "Lịch dạy", icon: School, to: `${base}/teaching-schedule` },
           { label: "Lớp của tôi", icon: BookOpen, to: `${base}/my-classes` },
+          ...(canViewOwnSalary
+            ? [{ label: "Lương của tôi", icon: CircleDollarSign, to: `${base}/my-salary` }]
+            : []),
         ]
       : []),
-    ...(session.user.roles.includes("STUDENT")
-      ? [
-          { label: "Lịch học", icon: School, planned: true },
-          { label: "Bài tập", icon: GraduationCap, planned: true },
-        ]
+    ...(canViewOwnLearning
+      ? [{ label: "Lớp của tôi", icon: GraduationCap, to: `${base}/learning-classes` }]
       : []),
-    ...(!isPlatform && !session.user.roles.includes("STUDENT")
-      ? [{ label: "Người dùng", icon: Users, planned: true }]
+    ...(canAccounts
+      ? [{ label: "Người dùng", icon: Users, to: `${base}/accounts` }]
       : []),
-    ...(canFinance ? [{ label: "Tài chính", icon: CircleDollarSign, planned: true }] : []),
+    ...(canViewSalary
+      ? [{ label: "Bảng lương", icon: CircleDollarSign, to: `${base}/finance/salaries` }]
+      : canFinance
+        ? [{ label: "Tài chính", icon: CircleDollarSign, planned: true }]
+        : []),
   ];
 
   const handleLogout = () => {

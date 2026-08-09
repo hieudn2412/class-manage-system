@@ -1,8 +1,14 @@
 package com.classops.backend.scheduling;
 
 import com.classops.backend.scheduling.SchedulingDtos.ApplySessionScheduleInput;
+import com.classops.backend.scheduling.SchedulingDtos.ApplySubstitutionInput;
+import com.classops.backend.scheduling.SchedulingDtos.CancelSessionInput;
+import com.classops.backend.scheduling.SchedulingDtos.CreateMakeupInput;
+import com.classops.backend.scheduling.SchedulingDtos.MakeupPreviewInput;
 import com.classops.backend.scheduling.SchedulingDtos.SchedulePreview;
+import com.classops.backend.scheduling.SchedulingDtos.SessionMutationResult;
 import com.classops.backend.scheduling.SchedulingDtos.SessionScheduleInput;
+import com.classops.backend.scheduling.SchedulingDtos.SubstitutionPreviewInput;
 import com.classops.backend.scheduling.SchedulingDtos.WeekSchedule;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -28,9 +34,11 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearerAuth")
 public class ScheduleController {
     private final ScheduleService service;
+    private final SessionMutationService mutationService;
 
-    public ScheduleController(ScheduleService service) {
+    public ScheduleController(ScheduleService service, SessionMutationService mutationService) {
         this.service = service;
+        this.mutationService = mutationService;
     }
 
     @GetMapping("/schedules/management")
@@ -68,5 +76,58 @@ public class ScheduleController {
         @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
         return service.applyOverride(sessionId, input, idempotencyKey);
+    }
+
+    @PostMapping("/sessions/{sessionId}/substitution-previews")
+    @PreAuthorize("hasAuthority('MANAGE_SESSION_SCHEDULE')")
+    @Operation(summary = "Preview teacher substitution for one session")
+    SchedulePreview previewSubstitution(
+        @PathVariable UUID sessionId,
+        @Valid @RequestBody SubstitutionPreviewInput input
+    ) {
+        return mutationService.previewSubstitution(sessionId, input);
+    }
+
+    @PostMapping("/sessions/{sessionId}/substitutions")
+    @PreAuthorize("hasAuthority('MANAGE_SESSION_SCHEDULE')")
+    @Operation(summary = "Apply teacher substitution for one session")
+    SessionMutationResult substitute(
+        @PathVariable UUID sessionId,
+        @Valid @RequestBody ApplySubstitutionInput input,
+        @RequestHeader("Idempotency-Key") String idempotencyKey
+    ) {
+        return mutationService.substitute(sessionId, input, idempotencyKey);
+    }
+
+    @PostMapping("/sessions/{sessionId}/makeup-previews")
+    @PreAuthorize("hasAuthority('MANAGE_SESSION_SCHEDULE')")
+    @Operation(summary = "Preview a makeup session")
+    SchedulePreview previewMakeup(
+        @PathVariable UUID sessionId,
+        @Valid @RequestBody MakeupPreviewInput input
+    ) {
+        return mutationService.previewMakeup(sessionId, input);
+    }
+
+    @PostMapping("/sessions/{sessionId}/cancellations")
+    @PreAuthorize("hasAuthority('MANAGE_SESSION_SCHEDULE')")
+    @Operation(summary = "Cancel a session, optionally creating a makeup in one transaction")
+    SessionMutationResult cancel(
+        @PathVariable UUID sessionId,
+        @Valid @RequestBody CancelSessionInput input,
+        @RequestHeader("Idempotency-Key") String idempotencyKey
+    ) {
+        return mutationService.cancel(sessionId, input, idempotencyKey);
+    }
+
+    @PostMapping("/sessions/{sessionId}/makeups")
+    @PreAuthorize("hasAuthority('MANAGE_SESSION_SCHEDULE')")
+    @Operation(summary = "Create a makeup for a cancelled session")
+    SessionMutationResult createMakeup(
+        @PathVariable UUID sessionId,
+        @Valid @RequestBody CreateMakeupInput input,
+        @RequestHeader("Idempotency-Key") String idempotencyKey
+    ) {
+        return mutationService.createMakeup(sessionId, input, idempotencyKey);
     }
 }

@@ -51,6 +51,7 @@ public class SecurityConfig {
                 org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/platform/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/forgot-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/tenants/**").permitAll()
                 .requestMatchers("/actuator/health/**", "/api-docs/**", "/swagger-ui/**",
@@ -94,7 +95,7 @@ public class SecurityConfig {
             .macAlgorithm(MacAlgorithm.HS256).build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
             JwtValidators.createDefaultWithIssuer("class-backend"),
-            new TenantJwtValidator(jdbc)));
+            new AccountJwtValidator(jdbc)));
         return decoder;
     }
 

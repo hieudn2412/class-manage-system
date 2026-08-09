@@ -1,6 +1,7 @@
 package com.classops.backend.teaching;
 
 import com.classops.backend.common.PageResponse;
+import com.classops.backend.scheduling.SchedulingDtos.SessionAction;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -100,6 +101,7 @@ public final class TeachingDtos {
         int participatedStudents,
         int rosterStudents,
         boolean missingDocumentation,
+        boolean hasTest,
         int testResultCount
     ) {
     }
@@ -124,12 +126,19 @@ public final class TeachingDtos {
     ) {
     }
 
-    public record TestResult(
+    public record SessionTest(
         UUID id,
         String testName,
-        BigDecimal score,
         BigDecimal maxScore,
         LocalDate testDate,
+        String comment,
+        long version
+    ) {
+    }
+
+    public record TestResult(
+        UUID id,
+        BigDecimal score,
         String comment,
         long version
     ) {
@@ -144,7 +153,7 @@ public final class TeachingDtos {
         long attendanceVersion,
         String sessionComment,
         long commentVersion,
-        List<TestResult> testResults
+        TestResult testResult
     ) {
     }
 
@@ -157,10 +166,20 @@ public final class TeachingDtos {
         OffsetDateTime startAt,
         OffsetDateTime endAt,
         String mode,
+        UUID roomId,
         String roomName,
         String onlineLink,
         String status,
+        UUID plannedTeacherId,
+        UUID actualTeacherId,
         String actualTeacherName,
+        boolean substitution,
+        boolean makeup,
+        UUID makeupRootSessionId,
+        UUID replacesSessionId,
+        UUID replacementSessionId,
+        String cancellationReason,
+        List<SessionAction> allowedActions,
         boolean actualTeacher,
         boolean canEdit,
         boolean canVerify,
@@ -172,9 +191,13 @@ public final class TeachingDtos {
         boolean missingDocumentation,
         long version,
         LessonReport lessonReport,
+        SessionTest sessionTest,
         List<RosterStudent> students,
         int participatedStudents
     ) {
+        public SessionOperationsDetail {
+            allowedActions = allowedActions == null ? List.of() : List.copyOf(allowedActions);
+        }
     }
 
     public record CheckInInput(
@@ -220,17 +243,42 @@ public final class TeachingDtos {
         }
     }
 
-    public record TestResultInput(
+    public record SessionTestInput(
         @NotBlank String testName,
-        @NotNull @DecimalMin("0") BigDecimal score,
         @NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal maxScore,
         @NotNull LocalDate testDate,
+        String comment
+    ) {
+        public SessionTestInput {
+            testName = testName == null ? "" : testName.trim();
+            comment = comment == null ? "" : comment.trim();
+        }
+    }
+
+    public record StudentTestResultInput(
+        @NotNull UUID studentId,
+        @DecimalMin("0") BigDecimal score,
         String comment,
         @Min(0) long version
     ) {
-        public TestResultInput {
+        public StudentTestResultInput {
+            comment = comment == null ? "" : comment.trim();
+        }
+    }
+
+    public record SessionTestUpdateInput(
+        @NotBlank String testName,
+        @NotNull @DecimalMin(value = "0", inclusive = false) BigDecimal maxScore,
+        @NotNull LocalDate testDate,
+        String comment,
+        @Min(0) long version,
+        @NotBlank String rosterRevision,
+        @Valid List<StudentTestResultInput> results
+    ) {
+        public SessionTestUpdateInput {
             testName = testName == null ? "" : testName.trim();
             comment = comment == null ? "" : comment.trim();
+            results = results == null ? List.of() : List.copyOf(results);
         }
     }
 

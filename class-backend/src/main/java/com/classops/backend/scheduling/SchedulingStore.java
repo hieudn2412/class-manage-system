@@ -10,6 +10,7 @@ import com.classops.backend.scheduling.SchedulingDtos.DeliveryMode;
 import com.classops.backend.scheduling.SchedulingDtos.ExistingSessionSummary;
 import com.classops.backend.scheduling.SchedulingDtos.RoomOption;
 import com.classops.backend.scheduling.SchedulingDtos.SessionOverride;
+import com.classops.backend.scheduling.SchedulingDtos.SessionAction;
 import com.classops.backend.scheduling.SchedulingDtos.StudentOption;
 import com.classops.backend.scheduling.SchedulingDtos.TeacherOption;
 import com.classops.backend.scheduling.SchedulingDtos.WeeklyPattern;
@@ -37,10 +38,13 @@ import java.util.UUID;
 public class SchedulingStore {
     private final JdbcClient jdbc;
     private final ObjectMapper mapper;
+    private final ScheduleStateResolver scheduleStateResolver;
 
-    public SchedulingStore(JdbcClient jdbc, ObjectMapper mapper) {
+    public SchedulingStore(JdbcClient jdbc, ObjectMapper mapper,
+                           ScheduleStateResolver scheduleStateResolver) {
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.scheduleStateResolver = scheduleStateResolver;
     }
 
     List<TeacherOption> teachers(UUID tenantId) {
@@ -242,7 +246,7 @@ public class SchedulingStore {
             .param("capacity", input.capacity()).param("defaultMode", input.defaultMode().name())
             .param("studentIds", json(input.studentIds())).param("overrides", json(input.overrides()))
             .param("actorId", actorId).update();
-        replaceDraftChildren(tenantId, id, input);
+        replaceDraftChildren(tenantId, id, actorId, input);
         return id;
     }
 
@@ -268,10 +272,11 @@ public class SchedulingStore {
             throw new ApiException(HttpStatus.CONFLICT, "CLASS_NOT_EDITABLE",
                 "Chỉ lớp Nháp mới có thể chỉnh sửa.");
         }
-        replaceDraftChildren(tenantId, classId, input);
+        replaceDraftChildren(tenantId, classId, actorId, input);
     }
 
-    private void replaceDraftChildren(UUID tenantId, UUID classId, ClassDraftInput input) {
+    private void replaceDraftChildren(UUID tenantId, UUID classId, UUID actorId,
+                                      ClassDraftInput input) {
         jdbc.sql("DELETE FROM class_schedule_patterns WHERE tenant_id=:tenantId AND class_id=:classId")
             .param("tenantId", tenantId).param("classId", classId).update();
         int sort = 0;
@@ -294,11 +299,15 @@ public class SchedulingStore {
         jdbc.sql("DELETE FROM class_hourly_rates WHERE tenant_id=:tenantId AND class_id=:classId")
             .param("tenantId", tenantId).param("classId", classId).update();
         jdbc.sql("""
-                INSERT INTO class_hourly_rates (id, tenant_id, class_id, effective_date, hourly_rate)
-                VALUES (:id, :tenantId, :classId, :effectiveDate, :hourlyRate)
+                INSERT INTO class_hourly_rates (
+                  id, tenant_id, class_id, effective_date, hourly_rate, created_by, updated_by
+                ) VALUES (
+                  :id, :tenantId, :classId, :effectiveDate, :hourlyRate, :actorId, :actorId
+                )
                 """)
             .param("id", UUID.randomUUID()).param("tenantId", tenantId).param("classId", classId)
-            .param("effectiveDate", input.startDate()).param("hourlyRate", input.hourlyRate()).update();
+            .param("effectiveDate", input.startDate()).param("hourlyRate", input.hourlyRate())
+            .param("actorId", actorId).update();
     }
 
     ClassDraftRecord draft(UUID tenantId, UUID classId, boolean lock) {
@@ -421,37 +430,77 @@ public class SchedulingStore {
             .optional();
     }
 
-    List<CalendarSession> calendar(UUID tenantId, LocalDate weekStart, UUID teacherId, UUID roomId) {
+    List<CalendarSession> calendar(UUID tenantId, LocalDate weekStart, UUID teacherId, UUID roomId,
+                                   boolean canManage) {
         OffsetDateTime from = weekStart.atStartOfDay(SchedulingZone.ZONE).toOffsetDateTime();
         OffsetDateTime to = weekStart.plusDays(7).atStartOfDay(SchedulingZone.ZONE).toOffsetDateTime();
         return jdbc.sql("""
                 SELECT s.id, s.class_id, s.ordinal, s.session_key, s.start_at, s.end_at,
                        s.planned_teacher_id, s.actual_teacher_id, s.mode, s.room_id, s.version,
                        s.is_substitution, COALESCE(s.online_link, '') AS online_link,
+                       s.status, s.makeup_root_session_id, s.replaces_session_id,
+                       s.cancellation_reason,
+                       EXISTS(SELECT 1 FROM session_check_ins ci
+                         WHERE ci.tenant_id=s.tenant_id AND ci.session_id=s.id) AS checked_in,
+                       (SELECT child.id FROM class_sessions child
+                        WHERE child.tenant_id=s.tenant_id AND child.replaces_session_id=s.id
+                        LIMIT 1) AS replacement_session_id,
                        c.code, c.name, u.display_name AS teacher_name, r.name AS room_name
                 FROM class_sessions s
                 JOIN classes c ON c.tenant_id=s.tenant_id AND c.id=s.class_id
                 JOIN teacher_profiles t ON t.tenant_id=s.tenant_id AND t.id=s.actual_teacher_id
                 JOIN users u ON u.tenant_id=t.tenant_id AND u.id=t.user_id
                 LEFT JOIN rooms r ON r.tenant_id=s.tenant_id AND r.id=s.room_id
-                WHERE s.tenant_id=:tenantId AND s.status <> 'CANCELLED'
+                WHERE s.tenant_id=:tenantId
                   AND s.start_at >= :from AND s.start_at < :to
-                  AND (CAST(:teacherId AS uuid) IS NULL OR s.actual_teacher_id=:teacherId)
+                  AND (CAST(:teacherId AS uuid) IS NULL
+                    OR s.actual_teacher_id=:teacherId OR s.planned_teacher_id=:teacherId)
                   AND (CAST(:roomId AS uuid) IS NULL OR s.room_id=:roomId)
                 ORDER BY s.start_at, c.name
                 """)
             .param("tenantId", tenantId).param("from", from).param("to", to)
             .param("teacherId", teacherId).param("roomId", roomId)
-            .query((rs, number) -> new CalendarSession(
-                rs.getObject("id", UUID.class), rs.getObject("class_id", UUID.class),
-                rs.getString("code"), rs.getString("name"), rs.getInt("ordinal"),
-                rs.getObject("start_at", OffsetDateTime.class), rs.getObject("end_at", OffsetDateTime.class),
-                rs.getObject("planned_teacher_id", UUID.class),
-                rs.getObject("actual_teacher_id", UUID.class), rs.getString("teacher_name"),
-                DeliveryMode.valueOf(rs.getString("mode")), rs.getObject("room_id", UUID.class),
-                rs.getString("room_name"), rs.getString("online_link"),
-                rs.getBoolean("is_substitution"), rs.getLong("version")))
+            .query((rs, number) -> {
+                OffsetDateTime startAt = rs.getObject("start_at", OffsetDateTime.class);
+                boolean checkedIn = rs.getBoolean("checked_in");
+                String status = rs.getString("status");
+                UUID replacementId = rs.getObject("replacement_session_id", UUID.class);
+                return new CalendarSession(
+                    rs.getObject("id", UUID.class), rs.getObject("class_id", UUID.class),
+                    rs.getString("code"), rs.getString("name"), rs.getInt("ordinal"),
+                    startAt, rs.getObject("end_at", OffsetDateTime.class),
+                    rs.getObject("planned_teacher_id", UUID.class),
+                    rs.getObject("actual_teacher_id", UUID.class), rs.getString("teacher_name"),
+                    DeliveryMode.valueOf(rs.getString("mode")), rs.getObject("room_id", UUID.class),
+                    rs.getString("room_name"), rs.getString("online_link"),
+                    rs.getBoolean("is_substitution"),
+                    rs.getObject("replaces_session_id", UUID.class) != null,
+                    status,
+                    "CANCELLED".equals(status)
+                        ? SchedulingDtos.ScheduleState.CANCELLED
+                        : scheduleStateResolver.resolve(startAt, checkedIn),
+                    rs.getObject("makeup_root_session_id", UUID.class),
+                    rs.getObject("replaces_session_id", UUID.class),
+                    replacementId,
+                    rs.getString("cancellation_reason"),
+                    allowedActions(canManage, status, checkedIn, replacementId),
+                    rs.getLong("version"));
+            })
             .list();
+    }
+
+    private List<SessionAction> allowedActions(boolean canManage, String status,
+                                               boolean checkedIn, UUID replacementSessionId) {
+        if (!canManage) {
+            return List.of();
+        }
+        if (("SCHEDULED".equals(status) || "PENDING_CONFIRMATION".equals(status)) && !checkedIn) {
+            return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION);
+        }
+        if ("CANCELLED".equals(status) && replacementSessionId == null) {
+            return List.of(SessionAction.CREATE_MAKEUP);
+        }
+        return List.of();
     }
 
     UUID teacherProfileIdForUser(UUID tenantId, UUID userId) {

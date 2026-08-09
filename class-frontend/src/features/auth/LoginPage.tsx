@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertTriangle, ArrowRight, Building2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, ShieldCheck } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -31,8 +31,8 @@ export const LoginPage = () => {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      username: "admin.anhduong",
-      password: "Demo@123",
+      username: "",
+      password: "",
       remember: false,
     },
   });
@@ -108,6 +108,13 @@ export const LoginPage = () => {
             Quên mật khẩu?
           </Link>
         </form>
+        <div className="auth-scope-switch">
+          <span>Bạn là quản trị viên nền tảng?</span>
+          <Link to="/platform/login">
+            <ShieldCheck size={16} aria-hidden="true" />
+            Đăng nhập Super Admin
+          </Link>
+        </div>
         <footer className="auth-footer">
           <span>Phiên bản trình diễn frontend</span>
           <span>FR-IAM-003–005 · FL-04</span>

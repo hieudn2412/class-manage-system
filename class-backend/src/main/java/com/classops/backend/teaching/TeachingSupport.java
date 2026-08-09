@@ -105,14 +105,21 @@ public class TeachingSupport {
     }
 
     public void outbox(UUID tenantId, UUID aggregateId, String eventType, Object payload) {
+        outbox(tenantId, "SESSION", aggregateId, eventType, payload);
+    }
+
+    public void outbox(UUID tenantId, String aggregateType, UUID aggregateId,
+                       String eventType, Object payload) {
         jdbc.sql("""
                 INSERT INTO outbox_events (
                   id, tenant_id, aggregate_type, aggregate_id, event_type, payload
                 ) VALUES (
-                  :id, :tenantId, 'SESSION', :aggregateId, :eventType, CAST(:payload AS jsonb)
+                  :id, :tenantId, :aggregateType, :aggregateId, :eventType,
+                  CAST(:payload AS jsonb)
                 )
                 """)
             .param("id", UUID.randomUUID()).param("tenantId", tenantId)
+            .param("aggregateType", aggregateType)
             .param("aggregateId", aggregateId).param("eventType", eventType)
             .param("payload", json(payload)).update();
     }

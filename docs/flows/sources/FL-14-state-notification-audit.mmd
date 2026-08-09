@@ -20,6 +20,10 @@ flowchart LR
   RETRY --> SEND
 
   STATES --> AUDIT["Audit actor, tenant, object, before/after, reason, time"]
+  PLATFORM["Platform action"] --> PAUDIT["actor_type=PLATFORM + platform_actor_user_id"]
+  PAUDIT --> AUDIT
+  ACCOUNT["Role/status/reset"] --> REVOKE["token_version + 1 · JWT cũ bị từ chối"]
+  REVOKE --> AUDIT
   AUDIT --> SCOPE{"Người xem có quyền phạm vi?"}
   SCOPE -->|Có| VIEW["Danh sách audit lọc + phân trang"]
   SCOPE -->|Không| DENY["Từ chối + security log"]

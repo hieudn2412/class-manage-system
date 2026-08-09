@@ -33,7 +33,7 @@ $mobile = @(Get-ChildItem -LiteralPath $mobileDir -Filter "*.png")
 if ($sources.Count -ne 14 -or $svgs.Count -ne 14 -or $pngs.Count -ne 14) {
   throw "Flow artifact count mismatch: source=$($sources.Count), svg=$($svgs.Count), png=$($pngs.Count)"
 }
-if ($desktop.Count -ne 27 -or $mobile.Count -ne 10) {
+if ($desktop.Count -ne 27 -or $mobile.Count -ne 13) {
   throw "Screenshot count mismatch: desktop=$($desktop.Count), mobile=$($mobile.Count)"
 }
 

@@ -1,19 +1,23 @@
 openapi: 3.1.0
 info:
   title: Class Operations API
-  version: 1.2.0
+  version: 1.5.0
   license:
     name: Proprietary
     identifier: LicenseRef-ClassOps-Proprietary
   description: |
     API cho các màn React hiện có: xác thực, lập lịch lớp và vận hành giáo viên.
-    Sau đăng nhập, tenant luôn được suy ra từ JWT.
+    JWT có `accountScope=PLATFORM|TENANT`; tenant chỉ được suy ra cho phiên TENANT.
     API tạo lớp/ca/override không nhận link online theo DEC-046.
 servers:
   - url: /api/v1
 security:
   - bearerAuth: []
 tags:
+  - name: Platform administration
+    description: Super Admin quản lý tenant và Admin ban đầu, không truy cập nghiệp vụ tenant.
+  - name: Tenant accounts
+    description: Admin quản lý toàn bộ tài khoản; Học vụ chỉ quản lý GV/HS thuần.
   - name: Authentication
     description: Tenant resolution, JWT login and temporary-password lifecycle.
   - name: Management dashboard
@@ -24,7 +28,117 @@ tags:
     description: Tenant-wide and teacher-specific calendars plus one-session overrides.
   - name: Teaching operations
     description: Dashboard giáo viên, lớp/buổi trong phạm vi, check-in và hồ sơ sư phạm.
+  - name: Class lifecycle and enrollments
+    description: Vòng đời sau publish, lịch sử enrollment và học phí gốc nguyên tử.
+  - name: Student learning
+    description: Lớp và nội dung buổi của chính học sinh, có kiểm tra quyền tại thời điểm đọc.
+  - name: Salary and payroll
+    description: Đơn giá hiệu lực, accrual có revision, điều chỉnh, thanh toán và bảng lương trực tiếp.
 paths:
+  /platform/auth/login:
+    post:
+      operationId: platformLogin
+      tags: [Platform administration]
+      security: []
+      summary: Đăng nhập Super Admin không cần tenant slug
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/LoginCredentials"}}}}
+      responses:
+        "200": {description: Phiên PLATFORM, content: {application/json: {schema: {$ref: "#/components/schemas/AuthSession"}}}}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+  /platform/tenants:
+    get:
+      operationId: listPlatformTenants
+      summary: Tìm, lọc và phân trang tenant
+      tags: [Platform administration]
+      parameters: [{$ref: "#/components/parameters/Search"}, {$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}, {name: status, in: query, schema: {type: string, enum: [ACTIVE, LOCKED]}}]
+      responses: {"200": {description: Danh sách 1-based tối đa 100}}
+    post:
+      operationId: createPlatformTenant
+      summary: Tạo nguyên tử tenant và Admin ban đầu
+      tags: [Platform administration]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/CreateTenant"}}}}
+      responses: {"201": {description: Tenant + Admin ban đầu + mật khẩu 123456}, "409": {$ref: "#/components/responses/Conflict"}}
+  /platform/tenants/{id}:
+    get:
+      operationId: getPlatformTenant
+      summary: Xem tenant và Admin ban đầu
+      tags: [Platform administration]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      responses: {"200": {description: Chi tiết tenant}, "404": {$ref: "#/components/responses/NotFound"}}
+    patch:
+      operationId: renamePlatformTenant
+      summary: Đổi tên tenant với optimistic version
+      tags: [Platform administration]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [name, version], properties: {name: {type: string}, version: {type: integer}}}}}}
+      responses: {"200": {description: Tenant đã cập nhật}, "409": {$ref: "#/components/responses/Conflict"}}
+  /platform/tenants/{id}/status:
+    patch:
+      operationId: changePlatformTenantStatus
+      summary: Khóa hoặc mở tenant
+      tags: [Platform administration]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      requestBody: {$ref: "#/components/requestBodies/StatusChange"}
+      responses: {"200": {description: ACTIVE hoặc LOCKED}, "409": {$ref: "#/components/responses/Conflict"}}
+  /platform/tenants/{id}/initial-administrator/status:
+    patch:
+      operationId: changeInitialAdministratorStatus
+      summary: Khóa hoặc mở Admin ban đầu
+      tags: [Platform administration]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      requestBody: {$ref: "#/components/requestBodies/StatusChange"}
+      responses: {"200": {description: Admin ban đầu đã cập nhật}}
+  /platform/tenants/{id}/initial-administrator/credential-resets:
+    post:
+      operationId: resetInitialAdministratorCredential
+      summary: Reset credential Admin ban đầu
+      tags: [Platform administration]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      requestBody: {$ref: "#/components/requestBodies/CredentialReset"}
+      responses: {"200": {description: "Mật khẩu 123456, READY và token cũ bị thu hồi"}, "409": {$ref: "#/components/responses/Conflict"}}
+  /accounts:
+    get:
+      operationId: listTenantAccounts
+      summary: Tìm, lọc và phân trang tài khoản tenant
+      tags: [Tenant accounts]
+      parameters: [{$ref: "#/components/parameters/Search"}, {$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}, {name: status, in: query, schema: {type: string}}, {name: role, in: query, schema: {type: string}}, {name: profileType, in: query, schema: {type: string}}]
+      responses: {"200": {description: PageResponse tài khoản trong tenant JWT}}
+    post:
+      operationId: createTenantAccount
+      summary: Tạo tài khoản và hồ sơ tối thiểu
+      tags: [Tenant accounts]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/CreateAccount"}}}}
+      responses: {"201": {description: Tài khoản READY + mật khẩu 123456}, "409": {$ref: "#/components/responses/Conflict"}}
+  /accounts/{id}:
+    get:
+      operationId: getTenantAccount
+      summary: Xem một tài khoản trong phạm vi quyền
+      tags: [Tenant accounts]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      responses: {"200": {description: Chi tiết tài khoản}, "404": {$ref: "#/components/responses/NotFound"}}
+    patch:
+      operationId: updateTenantAccount
+      summary: Sửa tên, email, vai trò và phụ huynh
+      tags: [Tenant accounts]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      responses: {"200": {description: Hồ sơ/vai trò đã cập nhật}, "409": {$ref: "#/components/responses/Conflict"}}
+  /accounts/{id}/status:
+    patch:
+      operationId: changeTenantAccountStatus
+      summary: Khóa hoặc mở tài khoản tenant
+      tags: [Tenant accounts]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      requestBody: {$ref: "#/components/requestBodies/StatusChange"}
+      responses: {"200": {description: Trạng thái đã cập nhật}, "409": {$ref: "#/components/responses/Conflict"}}
+  /accounts/{id}/credential-resets:
+    post:
+      operationId: resetTenantAccountCredential
+      summary: Reset credential và thu hồi JWT cũ
+      tags: [Tenant accounts]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      requestBody: {$ref: "#/components/requestBodies/CredentialReset"}
+      responses: {"200": {description: Mật khẩu 123456 và token cũ bị thu hồi}}
   /tenants/{slug}:
     get:
       operationId: getTenant
@@ -224,7 +338,7 @@ paths:
       tags: [Class scheduling]
       summary: Chi tiết lớp
       responses:
-        "200": {description: Chi tiết lớp}
+        "200": {description: Chi tiết lớp, content: {application/json: {schema: {$ref: "#/components/schemas/ClassDetail"}}}}
         "404": {$ref: "#/components/responses/NotFound"}
     put:
       operationId: updateClassDraft
@@ -283,6 +397,109 @@ paths:
       responses:
         "200": {description: Lớp Scheduled}
         "409": {$ref: "#/components/responses/Conflict"}
+  /classes/{classId}/enrollments:
+    parameters:
+      - {$ref: "#/components/parameters/ClassId"}
+    get:
+      operationId: listClassEnrollments
+      tags: [Class lifecycle and enrollments]
+      summary: Roster hiện tại hoặc lịch sử enrollment
+      parameters:
+        - {name: scope, in: query, schema: {type: string, enum: [Active, History], default: Active}}
+        - {$ref: "#/components/parameters/Search"}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200": {description: Trang enrollment, content: {application/json: {schema: {$ref: "#/components/schemas/EnrollmentPage"}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+    post:
+      operationId: addClassEnrollments
+      tags: [Class lifecycle and enrollments]
+      summary: Thêm hàng loạt nguyên tử và tạo học phí gốc
+      description: |
+        Chỉ áp dụng ở Scheduled/Active/AwaitingClose. Toàn bộ lô rollback nếu một học sinh lỗi.
+        Cảnh báo sức chứa hoặc trùng lịch có ID và phải được gửi lại trong acknowledgedWarningIds.
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/AddEnrollmentsInput"}}}}
+      responses:
+        "201": {description: Enrollment và học phí đã tạo, content: {application/json: {schema: {$ref: "#/components/schemas/AddEnrollmentsResult"}}}}
+        "400": {$ref: "#/components/responses/ValidationError"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /classes/{classId}/enrollment-candidates:
+    get:
+      operationId: listEnrollmentCandidates
+      tags: [Class lifecycle and enrollments]
+      summary: Học sinh tenant chưa có enrollment active trong lớp
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+        - {$ref: "#/components/parameters/Search"}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200": {description: Trang ứng viên, content: {application/json: {schema: {$ref: "#/components/schemas/EnrollmentCandidatePage"}}}}
+  /classes/{classId}/enrollments/{enrollmentId}:
+    patch:
+      operationId: endClassEnrollment
+      tags: [Class lifecycle and enrollments]
+      summary: Ghi nhận rời lớp hoặc chuyển lớp có hiệu lực ngay
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+        - {name: enrollmentId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/EndEnrollmentInput"}}}}
+      responses:
+        "200": {description: Enrollment đã kết thúc, content: {application/json: {schema: {$ref: "#/components/schemas/EndEnrollmentResult"}}}}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /classes/{classId}/status:
+    patch:
+      operationId: changeClassLifecycleStatus
+      tags: [Class lifecycle and enrollments]
+      summary: Đóng, mở lại hoặc hủy lớp
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ChangeClassStatusInput"}}}}
+      responses:
+        "200": {description: Trạng thái mới, content: {application/json: {schema: {$ref: "#/components/schemas/ChangeClassStatusResult"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /students/me/classes:
+    get:
+      operationId: listOwnStudentClasses
+      tags: [Student learning]
+      summary: Lớp còn quyền và thẻ lịch sử bị khóa của học sinh
+      parameters:
+        - {name: access, in: query, schema: {type: string, enum: [All, Accessible, Locked], default: All}}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200": {description: Trang lớp của học sinh, content: {application/json: {schema: {$ref: "#/components/schemas/StudentClassPage"}}}}
+  /students/me/classes/{classId}:
+    get:
+      operationId: getOwnStudentClass
+      tags: [Student learning]
+      summary: Metadata lớp khi học sinh còn quyền
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+      responses:
+        "200": {description: Chi tiết lớp, content: {application/json: {schema: {$ref: "#/components/schemas/StudentClassDetail"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /students/me/classes/{classId}/sessions:
+    get:
+      operationId: listOwnStudentClassSessions
+      tags: [Student learning]
+      summary: Nội dung, điểm danh, record, nhận xét và điểm kiểm tra của chính học sinh
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200": {description: Trang buổi học, content: {application/json: {schema: {$ref: "#/components/schemas/StudentSessionPage"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
   /schedules/management:
     get:
       operationId: getManagementSchedule
@@ -361,6 +578,94 @@ paths:
             application/json:
               schema: {$ref: "#/components/schemas/WeekSchedule"}
         "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/substitution-previews:
+    post:
+      operationId: previewSessionSubstitution
+      tags: [Weekly schedules]
+      summary: Kiểm tra thay giáo viên một buổi
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/SubstitutionPreviewInput"}
+      responses:
+        "200":
+          description: Preview xung đột
+          content: {application/json: {schema: {$ref: "#/components/schemas/SchedulePreview"}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/substitutions:
+    post:
+      operationId: applySessionSubstitution
+      tags: [Weekly schedules]
+      summary: Thay giáo viên thực tế của một buổi
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/ApplySubstitutionInput"}
+      responses:
+        "200":
+          description: Kết quả thay giáo viên
+          content: {application/json: {schema: {$ref: "#/components/schemas/SessionMutationResult"}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/makeup-previews:
+    post:
+      operationId: previewSessionMakeup
+      tags: [Weekly schedules]
+      summary: Kiểm tra lịch buổi bù
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/MakeupPreviewInput"}
+      responses:
+        "200":
+          description: Preview xung đột buổi bù
+          content: {application/json: {schema: {$ref: "#/components/schemas/SchedulePreview"}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/cancellations:
+    post:
+      operationId: cancelSession
+      tags: [Weekly schedules]
+      summary: Hủy buổi, tùy chọn tạo buổi bù cùng transaction
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CancelSessionInput"}
+      responses:
+        "200":
+          description: Buổi nguồn đã hủy và buổi bù nếu có
+          content: {application/json: {schema: {$ref: "#/components/schemas/SessionMutationResult"}}}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /sessions/{sessionId}/makeups:
+    post:
+      operationId: createSessionMakeup
+      tags: [Weekly schedules]
+      summary: Tạo buổi bù cho buổi đã hủy chưa có successor
+      parameters:
+        - {$ref: "#/components/parameters/SessionId"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/CreateMakeupInput"}
+      responses:
+        "200":
+          description: Buổi bù mới
+          content: {application/json: {schema: {$ref: "#/components/schemas/SessionMutationResult"}}}
+        "409": {$ref: "#/components/responses/Conflict"}
   /teachers/me/dashboard:
     get:
       operationId: getTeacherDashboard
@@ -411,6 +716,12 @@ paths:
       summary: Lịch sử buổi trong nhiệm kỳ/phạm vi giáo viên
       parameters:
         - {$ref: "#/components/parameters/ClassId"}
+        - name: status
+          in: query
+          description: Lọc trạng thái buổi; bỏ trống để lấy tất cả
+          schema:
+            type: string
+            enum: [SCHEDULED, IN_PROGRESS, PENDING_CONFIRMATION, COMPLETED, CANCELLED]
         - {$ref: "#/components/parameters/Page"}
         - {$ref: "#/components/parameters/PageSize"}
       responses:
@@ -419,6 +730,7 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/TeacherClassSessions"}
+        "400": {$ref: "#/components/responses/ValidationError"}
         "403": {$ref: "#/components/responses/Forbidden"}
   /sessions/{sessionId}:
     get:
@@ -478,49 +790,47 @@ paths:
               schema: {$ref: "#/components/schemas/SessionOperationsDetail"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "409": {$ref: "#/components/responses/Conflict"}
-  /sessions/{sessionId}/students/{studentId}/test-results:
+  /sessions/{sessionId}/tests:
     post:
-      operationId: createSessionTestResult
+      operationId: createSessionTest
       tags: [Teaching operations]
-      summary: Thêm điểm kiểm tra cho học sinh thuộc roster
+      summary: Tạo bài kiểm tra duy nhất cho buổi và khởi tạo kết quả cho roster
       parameters:
         - {$ref: "#/components/parameters/SessionId"}
-        - {$ref: "#/components/parameters/StudentId"}
         - {$ref: "#/components/parameters/IdempotencyKey"}
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: "#/components/schemas/TestResultInput"}
+            schema: {$ref: "#/components/schemas/SessionTestInput"}
       responses:
         "201":
-          description: Kết quả vừa tạo
+          description: Chi tiết buổi sau khi tạo bài kiểm tra
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/TestResult"}
+              schema: {$ref: "#/components/schemas/SessionOperationsDetail"}
         "400": {$ref: "#/components/responses/ValidationError"}
         "409": {$ref: "#/components/responses/Conflict"}
-  /sessions/{sessionId}/students/{studentId}/test-results/{resultId}:
-    put:
-      operationId: updateSessionTestResult
+  /sessions/{sessionId}/tests/{testId}:
+    patch:
+      operationId: updateSessionTest
       tags: [Teaching operations]
-      summary: Sửa điểm kiểm tra bằng optimistic version
+      summary: Sửa bài kiểm tra và toàn bộ điểm/nhận xét học sinh trong một transaction
       parameters:
         - {$ref: "#/components/parameters/SessionId"}
-        - {$ref: "#/components/parameters/StudentId"}
-        - {$ref: "#/components/parameters/TestResultId"}
+        - {$ref: "#/components/parameters/TestId"}
         - {$ref: "#/components/parameters/IdempotencyKey"}
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: "#/components/schemas/TestResultInput"}
+            schema: {$ref: "#/components/schemas/SessionTestUpdateInput"}
       responses:
         "200":
-          description: Kết quả mới nhất
+          description: Chi tiết buổi mới nhất
           content:
             application/json:
-              schema: {$ref: "#/components/schemas/TestResult"}
+              schema: {$ref: "#/components/schemas/SessionOperationsDetail"}
         "400": {$ref: "#/components/responses/ValidationError"}
         "409": {$ref: "#/components/responses/Conflict"}
   /sessions/{sessionId}/verification-decisions:
@@ -544,6 +854,103 @@ paths:
               schema: {$ref: "#/components/schemas/SessionOperationsDetail"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "409": {$ref: "#/components/responses/Conflict"}
+  /classes/{classId}/hourly-rates:
+    get:
+      operationId: listClassHourlyRates
+      tags: [Salary and payroll]
+      parameters: [{$ref: "#/components/parameters/ClassId"}]
+      responses: {"200": {description: Lịch sử đơn giá, khoảng kết thúc suy từ mức kế tiếp, content: {application/json: {schema: {type: array, items: {$ref: "#/components/schemas/HourlyRate"}}}}}}
+    post:
+      operationId: createClassHourlyRate
+      tags: [Salary and payroll]
+      parameters: [{$ref: "#/components/parameters/ClassId"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HourlyRateInput"}}}}
+      responses: {"201": {description: Đơn giá mới và các accrual bị ảnh hưởng đã reconcile, content: {application/json: {schema: {$ref: "#/components/schemas/HourlyRate"}}}}, "409": {$ref: "#/components/responses/Conflict"}}
+  /classes/{classId}/hourly-rates/{rateId}:
+    patch:
+      operationId: updateClassHourlyRate
+      tags: [Salary and payroll]
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+        - {name: rateId, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HourlyRateUpdate"}}}}
+      responses: {"200": {description: Đơn giá và accrual đã tính lại}, "409": {$ref: "#/components/responses/Conflict"}}
+  /sessions/{sessionId}/completion-correction:
+    patch:
+      operationId: correctCompletedSession
+      tags: [Salary and payroll]
+      parameters: [{$ref: "#/components/parameters/SessionId"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/CompletionCorrection"}}}}
+      responses: {"200": {description: Buổi và salary revision mới}, "400": {$ref: "#/components/responses/ValidationError"}, "409": {$ref: "#/components/responses/Conflict"}}
+  /salary/payroll:
+    get:
+      operationId: listSalaryPayroll
+      tags: [Salary and payroll]
+      parameters:
+        - {$ref: "#/components/parameters/SalaryMonth"}
+        - {$ref: "#/components/parameters/Search"}
+        - {name: status, in: query, schema: {type: string, enum: [OWED, SETTLED, OVERPAID]}}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {name: sort, in: query, schema: {type: string, default: teacherName}}
+      responses: {"200": {description: KPI và danh sách giáo viên, content: {application/json: {schema: {$ref: "#/components/schemas/PayrollPage"}}}}, "403": {$ref: "#/components/responses/Forbidden"}}
+  /salary/payroll/{teacherId}:
+    get:
+      operationId: getTeacherPayroll
+      tags: [Salary and payroll]
+      parameters:
+        - {$ref: "#/components/parameters/TeacherId"}
+        - {$ref: "#/components/parameters/SalaryMonth"}
+      responses: {"200": {description: Chi tiết accrual, điều chỉnh và thanh toán, content: {application/json: {schema: {$ref: "#/components/schemas/TeacherPayrollDetail"}}}}}
+  /teachers/me/salary:
+    get:
+      operationId: getOwnSalary
+      tags: [Salary and payroll]
+      parameters: [{$ref: "#/components/parameters/SalaryMonth"}]
+      responses: {"200": {description: Lương của giáo viên đang đăng nhập, content: {application/json: {schema: {$ref: "#/components/schemas/TeacherPayrollDetail"}}}}, "403": {$ref: "#/components/responses/Forbidden"}}
+  /salary/adjustments:
+    post:
+      operationId: createSalaryAdjustment
+      tags: [Salary and payroll]
+      parameters: [{$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/SalaryAdjustmentInput"}}}}
+      responses: {"201": {description: Điều chỉnh đã ghi sổ}, "409": {$ref: "#/components/responses/Conflict"}}
+  /salary/adjustments/{adjustmentId}:
+    patch:
+      operationId: updateSalaryAdjustment
+      tags: [Salary and payroll]
+      parameters: [{name: adjustmentId, in: path, required: true, schema: {type: string, format: uuid}}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/SalaryAdjustmentUpdate"}}}}
+      responses: {"200": {description: Điều chỉnh đã sửa và audit before/after}, "409": {$ref: "#/components/responses/Conflict"}}
+  /salary/payments:
+    post:
+      operationId: createSalaryPayment
+      tags: [Salary and payroll]
+      parameters: [{$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/SalaryPaymentInput"}}}}
+      responses: {"201": {description: Thanh toán đã ghi sổ}, "409": {$ref: "#/components/responses/Conflict"}}
+  /salary/payments/{paymentId}:
+    patch:
+      operationId: updateSalaryPayment
+      tags: [Salary and payroll]
+      parameters: [{name: paymentId, in: path, required: true, schema: {type: string, format: uuid}}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/SalaryPaymentUpdate"}}}}
+      responses: {"200": {description: Thanh toán đã sửa và audit before/after}, "409": {$ref: "#/components/responses/Conflict"}}
+  /salary/payroll/export:
+    get:
+      operationId: exportSalaryPayroll
+      tags: [Salary and payroll]
+      parameters: [{$ref: "#/components/parameters/SalaryMonth"}, {$ref: "#/components/parameters/Search"}]
+      responses:
+        "200":
+          description: Workbook tổng hợp và chi tiết theo bộ lọc
+          content: {application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: {schema: {type: string, format: binary}}}
+  /finance/salary-summary:
+    get:
+      operationId: getSalaryFinanceSummary
+      tags: [Salary and payroll]
+      parameters: [{name: year, in: query, required: true, schema: {type: integer, minimum: 2000, maximum: 2200}}]
+      responses: {"200": {description: Series 12 tháng gồm kỳ lương và dòng tiền ngày trả}}
 components:
   securitySchemes:
     bearerAuth:
@@ -551,11 +958,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    Id: {name: id, in: path, required: true, schema: {type: string, format: uuid}}
     TenantSlug: {name: slug, in: path, required: true, schema: {type: string}}
     ClassId: {name: classId, in: path, required: true, schema: {type: string, format: uuid}}
     SessionId: {name: sessionId, in: path, required: true, schema: {type: string, format: uuid}}
-    StudentId: {name: studentId, in: path, required: true, schema: {type: string, format: uuid}}
-    TestResultId: {name: resultId, in: path, required: true, schema: {type: string, format: uuid}}
+    TeacherId: {name: teacherId, in: path, required: true, schema: {type: string, format: uuid}}
+    SalaryMonth: {name: month, in: query, required: true, schema: {type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$"}}
+    TestId: {name: testId, in: path, required: true, schema: {type: string, format: uuid}}
     Search: {name: search, in: query, schema: {type: string, default: ""}}
     Page: {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
     PageSize: {name: pageSize, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
@@ -570,6 +979,13 @@ components:
       in: header
       required: true
       schema: {type: string, minLength: 1, maxLength: 150}
+  requestBodies:
+    StatusChange:
+      required: true
+      content: {application/json: {schema: {type: object, required: [status, reason, version], properties: {status: {type: string, enum: [ACTIVE, LOCKED]}, reason: {type: string}, version: {type: integer, minimum: 0}}}}}
+    CredentialReset:
+      required: true
+      content: {application/json: {schema: {type: object, required: [reason, version], properties: {reason: {type: string}, version: {type: integer, minimum: 0}}}}}
   responses:
     ValidationError:
       description: Dữ liệu không hợp lệ
@@ -612,6 +1028,28 @@ components:
         application/problem+json:
           schema: {$ref: "#/components/schemas/Problem"}
   schemas:
+    LoginCredentials:
+      type: object
+      required: [username, password]
+      properties: {username: {type: string}, password: {type: string, format: password}}
+    CreateTenant:
+      type: object
+      required: [name, slug, initialAdmin]
+      properties:
+        name: {type: string}
+        slug: {type: string, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"}
+        initialAdmin: {type: object, required: [username, displayName], properties: {username: {type: string}, displayName: {type: string}, email: {type: string, format: email}}}
+    CreateAccount:
+      type: object
+      required: [profileType, username, displayName, roles]
+      properties:
+        profileType: {type: string, enum: [STAFF, TEACHER, STUDENT]}
+        username: {type: string}
+        displayName: {type: string}
+        email: {type: string, format: email}
+        roles: {type: array, minItems: 1, items: {type: string}}
+        parentName: {type: string}
+        parentPhone: {type: string}
     Tenant:
       type: object
       required: [id, slug, name, status]
@@ -622,9 +1060,10 @@ components:
         status: {type: string, enum: [ACTIVE, LOCKED]}
     AuthSession:
       type: object
-      required: [token, user, tenant, expiresAt]
+      required: [token, scope, user, expiresAt]
       properties:
         token: {type: string}
+        scope: {type: string, enum: [PLATFORM, TENANT]}
         user:
           type: object
           properties:
@@ -635,7 +1074,7 @@ components:
             roles: {type: array, items: {type: string}}
             status: {type: string}
             passwordState: {type: string}
-        tenant: {$ref: "#/components/schemas/Tenant"}
+        tenant: {oneOf: [{$ref: "#/components/schemas/Tenant"}, {type: "null"}]}
         expiresAt: {type: string, format: date-time}
     MessageResponse:
       type: object
@@ -807,6 +1246,91 @@ components:
         mode: {type: string, enum: [IN_PERSON, ONLINE]}
         roomId: {type: [string, "null"], format: uuid}
         version: {type: integer, format: int64, minimum: 0}
+    SubstitutionPreviewInput:
+      type: object
+      required: [teacherId, version]
+      properties:
+        teacherId: {type: string, format: uuid}
+        note: {type: string}
+        version: {type: integer, format: int64, minimum: 0}
+    ApplySubstitutionInput:
+      allOf:
+        - {$ref: "#/components/schemas/SubstitutionPreviewInput"}
+        - type: object
+          required: [previewId]
+          properties:
+            previewId: {type: string, format: uuid}
+            acknowledgedWarningIds: {type: array, items: {type: string}}
+    MakeupScheduleInput:
+      type: object
+      required: [date, startTime, endTime, teacherId, mode]
+      properties:
+        date: {type: string, format: date}
+        startTime: {type: string, format: time}
+        endTime: {type: string, format: time}
+        teacherId: {type: string, format: uuid}
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomId: {type: [string, "null"], format: uuid}
+    MakeupPreviewInput:
+      type: object
+      required: [makeup, version]
+      properties:
+        makeup: {$ref: "#/components/schemas/MakeupScheduleInput"}
+        version: {type: integer, format: int64, minimum: 0}
+    CancelSessionInput:
+      type: object
+      required: [reason, version]
+      properties:
+        reason: {type: string, minLength: 1}
+        version: {type: integer, format: int64, minimum: 0}
+        makeup: {$ref: "#/components/schemas/MakeupScheduleInput"}
+        previewId: {type: [string, "null"], format: uuid}
+        acknowledgedWarningIds: {type: array, items: {type: string}}
+    CreateMakeupInput:
+      type: object
+      required: [version, previewId, makeup]
+      properties:
+        version: {type: integer, format: int64, minimum: 0}
+        previewId: {type: string, format: uuid}
+        makeup: {$ref: "#/components/schemas/MakeupScheduleInput"}
+        acknowledgedWarningIds: {type: array, items: {type: string}}
+    SessionAction:
+      type: string
+      enum: [SUBSTITUTE_TEACHER, CANCEL_SESSION, CREATE_MAKEUP]
+    SessionMutationView:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        classId: {type: string, format: uuid}
+        classCode: {type: string}
+        className: {type: string}
+        ordinal: {type: integer}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        plannedTeacherId: {type: string, format: uuid}
+        actualTeacherId: {type: string, format: uuid}
+        teacherName: {type: string}
+        mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomId: {type: [string, "null"], format: uuid}
+        roomName: {type: [string, "null"]}
+        isSubstitution: {type: boolean}
+        isMakeup: {type: boolean}
+        status: {$ref: "#/components/schemas/SessionStatus"}
+        makeupRootSessionId: {type: [string, "null"], format: uuid}
+        replacesSessionId: {type: [string, "null"], format: uuid}
+        replacementSessionId: {type: [string, "null"], format: uuid}
+        cancellationReason: {type: [string, "null"]}
+        allowedActions: {type: array, items: {$ref: "#/components/schemas/SessionAction"}}
+        version: {type: integer, format: int64}
+    SessionMutationResult:
+      type: object
+      properties:
+        source: {$ref: "#/components/schemas/SessionMutationView"}
+        makeup:
+          oneOf:
+            - {$ref: "#/components/schemas/SessionMutationView"}
+            - type: "null"
+        conflicts: {type: array, items: {$ref: "#/components/schemas/ScheduleConflict"}}
     CalendarSession:
       type: object
       properties:
@@ -828,6 +1352,17 @@ components:
           readOnly: true
           description: Link do check-in tương lai thiết lập; scheduling API không ghi.
         isSubstitution: {type: boolean}
+        isMakeup: {type: boolean}
+        status: {$ref: "#/components/schemas/SessionStatus"}
+        scheduleState:
+          type: string
+          enum: [UPCOMING, TAUGHT, MISSING_CHECK_IN, CANCELLED]
+          description: Trạng thái hiển thị trên thời khóa biểu, tính theo giờ máy chủ và dữ liệu check-in.
+        makeupRootSessionId: {type: [string, "null"], format: uuid}
+        replacesSessionId: {type: [string, "null"], format: uuid}
+        replacementSessionId: {type: [string, "null"], format: uuid}
+        cancellationReason: {type: [string, "null"]}
+        allowedActions: {type: array, items: {$ref: "#/components/schemas/SessionAction"}}
         version: {type: integer, format: int64}
     WeekSchedule:
       type: object
@@ -923,7 +1458,8 @@ components:
       type: object
       required:
         [id, ordinal, startAt, endAt, status, actualTeacherName, actualTeacher, readOnly,
-         lessonName, participatedStudents, rosterStudents, missingDocumentation, testResultCount]
+         lessonName, participatedStudents, rosterStudents, missingDocumentation, hasTest,
+         testResultCount]
       properties:
         id: {type: string, format: uuid}
         ordinal: {type: integer}
@@ -937,6 +1473,7 @@ components:
         participatedStudents: {type: integer}
         rosterStudents: {type: integer}
         missingDocumentation: {type: boolean}
+        hasTest: {type: boolean}
         testResultCount: {type: integer}
     SessionStatus:
       type: string
@@ -947,22 +1484,29 @@ components:
     AttendanceStatus:
       type: string
       enum: [PRESENT, LATE, LEFT_EARLY, ABSENT_EXCUSED, ABSENT_UNEXCUSED]
-    TestResult:
+    SessionTest:
       type: object
-      required: [id, testName, score, maxScore, testDate, comment, version]
+      required: [id, testName, maxScore, testDate, comment, version]
       properties:
         id: {type: string, format: uuid}
         testName: {type: string}
-        score: {type: number, minimum: 0}
         maxScore: {type: number, exclusiveMinimum: 0}
         testDate: {type: string, format: date}
+        comment: {type: string}
+        version: {type: integer, format: int64}
+    TestResult:
+      type: object
+      required: [id, comment, version]
+      properties:
+        id: {type: string, format: uuid}
+        score: {type: [number, "null"], minimum: 0}
         comment: {type: string}
         version: {type: integer, format: int64}
     RosterStudent:
       type: object
       required:
         [studentId, code, name, attendanceNote, attendanceVersion, sessionComment,
-         commentVersion, testResults]
+         commentVersion, testResult]
       properties:
         studentId: {type: string, format: uuid}
         code: {type: string}
@@ -975,15 +1519,17 @@ components:
         attendanceVersion: {type: integer, format: int64}
         sessionComment: {type: string}
         commentVersion: {type: integer, format: int64}
-        testResults:
-          type: array
-          items: {$ref: "#/components/schemas/TestResult"}
+        testResult:
+          oneOf:
+            - {$ref: "#/components/schemas/TestResult"}
+            - type: "null"
     SessionOperationsDetail:
       type: object
       required:
         [id, classId, classCode, className, ordinal, startAt, endAt, mode, status,
-         actualTeacherName, actualTeacher, canEdit, canVerify, checkInState, checkInOpensAt,
-         rosterFrozen, rosterRevision, missingDocumentation, version, lessonReport, students,
+         plannedTeacherId, actualTeacherId, actualTeacherName, substitution, makeup,
+         allowedActions, actualTeacher, canEdit, canVerify, checkInState, checkInOpensAt,
+         rosterFrozen, rosterRevision, missingDocumentation, version, lessonReport, sessionTest, students,
          participatedStudents]
       properties:
         id: {type: string, format: uuid}
@@ -994,10 +1540,20 @@ components:
         startAt: {type: string, format: date-time}
         endAt: {type: string, format: date-time}
         mode: {type: string, enum: [IN_PERSON, ONLINE]}
+        roomId: {type: [string, "null"], format: uuid}
         roomName: {type: [string, "null"]}
         onlineLink: {type: [string, "null"], format: uri}
         status: {$ref: "#/components/schemas/SessionStatus"}
+        plannedTeacherId: {type: string, format: uuid}
+        actualTeacherId: {type: string, format: uuid}
         actualTeacherName: {type: string}
+        substitution: {type: boolean}
+        makeup: {type: boolean}
+        makeupRootSessionId: {type: [string, "null"], format: uuid}
+        replacesSessionId: {type: [string, "null"], format: uuid}
+        replacementSessionId: {type: [string, "null"], format: uuid}
+        cancellationReason: {type: [string, "null"]}
+        allowedActions: {type: array, items: {$ref: "#/components/schemas/SessionAction"}}
         actualTeacher: {type: boolean}
         canEdit: {type: boolean}
         canVerify: {type: boolean}
@@ -1020,6 +1576,10 @@ components:
             lessonContent: {type: string}
             recordUrl: {type: [string, "null"], format: uri}
             version: {type: integer, format: int64}
+        sessionTest:
+          oneOf:
+            - {$ref: "#/components/schemas/SessionTest"}
+            - type: "null"
         students:
           type: array
           items: {$ref: "#/components/schemas/RosterStudent"}
@@ -1059,16 +1619,32 @@ components:
               attendanceVersion: {type: integer, format: int64, minimum: 0}
               sessionComment: {type: string}
               commentVersion: {type: integer, format: int64, minimum: 0}
-    TestResultInput:
+    SessionTestInput:
       type: object
-      required: [testName, score, maxScore, testDate, version]
+      required: [testName, maxScore, testDate]
       properties:
         testName: {type: string, minLength: 1}
-        score: {type: number, minimum: 0}
         maxScore: {type: number, exclusiveMinimum: 0}
         testDate: {type: string, format: date}
         comment: {type: string}
-        version: {type: integer, format: int64, minimum: 0}
+    SessionTestUpdateInput:
+      allOf:
+        - {$ref: "#/components/schemas/SessionTestInput"}
+        - type: object
+          required: [version, rosterRevision, results]
+          properties:
+            version: {type: integer, format: int64, minimum: 0}
+            rosterRevision: {type: string, minLength: 1}
+            results:
+              type: array
+              items:
+                type: object
+                required: [studentId, comment, version]
+                properties:
+                  studentId: {type: string, format: uuid}
+                  score: {type: [number, "null"], minimum: 0}
+                  comment: {type: string}
+                  version: {type: integer, format: int64, minimum: 0}
     VerificationDecisionInput:
       type: object
       required: [decision, reason, version]
@@ -1076,6 +1652,302 @@ components:
         decision: {type: string, enum: [CONFIRM_TAUGHT, CANCEL]}
         reason: {type: string, minLength: 1}
         version: {type: integer, format: int64, minimum: 0}
+    LifecycleWarning:
+      type: object
+      required: [id, code, message, studentIds]
+      properties:
+        id: {type: string}
+        code: {type: string, enum: [CLASS_CAPACITY, ROOM_CAPACITY, STUDENT_SCHEDULE_CONFLICT, MISSING_ATTENDANCE, MISSING_RECORD]}
+        message: {type: string}
+        studentIds: {type: array, items: {type: string, format: uuid}}
+    ClassDetail:
+      type: object
+      required: [id, code, name, status, version, allowedTransitions, closeReadiness, futureSessionCount]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        status: {type: string, enum: [Draft, Scheduled, Active, AwaitingClose, Closed, Cancelled]}
+        version: {type: integer, format: int64, minimum: 0}
+        allowedTransitions:
+          type: array
+          items: {type: string, enum: [Closed, AwaitingClose, Cancelled]}
+        closeReadiness:
+          type: object
+          required: [missingAttendanceCount, missingRecordCount, warnings]
+          properties:
+            missingAttendanceCount: {type: integer, minimum: 0}
+            missingRecordCount: {type: integer, minimum: 0}
+            warnings: {type: array, items: {$ref: "#/components/schemas/LifecycleWarning"}}
+        futureSessionCount: {type: integer, minimum: 0}
+      additionalProperties: true
+    EnrollmentStudent:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        parentName: {type: [string, "null"]}
+        parentPhone: {type: [string, "null"]}
+    EnrollmentItem:
+      type: object
+      required: [id, student, status, effectiveFrom, version]
+      properties:
+        id: {type: string, format: uuid}
+        student: {$ref: "#/components/schemas/EnrollmentStudent"}
+        status: {type: string, enum: [Active, Left, Transferred]}
+        effectiveFrom: {type: string, format: date, description: "Ngày vào, bao gồm"}
+        effectiveTo: {type: [string, "null"], format: date, description: "Ngày rời, không bao gồm"}
+        endReason: {type: [string, "null"]}
+        tuitionChargeId: {type: [string, "null"], format: uuid}
+        originalTuitionAmount: {type: [number, "null"]}
+        tuitionStatus: {type: [string, "null"], enum: [UNPAID, PAID, PARTIALLY_REFUNDED, REFUNDED, null]}
+        version: {type: integer, format: int64, minimum: 0}
+    EnrollmentPage:
+      allOf:
+        - {$ref: "#/components/schemas/Page"}
+        - type: object
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/EnrollmentItem"}}
+    EnrollmentCandidate:
+      allOf:
+        - {$ref: "#/components/schemas/EnrollmentStudent"}
+    EnrollmentCandidatePage:
+      allOf:
+        - {$ref: "#/components/schemas/Page"}
+        - type: object
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/EnrollmentCandidate"}}
+    AddEnrollmentsInput:
+      type: object
+      required: [studentIds, classVersion]
+      properties:
+        studentIds: {type: array, minItems: 1, uniqueItems: true, items: {type: string, format: uuid}}
+        classVersion: {type: integer, format: int64, minimum: 0}
+        acknowledgedWarningIds: {type: array, uniqueItems: true, items: {type: string}}
+    AddEnrollmentsResult:
+      type: object
+      required: [enrollments, classVersion]
+      properties:
+        enrollments: {type: array, items: {$ref: "#/components/schemas/EnrollmentItem"}}
+        classVersion: {type: integer, format: int64, minimum: 0}
+    EndEnrollmentInput:
+      type: object
+      required: [targetStatus, reason, classVersion, enrollmentVersion]
+      properties:
+        targetStatus: {type: string, enum: [Left, Transferred]}
+        reason: {type: string, minLength: 1}
+        classVersion: {type: integer, format: int64, minimum: 0}
+        enrollmentVersion: {type: integer, format: int64, minimum: 0}
+    EndEnrollmentResult:
+      type: object
+      required: [enrollment, classVersion]
+      properties:
+        enrollment: {$ref: "#/components/schemas/EnrollmentItem"}
+        classVersion: {type: integer, format: int64, minimum: 0}
+    ChangeClassStatusInput:
+      type: object
+      required: [targetStatus, version]
+      properties:
+        targetStatus: {type: string, enum: [Closed, AwaitingClose, Cancelled]}
+        reason: {type: string, description: Bắt buộc khi mở lại hoặc hủy}
+        version: {type: integer, format: int64, minimum: 0}
+        acknowledgedWarningIds: {type: array, uniqueItems: true, items: {type: string}}
+    ChangeClassStatusResult:
+      type: object
+      required: [classId, status, version, cancelledFutureSessions, acknowledgedWarnings]
+      properties:
+        classId: {type: string, format: uuid}
+        status: {type: string, enum: [Closed, AwaitingClose, Cancelled]}
+        version: {type: integer, format: int64, minimum: 0}
+        cancelledFutureSessions: {type: integer, minimum: 0}
+        acknowledgedWarnings: {type: array, items: {$ref: "#/components/schemas/LifecycleWarning"}}
+    StudentClassItem:
+      type: object
+      required: [id, code, name, teacherName, scheduleSummary, status, access, effectiveFrom, completedSessions, totalSessions]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        teacherName: {type: string}
+        scheduleSummary: {type: string}
+        status: {type: string, enum: [Scheduled, Active, AwaitingClose, Closed, Cancelled]}
+        access: {type: string, enum: [Accessible, Locked]}
+        effectiveFrom: {type: string, format: date}
+        effectiveTo: {type: [string, "null"], format: date}
+        completedSessions: {type: integer, minimum: 0}
+        totalSessions: {type: integer, minimum: 1}
+        expectedEndDate: {type: [string, "null"], format: date}
+    StudentClassPage:
+      allOf:
+        - {$ref: "#/components/schemas/Page"}
+        - type: object
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/StudentClassItem"}}
+    StudentClassDetail:
+      type: object
+      required: [id, code, name, description, teacherName, scheduleSummary, status, completedSessions, totalSessions]
+      properties:
+        id: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        description: {type: string}
+        teacherName: {type: string}
+        scheduleSummary: {type: string}
+        status: {type: string, enum: [Scheduled, Active, AwaitingClose]}
+        completedSessions: {type: integer, minimum: 0}
+        totalSessions: {type: integer, minimum: 1}
+        expectedEndDate: {type: [string, "null"], format: date}
+    StudentSessionItem:
+      type: object
+      required: [id, ordinal, startAt, endAt, status, teacherName, lessonName, lessonContent]
+      properties:
+        id: {type: string, format: uuid}
+        ordinal: {type: integer, minimum: 1}
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        status: {type: string}
+        teacherName: {type: string}
+        lessonName: {type: string}
+        lessonContent: {type: string}
+        attendanceStatus: {oneOf: [{$ref: "#/components/schemas/AttendanceStatus"}, {type: "null"}]}
+        attendanceNote: {type: [string, "null"]}
+        recordUrl: {type: [string, "null"], format: uri}
+        comment: {type: [string, "null"]}
+        testResult:
+          oneOf:
+            - {$ref: "#/components/schemas/StudentTestResult"}
+            - {type: "null"}
+    StudentTestResult:
+      type: object
+      required: [id, testName, score, maxScore, testDate, comment, testComment]
+      properties:
+        id: {type: string, format: uuid}
+        testName: {type: string}
+        score: {type: [number, "null"], minimum: 0}
+        maxScore: {type: number, exclusiveMinimum: 0}
+        testDate: {type: string, format: date}
+        comment: {type: string, description: Nhận xét riêng cho kết quả của học sinh}
+        testComment: {type: string, description: Ghi chú chung của bài kiểm tra}
+    StudentSessionPage:
+      allOf:
+        - {$ref: "#/components/schemas/Page"}
+        - type: object
+          properties:
+            items: {type: array, items: {$ref: "#/components/schemas/StudentSessionItem"}}
+    HourlyRateInput:
+      type: object
+      required: [effectiveDate, hourlyRate, reason]
+      properties:
+        effectiveDate: {type: string, format: date}
+        hourlyRate: {type: number, exclusiveMinimum: 0}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+    HourlyRateUpdate:
+      allOf:
+        - {$ref: "#/components/schemas/HourlyRateInput"}
+        - type: object
+          required: [version]
+          properties: {version: {type: integer, format: int64, minimum: 0}}
+    HourlyRate:
+      type: object
+      required: [id, classId, effectiveDate, hourlyRate, version, createdAt, updatedAt]
+      properties:
+        id: {type: string, format: uuid}
+        classId: {type: string, format: uuid}
+        effectiveDate: {type: string, format: date}
+        effectiveTo: {type: [string, "null"], format: date}
+        hourlyRate: {type: number, exclusiveMinimum: 0}
+        version: {type: integer, format: int64, minimum: 0}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+    CompletionCorrection:
+      type: object
+      required: [startAt, endAt, actualTeacherId, reason, version]
+      properties:
+        startAt: {type: string, format: date-time}
+        endAt: {type: string, format: date-time}
+        actualTeacherId: {type: string, format: uuid}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+        version: {type: integer, format: int64, minimum: 0}
+    SalaryAdjustmentInput:
+      type: object
+      required: [teacherId, salaryMonth, amount, reason]
+      properties:
+        teacherId: {type: string, format: uuid}
+        salaryMonth: {type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$"}
+        amount: {type: number, not: {const: 0}}
+        reason: {type: string, minLength: 1, maxLength: 1000}
+    SalaryAdjustmentUpdate:
+      allOf:
+        - {$ref: "#/components/schemas/SalaryAdjustmentInput"}
+        - type: object
+          required: [editReason, version]
+          properties:
+            editReason: {type: string, minLength: 1, maxLength: 1000}
+            version: {type: integer, format: int64, minimum: 0}
+    SalaryPaymentInput:
+      type: object
+      required: [teacherId, salaryMonth, paidAt, amount, method, confirmOverpayment]
+      properties:
+        teacherId: {type: string, format: uuid}
+        salaryMonth: {type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$"}
+        paidAt: {type: string, format: date}
+        amount: {type: number, exclusiveMinimum: 0}
+        method: {type: string, enum: [CASH, BANK_TRANSFER]}
+        reference: {type: [string, "null"], maxLength: 250}
+        confirmOverpayment: {type: boolean}
+        overpaymentReason: {type: [string, "null"], maxLength: 1000}
+    SalaryPaymentUpdate:
+      allOf:
+        - {$ref: "#/components/schemas/SalaryPaymentInput"}
+        - type: object
+          required: [editReason, version]
+          properties:
+            editReason: {type: string, minLength: 1, maxLength: 1000}
+            version: {type: integer, format: int64, minimum: 0}
+    PayrollMetrics:
+      type: object
+      required: [sessionCount, totalMinutes, accrued, adjustments, due, paid, outstanding]
+      properties:
+        sessionCount: {type: integer, format: int64, minimum: 0}
+        totalMinutes: {type: integer, format: int64, minimum: 0}
+        accrued: {type: number}
+        adjustments: {type: number}
+        due: {type: number}
+        paid: {type: number}
+        outstanding: {type: number}
+        status: {type: string, enum: [OWED, SETTLED, OVERPAID]}
+    PayrollTeacherRow:
+      allOf:
+        - {$ref: "#/components/schemas/PayrollMetrics"}
+        - type: object
+          required: [teacherId, teacherName]
+          properties:
+            teacherId: {type: string, format: uuid}
+            teacherName: {type: string}
+    PayrollPage:
+      type: object
+      required: [month, metrics, teachers]
+      properties:
+        month: {type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$"}
+        metrics: {$ref: "#/components/schemas/PayrollMetrics"}
+        teachers:
+          allOf:
+            - {$ref: "#/components/schemas/Page"}
+            - type: object
+              properties: {items: {type: array, items: {$ref: "#/components/schemas/PayrollTeacherRow"}}}
+    TeacherPayrollDetail:
+      type: object
+      required: [month, teacherId, teacherName, metrics, accruals, adjustments, payments]
+      properties:
+        month: {type: string, pattern: "^\\d{4}-(0[1-9]|1[0-2])$"}
+        teacherId: {type: string, format: uuid}
+        teacherName: {type: string}
+        metrics: {$ref: "#/components/schemas/PayrollMetrics"}
+        accruals: {type: array, items: {type: object}}
+        adjustments: {type: array, items: {type: object}}
+        payments: {type: array, items: {type: object}}
     Page:
       type: object
       required: [items, page, pageSize, totalItems, totalPages]

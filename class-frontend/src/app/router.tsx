@@ -1,14 +1,20 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
+import { PlatformShell } from "./layout/PlatformShell";
 import { TenantProvider } from "./providers/TenantProvider";
-import { RequireAnyPermission, RequireAuth, RequirePermission, RequireTenantScope } from "./guards";
+import { RequireAnyPermission, RequireAuth, RequirePermission, RequirePlatformScope, RequireTenantScope } from "./guards";
 import { PERMISSIONS } from "../shared/lib/permissions";
 import { PageSkeleton } from "../shared/ui/Skeleton";
 import { RouteErrorPage } from "./pages/RouteErrorPage";
 
 const LoginPage = lazy(() =>
   import("../features/auth/LoginPage").then((module) => ({ default: module.LoginPage })),
+);
+const TenantLoginGatewayPage = lazy(() =>
+  import("../features/auth/TenantLoginGatewayPage").then((module) => ({
+    default: module.TenantLoginGatewayPage,
+  })),
 );
 const ForgotPasswordPage = lazy(() =>
   import("../features/auth/ForgotPasswordPage").then((module) => ({
@@ -38,6 +44,16 @@ const ClassDetailPage = lazy(() =>
 const ClassWizardPage = lazy(() =>
   import("../features/classes/ClassWizardPage").then((module) => ({
     default: module.ClassWizardPage,
+  })),
+);
+const MyLearningClassesPage = lazy(() =>
+  import("../features/classes/MyLearningClassesPage").then((module) => ({
+    default: module.MyLearningClassesPage,
+  })),
+);
+const StudentClassDetailPage = lazy(() =>
+  import("../features/classes/StudentClassDetailPage").then((module) => ({
+    default: module.StudentClassDetailPage,
   })),
 );
 const ManagementSchedulePage = lazy(() =>
@@ -81,6 +97,13 @@ const ForbiddenPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
+const PlatformLoginPage = lazy(() => import("../features/platform/PlatformLoginPage").then(m=>({default:m.PlatformLoginPage})));
+const PlatformTenantListPage = lazy(() => import("../features/platform/PlatformTenantListPage").then(m=>({default:m.PlatformTenantListPage})));
+const AccountListPage = lazy(() => import("../features/accounts/AccountListPage").then(m=>({default:m.AccountListPage})));
+const AccountFormPage = lazy(() => import("../features/accounts/AccountFormPage").then(m=>({default:m.AccountFormPage})));
+const SalaryPayrollPage = lazy(() => import("../features/salary/SalaryPayrollPage").then(m=>({default:m.SalaryPayrollPage})));
+const SalaryTeacherDetailPage = lazy(() => import("../features/salary/SalaryTeacherDetailPage").then(m=>({default:m.SalaryTeacherDetailPage})));
+const MySalaryPage = lazy(() => import("../features/salary/MySalaryPage").then(m=>({default:m.MySalaryPage})));
 
 const withSuspense = (content: ReactNode) => (
   <Suspense fallback={<PageSkeleton />}>{content}</Suspense>
@@ -95,8 +118,14 @@ const TenantRoot = () => (
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/t/anh-duong/login" replace />,
+    element: withSuspense(<TenantLoginGatewayPage />),
   },
+  { path: "/platform/login", element: withSuspense(<PlatformLoginPage />) },
+  { path: "/platform/403", element: withSuspense(<ForbiddenPage />) },
+  { path: "/platform/app", element: <RequireAuth><RequirePlatformScope><PlatformShell /></RequirePlatformScope></RequireAuth>, children: [
+    { index: true, element: <Navigate to="tenants" replace /> },
+    { path: "tenants", element: withSuspense(<PlatformTenantListPage />) },
+  ]},
   {
     path: "/t/:tenantSlug",
     element: <TenantRoot />,
@@ -186,6 +215,26 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: "learning-classes",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_OWN_LEARNING}>
+                  {withSuspense(<MyLearningClassesPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "learning-classes/:classId",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_OWN_LEARNING}>
+                  {withSuspense(<StudentClassDetailPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
             path: "teacher-dashboard",
             element: (
               <RequireTenantScope>
@@ -216,6 +265,18 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: "accounts",
+            element: <RequireTenantScope><RequireAnyPermission permissions={[PERMISSIONS.MANAGE_TENANT_ACCOUNTS,PERMISSIONS.MANAGE_LEARNING_ACCOUNTS]}>{withSuspense(<AccountListPage />)}</RequireAnyPermission></RequireTenantScope>,
+          },
+          {
+            path: "accounts/new",
+            element: <RequireTenantScope><RequireAnyPermission permissions={[PERMISSIONS.MANAGE_TENANT_ACCOUNTS,PERMISSIONS.MANAGE_LEARNING_ACCOUNTS]}>{withSuspense(<AccountFormPage />)}</RequireAnyPermission></RequireTenantScope>,
+          },
+          {
+            path: "accounts/:accountId",
+            element: <RequireTenantScope><RequireAnyPermission permissions={[PERMISSIONS.MANAGE_TENANT_ACCOUNTS,PERMISSIONS.MANAGE_LEARNING_ACCOUNTS]}>{withSuspense(<AccountFormPage />)}</RequireAnyPermission></RequireTenantScope>,
+          },
+          {
             path: "sessions/:sessionId",
             element: (
               <RequireTenantScope>
@@ -227,6 +288,36 @@ export const router = createBrowserRouter([
                 >
                   {withSuspense(<SessionOperationsPage />)}
                 </RequireAnyPermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "finance/salaries",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_SALARY}>
+                  {withSuspense(<SalaryPayrollPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "finance/salaries/:teacherId",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_SALARY}>
+                  {withSuspense(<SalaryTeacherDetailPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "my-salary",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_OWN_SALARY}>
+                  {withSuspense(<MySalaryPage />)}
+                </RequirePermission>
               </RequireTenantScope>
             ),
           },

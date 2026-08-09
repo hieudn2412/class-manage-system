@@ -1,5 +1,5 @@
 flowchart LR
-  SA["Super Admin"] -->|"Tạo / khóa tenant"| PLATFORM["Nền tảng SaaS"]
+  SA["Super Admin"] -->|"JWT PLATFORM · không tenantId"| PLATFORM["Workspace /platform"]
 
   subgraph TA["Tenant A — Trung tâm Ánh Dương"]
     AADM["Admin / Học vụ / Kế toán"]
@@ -19,8 +19,10 @@ flowchart LR
     APP_B --> BDATA
   end
 
-  PLATFORM -->|"Cấp phiên có tenant_id"| APP_A
-  PLATFORM -->|"Cấp phiên có tenant_id"| APP_B
+  PLATFORM -->|"Tạo/khóa tenant + Admin ban đầu"| ADATA
+  PLATFORM -->|"Tạo/khóa tenant + Admin ban đầu"| BDATA
+  PLATFORM -. "API nghiệp vụ luôn 403" .-> APP_A
+  PLATFORM -. "API nghiệp vụ luôn 403" .-> APP_B
   APP_A -. "Bị chặn ở mọi lớp truy cập" .-> BDATA
   APP_B -. "Bị chặn ở mọi lớp truy cập" .-> ADATA
 
@@ -33,4 +35,3 @@ flowchart LR
   classDef blocked fill:#f4f4f4,stroke:#555,stroke-dasharray:5 5;
   class PLATFORM,APP_A,APP_B boundary;
   class ADATA,BDATA,STORE blocked;
-

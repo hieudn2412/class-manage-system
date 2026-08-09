@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, AlertTriangle, BookOpenCheck, Users } from "lucide-react";
+import { ArrowLeft, AlertTriangle, BookOpenCheck, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTenant } from "../../app/providers/TenantProvider";
@@ -12,6 +12,9 @@ import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { classStatusLabels, classStatusTones } from "./classPresentation";
 import { hasPermission, PERMISSIONS } from "../../shared/lib/permissions";
+import { EnrollmentPanel } from "./components/EnrollmentPanel";
+import { LifecycleActions } from "./components/LifecycleActions";
+import { HourlyRatePanel } from "./components/HourlyRatePanel";
 
 type Tab = "overview" | "sessions" | "students" | "materials";
 
@@ -49,6 +52,11 @@ export const ClassDetailPage = () => {
     session &&
     hasPermission(session.user.roles, PERMISSIONS.MANAGE_CLASSES),
   );
+  const canManageEnrollments = Boolean(
+    session &&
+    hasPermission(session.user.roles, PERMISSIONS.MANAGE_CLASSES) &&
+    ["Scheduled", "Active", "AwaitingClose"].includes(item.status),
+  );
   const progress = Math.round((item.completedSessions / item.totalSessions) * 100);
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Tổng quan" },
@@ -66,10 +74,11 @@ export const ClassDetailPage = () => {
       <PageHeader
         eyebrow={`WF-06 · ${item.code}`}
         title={item.name}
-        subtitle="Trung tâm của tiến độ, lịch, roster và hồ sơ buổi — chế độ chỉ đọc trong vertical slice này."
+        subtitle="Quản lý vòng đời, lịch, roster và hồ sơ buổi học trong một nơi."
         actions={
           <>
             <Badge tone={classStatusTones[item.status]}>{classStatusLabels[item.status]}</Badge>
+            <LifecycleActions item={item} />
             {canEditDraft ? (
               <Link className="button" to={`/t/${tenant.slug}/app/classes/${item.id}/edit`}>
                 Tiếp tục thiết lập
@@ -163,15 +172,28 @@ export const ClassDetailPage = () => {
                     <li key={session.id}>
                       <span>
                         <strong>
-                          Buổi {session.ordinal} · {session.lessonName}
+                          Buổi {session.ordinal} · {session.lessonName || "Chưa nhập tên bài học"}
                         </strong>
                         <small>
                           {formatDateTime(session.startAt)} · {session.teacherName}
                         </small>
                       </span>
-                      <Badge tone={session.recordStatus === "COMPLETE" ? "success" : "warning"}>
-                        {session.recordStatus === "COMPLETE" ? "Đủ hồ sơ" : "Thiếu record"}
-                      </Badge>
+                      <span className="record-actions">
+                        <Badge tone={session.recordStatus === "COMPLETE" ? "success" : "warning"}>
+                          {session.recordStatus === "COMPLETE" ? "Đủ hồ sơ" : "Thiếu record"}
+                        </Badge>
+                        {session.recordUrl ? (
+                          <a
+                            className="record-link"
+                            href={session.recordUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Mở record
+                            <ExternalLink size={15} aria-hidden="true" />
+                          </a>
+                        ) : null}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -180,6 +202,7 @@ export const ClassDetailPage = () => {
               )}
             </section>
           </div>
+          <HourlyRatePanel classId={item.id} />
         </>
       ) : null}
 
@@ -203,7 +226,7 @@ export const ClassDetailPage = () => {
                   <tr key={session.id}>
                     <td>#{session.ordinal}</td>
                     <td>{formatDateTime(session.startAt)}</td>
-                    <td>{session.lessonName}</td>
+                    <td>{session.lessonName || "Chưa nhập tên bài học"}</td>
                     <td>{session.teacherName}</td>
                     <td>
                       {session.attendanceRate === null
@@ -211,9 +234,22 @@ export const ClassDetailPage = () => {
                         : formatPercent(session.attendanceRate)}
                     </td>
                     <td>
-                      <Badge tone={session.recordStatus === "COMPLETE" ? "success" : "warning"}>
-                        {session.recordStatus === "COMPLETE" ? "Đã có" : "Còn thiếu"}
-                      </Badge>
+                      <span className="record-actions">
+                        <Badge tone={session.recordStatus === "COMPLETE" ? "success" : "warning"}>
+                          {session.recordStatus === "COMPLETE" ? "Đã có" : "Còn thiếu"}
+                        </Badge>
+                        {session.recordUrl ? (
+                          <a
+                            className="record-link"
+                            href={session.recordUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Mở record
+                            <ExternalLink size={15} aria-hidden="true" />
+                          </a>
+                        ) : null}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -230,11 +266,10 @@ export const ClassDetailPage = () => {
       ) : null}
 
       {tab === "students" ? (
-        <StatePanel
-          kind="empty"
-          title={`${item.studentCount} học sinh đang tham gia`}
-          description="Roster chi tiết chỉ đọc sẽ được nối khi backend cung cấp contract enrollment. Giáo viên không có quyền thêm hoặc bỏ học sinh."
-          action={<Users size={30} aria-hidden="true" />}
+        <EnrollmentPanel
+          classId={item.id}
+          classVersion={item.version}
+          canManage={canManageEnrollments}
         />
       ) : null}
 

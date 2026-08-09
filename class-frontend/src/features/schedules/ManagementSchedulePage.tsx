@@ -16,6 +16,7 @@ import { Skeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { PublishedSessionOverrideModal } from "./components/PublishedSessionOverrideModal";
 import { SessionDetailsModal } from "./components/SessionDetailsModal";
+import { SessionMutationModal } from "./components/SessionMutationModal";
 import { WeekNavigator } from "./components/WeekNavigator";
 import { WeeklyCalendar } from "./components/WeeklyCalendar";
 
@@ -29,6 +30,10 @@ export const ManagementSchedulePage = () => {
   const roomId = searchParams.get("roomId") ?? "";
   const [selectedSessions, setSelectedSessions] = useState<CalendarSession[]>([]);
   const [editingSession, setEditingSession] = useState<CalendarSession | null>(null);
+  const [mutatingSession, setMutatingSession] = useState<{
+    action: "SUBSTITUTE_TEACHER" | "CANCEL_SESSION" | "CREATE_MAKEUP";
+    session: CalendarSession;
+  } | null>(null);
   const canManage = Boolean(
     session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_SESSION_SCHEDULE),
   );
@@ -134,6 +139,18 @@ export const ManagementSchedulePage = () => {
           setSelectedSessions([]);
           setEditingSession(selected);
         }}
+        onSubstitute={(selected) => {
+          setSelectedSessions([]);
+          setMutatingSession({ action: "SUBSTITUTE_TEACHER", session: selected });
+        }}
+        onCancel={(selected) => {
+          setSelectedSessions([]);
+          setMutatingSession({ action: "CANCEL_SESSION", session: selected });
+        }}
+        onCreateMakeup={(selected) => {
+          setSelectedSessions([]);
+          setMutatingSession({ action: "CREATE_MAKEUP", session: selected });
+        }}
         onOpen={(selected) => {
           setSelectedSessions([]);
           void navigate(`/t/${tenant.slug}/app/sessions/${selected.id}`);
@@ -146,6 +163,28 @@ export const ManagementSchedulePage = () => {
           options={optionsQuery.data}
           onClose={() => setEditingSession(null)}
           onSaved={() => setEditingSession(null)}
+        />
+      ) : null}
+      {optionsQuery.data && mutatingSession ? (
+        <SessionMutationModal
+          key={`${mutatingSession.action}-${mutatingSession.session.id}-${mutatingSession.session.version}`}
+          action={mutatingSession.action}
+          session={{
+            id: mutatingSession.session.id,
+            className: mutatingSession.session.className,
+            classCode: mutatingSession.session.classCode,
+            ordinal: mutatingSession.session.ordinal,
+            startAt: mutatingSession.session.startAt,
+            endAt: mutatingSession.session.endAt,
+            actualTeacherId: mutatingSession.session.actualTeacherId,
+            actualTeacherName: mutatingSession.session.teacherName,
+            mode: mutatingSession.session.mode,
+            roomId: mutatingSession.session.roomId,
+            version: mutatingSession.session.version,
+          }}
+          options={optionsQuery.data}
+          onClose={() => setMutatingSession(null)}
+          onSaved={() => setMutatingSession(null)}
         />
       ) : null}
     </>

@@ -2,12 +2,12 @@ import { apiRequest } from "../api/apiClient";
 import type {
   Page,
   PedagogicalRecordInput,
+  SessionTestInput,
+  SessionTestUpdateInput,
   SessionOperationsDetail,
   TeacherClassItem,
   TeacherClassSessions,
   TeacherDashboardData,
-  TestResult,
-  TestResultInput,
   VerificationDecision,
 } from "../../shared/types/domain";
 
@@ -15,6 +15,12 @@ export interface TeacherClassSearchParams {
   search: string;
   status: string;
   role: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface TeacherSessionSearchParams {
+  status: string;
   page: number;
   pageSize: number;
 }
@@ -37,11 +43,12 @@ export const teachingRepository = {
       { tenantSlug },
     ),
 
-  getClassSessions: (tenantSlug: string, classId: string, page: number, pageSize: number) =>
+  getClassSessions: (tenantSlug: string, classId: string, params: TeacherSessionSearchParams) =>
     apiRequest<TeacherClassSessions>(
       `teachers/me/classes/${classId}/sessions?${new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
+        status: params.status,
+        page: String(params.page),
+        pageSize: String(params.pageSize),
       }).toString()}`,
       { tenantSlug },
     ),
@@ -65,29 +72,23 @@ export const teachingRepository = {
       body: JSON.stringify(input),
     }),
 
-  createTestResult: (
-    tenantSlug: string,
-    sessionId: string,
-    studentId: string,
-    input: TestResultInput,
-  ) =>
-    apiRequest<TestResult>(`sessions/${sessionId}/students/${studentId}/test-results`, {
+  createSessionTest: (tenantSlug: string, sessionId: string, input: SessionTestInput) =>
+    apiRequest<SessionOperationsDetail>(`sessions/${sessionId}/tests`, {
       tenantSlug,
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey() },
       body: JSON.stringify(input),
     }),
 
-  updateTestResult: (
+  updateSessionTest: (
     tenantSlug: string,
     sessionId: string,
-    studentId: string,
-    resultId: string,
-    input: TestResultInput,
+    testId: string,
+    input: SessionTestUpdateInput,
   ) =>
-    apiRequest<TestResult>(`sessions/${sessionId}/students/${studentId}/test-results/${resultId}`, {
+    apiRequest<SessionOperationsDetail>(`sessions/${sessionId}/tests/${testId}`, {
       tenantSlug,
-      method: "PUT",
+      method: "PATCH",
       headers: { "Idempotency-Key": idempotencyKey() },
       body: JSON.stringify(input),
     }),

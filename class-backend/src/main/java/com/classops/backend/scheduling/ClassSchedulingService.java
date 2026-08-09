@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -39,16 +40,18 @@ public class ClassSchedulingService {
     private final CurrentActor actor;
     private final JdbcClient jdbc;
     private final ObjectMapper mapper;
+    private final Clock clock;
 
     public ClassSchedulingService(SchedulingStore store, SchedulingEngine engine,
                                   SchedulingProperties properties, CurrentActor actor,
-                                  JdbcClient jdbc, ObjectMapper mapper) {
+                                  JdbcClient jdbc, ObjectMapper mapper, Clock clock) {
         this.store = store;
         this.engine = engine;
         this.properties = properties;
         this.actor = actor;
         this.jdbc = jdbc;
         this.mapper = mapper;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -185,11 +188,14 @@ public class ClassSchedulingService {
             UUID enrollmentId = UUID.randomUUID();
             jdbc.sql("""
                     INSERT INTO class_enrollments (
-                      id, tenant_id, class_id, student_id, status, effective_from
-                    ) VALUES (:id, :tenantId, :classId, :studentId, 'ACTIVE', :effectiveFrom)
+                      id, tenant_id, class_id, student_id, status, effective_from, created_by
+                    ) VALUES (
+                      :id, :tenantId, :classId, :studentId, 'ACTIVE', :effectiveFrom, :createdBy
+                    )
                     """)
                 .param("id", enrollmentId).param("tenantId", tenantId).param("classId", classId)
-                .param("studentId", studentId).param("effectiveFrom", input.startDate()).update();
+                .param("studentId", studentId).param("effectiveFrom", input.startDate())
+                .param("createdBy", actor.userId()).update();
             jdbc.sql("""
                     INSERT INTO tuition_charges (
                       id, tenant_id, class_id, student_id, enrollment_id, amount, status
@@ -272,6 +278,7 @@ public class ClassSchedulingService {
         UUID tenantId = actor.tenantId();
         BaseClass row = jdbc.sql("""
                 SELECT c.id, c.code, c.name, c.status, c.total_sessions, c.expected_end_date,
+                       c.version,
                        c.default_mode, c.primary_teacher_id, u.display_name AS teacher_name,
                        COALESCE((SELECT hourly_rate FROM class_hourly_rates hr
                          WHERE hr.tenant_id=c.tenant_id AND hr.class_id=c.id
@@ -279,13 +286,36 @@ public class ClassSchedulingService {
                        (SELECT count(*) FROM class_sessions s WHERE s.tenant_id=c.tenant_id
                          AND s.class_id=c.id AND s.status='COMPLETED') AS completed_sessions,
                        (SELECT count(*) FROM class_enrollments e WHERE e.tenant_id=c.tenant_id
-                         AND e.class_id=c.id AND e.status='ACTIVE') AS student_count
+                         AND e.class_id=c.id AND e.status='ACTIVE') AS student_count,
+                       (SELECT count(*) FROM class_sessions future_session
+                         WHERE future_session.tenant_id=c.tenant_id
+                           AND future_session.class_id=c.id
+                           AND future_session.status<>'CANCELLED'
+                           AND future_session.start_at>:now) AS future_session_count,
+                       (SELECT count(*) FROM class_sessions missing_session
+                         WHERE missing_session.tenant_id=c.tenant_id
+                           AND missing_session.class_id=c.id
+                           AND missing_session.status IN ('COMPLETED','PENDING_CONFIRMATION')
+                           AND NOT EXISTS (SELECT 1 FROM session_attendances attendance
+                             WHERE attendance.tenant_id=missing_session.tenant_id
+                               AND attendance.session_id=missing_session.id))
+                         AS missing_attendance_count,
+                       (SELECT count(*) FROM class_sessions missing_session
+                         LEFT JOIN session_lesson_reports report
+                           ON report.tenant_id=missing_session.tenant_id
+                          AND report.session_id=missing_session.id
+                         WHERE missing_session.tenant_id=c.tenant_id
+                           AND missing_session.class_id=c.id
+                           AND missing_session.status IN ('COMPLETED','PENDING_CONFIRMATION')
+                           AND (report.record_url IS NULL OR btrim(report.record_url)=''))
+                         AS missing_record_count
                 FROM classes c
                 JOIN teacher_profiles t ON t.tenant_id=c.tenant_id AND t.id=c.primary_teacher_id
                 JOIN users u ON u.tenant_id=t.tenant_id AND u.id=t.user_id
                 WHERE c.tenant_id=:tenantId AND c.id=:classId
                 """)
             .param("tenantId", tenantId).param("classId", classId)
+            .param("now", OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))
             .query((rs, number) -> new BaseClass(
                 rs.getObject("id", UUID.class), rs.getString("code"), rs.getString("name"),
                 rs.getString("status"), rs.getInt("total_sessions"),
@@ -293,23 +323,47 @@ public class ClassSchedulingService {
                 SchedulingDtos.DeliveryMode.valueOf(rs.getString("default_mode")),
                 rs.getObject("primary_teacher_id", UUID.class), rs.getString("teacher_name"),
                 rs.getBigDecimal("hourly_rate"), rs.getInt("completed_sessions"),
-                rs.getInt("student_count")))
+                rs.getInt("student_count"), rs.getLong("version"),
+                rs.getInt("future_session_count"), rs.getInt("missing_attendance_count"),
+                rs.getInt("missing_record_count")))
             .optional()
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CLASS_NOT_FOUND",
                 "Không tìm thấy lớp."));
         List<SchedulingDtos.ClassSessionSummary> sessions = jdbc.sql("""
-                SELECT s.id, s.ordinal, s.start_at, u.display_name AS teacher_name
+                SELECT s.id, s.ordinal, s.start_at, u.display_name AS teacher_name,
+                       COALESCE(lr.lesson_name, '') AS lesson_name,
+                       lr.record_url,
+                       CASE
+                         WHEN lr.record_url IS NOT NULL AND btrim(lr.record_url) <> ''
+                         THEN 'COMPLETE' ELSE 'MISSING'
+                       END AS record_status,
+                       CASE
+                         WHEN (SELECT count(*) FROM session_attendances attendance
+                               WHERE attendance.tenant_id=s.tenant_id
+                                 AND attendance.session_id=s.id) = 0 THEN NULL
+                         ELSE ROUND(
+                           100.0 * (SELECT count(*) FROM session_attendances attendance
+                                     WHERE attendance.tenant_id=s.tenant_id
+                                       AND attendance.session_id=s.id
+                                       AND attendance.status IN ('PRESENT','LATE','LEFT_EARLY'))
+                           / (SELECT count(*) FROM session_attendances attendance
+                               WHERE attendance.tenant_id=s.tenant_id
+                                 AND attendance.session_id=s.id), 2)
+                       END AS attendance_rate
                 FROM class_sessions s
                 JOIN teacher_profiles t ON t.tenant_id=s.tenant_id AND t.id=s.actual_teacher_id
                 JOIN users u ON u.tenant_id=t.tenant_id AND u.id=t.user_id
+                LEFT JOIN session_lesson_reports lr
+                  ON lr.tenant_id=s.tenant_id AND lr.session_id=s.id
                 WHERE s.tenant_id=:tenantId AND s.class_id=:classId
                 ORDER BY s.ordinal
                 """)
             .param("tenantId", tenantId).param("classId", classId)
             .query((rs, number) -> new SchedulingDtos.ClassSessionSummary(
                 rs.getObject("id", UUID.class), rs.getInt("ordinal"),
-                rs.getObject("start_at", OffsetDateTime.class), "",
-                rs.getString("teacher_name"), null, "MISSING"))
+                rs.getObject("start_at", OffsetDateTime.class), rs.getString("lesson_name"),
+                rs.getString("teacher_name"), rs.getBigDecimal("attendance_rate"),
+                rs.getString("record_status"), rs.getString("record_url")))
             .list();
         String room = jdbc.sql("""
                 SELECT r.name FROM class_schedule_patterns p
@@ -319,14 +373,48 @@ public class ClassSchedulingService {
                 """)
             .param("tenantId", tenantId).param("classId", classId)
             .query(String.class).optional().orElse("");
+        String currentLesson = sessions.stream()
+            .filter(session -> session.lessonName() != null && !session.lessonName().isBlank())
+            .reduce((first, second) -> second)
+            .map(SchedulingDtos.ClassSessionSummary::lessonName)
+            .orElse("");
+        List<SchedulingDtos.CloseReadinessWarning> readinessWarnings = new java.util.ArrayList<>();
+        if (row.missingAttendanceCount() > 0) {
+            readinessWarnings.add(new SchedulingDtos.CloseReadinessWarning(
+                "CLOSE_MISSING_ATTENDANCE:" + classId, "MISSING_ATTENDANCE",
+                row.missingAttendanceCount() + " buổi chưa có điểm danh."));
+        }
+        if (row.missingRecordCount() > 0) {
+            readinessWarnings.add(new SchedulingDtos.CloseReadinessWarning(
+                "CLOSE_MISSING_RECORD:" + classId, "MISSING_RECORD",
+                row.missingRecordCount() + " buổi chưa có record."));
+        }
+        List<String> allowedTransitions = new java.util.ArrayList<>();
+        boolean admin = actor.roles().contains("ADMIN");
+        boolean academic = actor.roles().contains("ACADEMIC_MANAGER");
+        if ("AWAITING_CLOSE".equals(row.status()) && (admin || academic)) {
+            allowedTransitions.add("Closed");
+        }
+        if ("CLOSED".equals(row.status()) && admin) {
+            allowedTransitions.add("AwaitingClose");
+        }
+        if (Set.of("DRAFT", "SCHEDULED", "ACTIVE", "AWAITING_CLOSE").contains(row.status())
+            && (admin || academic)) {
+            allowedTransitions.add("Cancelled");
+        }
         return new ClassDetail(
             row.id(), row.code(), row.name(), new TeacherOption(row.teacherId(), row.teacherName()),
             store.scheduleSummary(tenantId, classId), row.completedSessions(), row.totalSessions(),
             row.expectedEndDate(), SchedulingStore.uiStatus(row.status()),
             store.sessionMonths(tenantId, classId), row.hourlyRate(), BigDecimal.ZERO,
-            BigDecimal.ZERO, "", room, row.defaultMode() == SchedulingDtos.DeliveryMode.IN_PERSON
+            BigDecimal.ZERO, currentLesson, room,
+            row.defaultMode() == SchedulingDtos.DeliveryMode.IN_PERSON
                 ? "Tại lớp" : "Online",
-            row.studentCount(), List.of(), sessions);
+            row.studentCount(), readinessWarnings.stream()
+                .map(SchedulingDtos.CloseReadinessWarning::message).toList(), sessions,
+            row.version(), allowedTransitions,
+            new SchedulingDtos.CloseReadiness(row.missingAttendanceCount(),
+                row.missingRecordCount(), readinessWarnings), row.futureSessionCount());
     }
 
     private void validateReferences(UUID tenantId, ClassDraftInput input) {
@@ -532,7 +620,8 @@ public class ClassSchedulingService {
         UUID id, String code, String name, String status, int totalSessions,
         LocalDate expectedEndDate, SchedulingDtos.DeliveryMode defaultMode,
         UUID teacherId, String teacherName, BigDecimal hourlyRate,
-        int completedSessions, int studentCount
+        int completedSessions, int studentCount, long version, int futureSessionCount,
+        int missingAttendanceCount, int missingRecordCount
     ) {
     }
 }

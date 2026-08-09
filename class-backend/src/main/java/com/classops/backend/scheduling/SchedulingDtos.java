@@ -26,6 +26,14 @@ public final class SchedulingDtos {
         IN_PERSON, ONLINE
     }
 
+    public enum ScheduleState {
+        UPCOMING, TAUGHT, MISSING_CHECK_IN, CANCELLED
+    }
+
+    public enum SessionAction {
+        SUBSTITUTE_TEACHER, CANCEL_SESSION, CREATE_MAKEUP
+    }
+
     public record TeacherOption(UUID id, String name) {
     }
 
@@ -181,6 +189,72 @@ public final class SchedulingDtos {
         }
     }
 
+    public record SubstitutionPreviewInput(
+        @NotNull UUID teacherId,
+        String note,
+        @NotNull Long version
+    ) {
+        public SubstitutionPreviewInput {
+            note = note == null ? "" : note.trim();
+        }
+    }
+
+    public record ApplySubstitutionInput(
+        @NotNull UUID teacherId,
+        String note,
+        @NotNull Long version,
+        @NotNull UUID previewId,
+        List<String> acknowledgedWarningIds
+    ) {
+        public ApplySubstitutionInput {
+            note = note == null ? "" : note.trim();
+            acknowledgedWarningIds = acknowledgedWarningIds == null
+                ? List.of() : List.copyOf(acknowledgedWarningIds);
+        }
+    }
+
+    public record MakeupScheduleInput(
+        @NotNull LocalDate date,
+        @NotNull LocalTime startTime,
+        @NotNull LocalTime endTime,
+        @NotNull UUID teacherId,
+        @NotNull DeliveryMode mode,
+        UUID roomId
+    ) {
+    }
+
+    public record MakeupPreviewInput(
+        @Valid @NotNull MakeupScheduleInput makeup,
+        @NotNull Long version
+    ) {
+    }
+
+    public record CancelSessionInput(
+        @NotBlank String reason,
+        @NotNull Long version,
+        @Valid MakeupScheduleInput makeup,
+        UUID previewId,
+        List<String> acknowledgedWarningIds
+    ) {
+        public CancelSessionInput {
+            reason = reason == null ? "" : reason.trim();
+            acknowledgedWarningIds = acknowledgedWarningIds == null
+                ? List.of() : List.copyOf(acknowledgedWarningIds);
+        }
+    }
+
+    public record CreateMakeupInput(
+        @NotNull Long version,
+        @NotNull UUID previewId,
+        @Valid @NotNull MakeupScheduleInput makeup,
+        List<String> acknowledgedWarningIds
+    ) {
+        public CreateMakeupInput {
+            acknowledgedWarningIds = acknowledgedWarningIds == null
+                ? List.of() : List.copyOf(acknowledgedWarningIds);
+        }
+    }
+
     public record CalendarSession(
         UUID id,
         UUID classId,
@@ -197,8 +271,58 @@ public final class SchedulingDtos {
         String roomName,
         String onlineUrl,
         boolean isSubstitution,
+        boolean isMakeup,
+        String status,
+        ScheduleState scheduleState,
+        UUID makeupRootSessionId,
+        UUID replacesSessionId,
+        UUID replacementSessionId,
+        String cancellationReason,
+        List<SessionAction> allowedActions,
         long version
     ) {
+        public CalendarSession {
+            allowedActions = allowedActions == null ? List.of() : List.copyOf(allowedActions);
+        }
+    }
+
+    public record SessionMutationView(
+        UUID id,
+        UUID classId,
+        String classCode,
+        String className,
+        int ordinal,
+        OffsetDateTime startAt,
+        OffsetDateTime endAt,
+        UUID plannedTeacherId,
+        UUID actualTeacherId,
+        String teacherName,
+        DeliveryMode mode,
+        UUID roomId,
+        String roomName,
+        boolean isSubstitution,
+        boolean isMakeup,
+        String status,
+        UUID makeupRootSessionId,
+        UUID replacesSessionId,
+        UUID replacementSessionId,
+        String cancellationReason,
+        List<SessionAction> allowedActions,
+        long version
+    ) {
+        public SessionMutationView {
+            allowedActions = allowedActions == null ? List.of() : List.copyOf(allowedActions);
+        }
+    }
+
+    public record SessionMutationResult(
+        SessionMutationView source,
+        SessionMutationView makeup,
+        List<ScheduleConflict> conflicts
+    ) {
+        public SessionMutationResult {
+            conflicts = conflicts == null ? List.of() : List.copyOf(conflicts);
+        }
     }
 
     public record WeekSchedule(
@@ -230,8 +354,22 @@ public final class SchedulingDtos {
         String lessonName,
         String teacherName,
         BigDecimal attendanceRate,
-        String recordStatus
+        String recordStatus,
+        String recordUrl
     ) {
+    }
+
+    public record CloseReadinessWarning(String id, String code, String message) {
+    }
+
+    public record CloseReadiness(
+        int missingAttendanceCount,
+        int missingRecordCount,
+        List<CloseReadinessWarning> warnings
+    ) {
+        public CloseReadiness {
+            warnings = List.copyOf(warnings);
+        }
     }
 
     public record ClassDetail(
@@ -253,7 +391,14 @@ public final class SchedulingDtos {
         String deliveryMode,
         int studentCount,
         List<String> outstandingItems,
-        List<ClassSessionSummary> sessions
+        List<ClassSessionSummary> sessions,
+        long version,
+        List<String> allowedTransitions,
+        CloseReadiness closeReadiness,
+        int futureSessionCount
     ) {
+        public ClassDetail {
+            allowedTransitions = List.copyOf(allowedTransitions);
+        }
     }
 }

@@ -140,12 +140,12 @@
       id: "WF-02", role: "platform", group: "Nền tảng", title: "Quản trị tenant",
       requirements: "FR-TEN-001–004", flow: "FL-01 · FL-04",
       render: () => `
-        ${screenHead("Super Admin", "Các trung tâm trên nền tảng", "Super Admin chỉ quản lý vòng đời tenant và Admin ban đầu; không đi vào dữ liệu nghiệp vụ.", actions("Tạo trung tâm", ""))}
+        ${screenHead("PLATFORM · Super Admin", "Các trung tâm trên nền tảng", "Workspace /platform tách biệt; JWT không có tenantId và không thể mở dữ liệu nghiệp vụ.", actions("Tạo tenant + Admin", ""))}
         ${metrics([["Tenant hoạt động", "18", "Tổng cộng 20 tenant", "+2"], ["Đang khóa", "02", "Dữ liệu vẫn được giữ", "—"], ["Tạo tháng này", "03", "Không có gói thuê bao v1", "+1"], ["Sự kiện bảo mật", "01", "Trong 24 giờ gần nhất", "!"]])}
         <br>
         ${filters("")}
-        ${table(["Mã tenant", "Trung tâm", "Admin ban đầu", "Ngày tạo", "Trạng thái", "Thao tác"], [
-          ["TT-AD", "<strong>Trung tâm Ánh Dương</strong>", "admin.anhduong", "03/02/2026", status("Hoạt động", "success"), '<button class="table-action" data-action="Khóa tenant">Khóa</button>'],
+        ${table(["Slug bất biến", "Trung tâm", "Admin ban đầu", "Ngày tạo", "Trạng thái", "Thao tác"], [
+          ["anh-duong", "<strong>Trung tâm Ánh Dương</strong>", "admin.anhduong<br><button class='table-action' data-action='Reset Admin'>Reset · 123456</button>", "03/02/2026", status("Hoạt động", "success"), '<button class="table-action" data-action="Khóa tenant">Khóa</button>'],
           ["TT-MT", "<strong>Trung tâm Minh Tâm</strong>", "admin.minhtam", "21/03/2026", status("Hoạt động", "success"), '<button class="table-action" data-action="Khóa tenant">Khóa</button>'],
           ["TT-SS", "<strong>Học viện Sao Sáng</strong>", "admin.saosang", "09/06/2026", status("Đã khóa", "danger"), '<button class="table-action" data-action="Mở tenant">Mở lại</button>']
         ], "Tenant registry — không hiển thị dữ liệu lớp/học sinh")}
@@ -297,8 +297,8 @@
       id: "WF-09", role: "management", group: "Trung tâm", title: "Danh bạ người dùng",
       requirements: "FR-PPL-001–004", flow: "FL-02 · FL-04",
       render: () => `
-        ${screenHead("People directory", "Giáo viên & học sinh", "Một danh bạ theo tenant; tài khoản được tạo từng người, không import Excel.", actions("Tạo tài khoản", "Xuất Excel"))}
-        ${filters(field("Loại hồ sơ", '<select><option>Tất cả</option><option>Giáo viên</option><option>Học sinh</option></select>'))}
+        ${screenHead("Tenant accounts", "Người dùng trung tâm", "Admin thấy mọi tài khoản; Học vụ chỉ thấy giáo viên/học sinh thuần. Tìm kiếm không dấu.", actions("Tạo tài khoản", ""))}
+        ${filters(field("Loại hồ sơ", '<select><option>Tất cả</option><option>Nhân sự</option><option>Giáo viên</option><option>Học sinh</option></select>'))}
         ${tabs([
           { id: "teachers", label: "Giáo viên (32)", content: table(["Mã", "Giáo viên", "Liên hệ", "Môn/kỹ năng", "Lớp active", "Trạng thái", ""], [["GV-0031", "Nguyễn Thùy Lan", "lan.nt@edu.vn<br>090•••211", "Toán tư duy", "3", status("Hoạt động", "success"), '<button class="table-action" data-open-screen="WF-10">Hồ sơ</button>'], ["GV-0018", "Trần Quốc Minh", "minh.tq@edu.vn<br>091•••554", "IELTS", "4", status("Hoạt động", "success"), '<button class="table-action" data-open-screen="WF-10">Hồ sơ</button>']]) },
           { id: "students", label: "Học sinh (1.284)", content: table(["Mã", "Học sinh", "Username", "Phụ huynh", "Lớp active", "Trạng thái", ""], [["HS-0142", "Nguyễn Minh Anh", "hs0142", "Nguyễn Thu Hương<br>098•••212", "2", status("Hoạt động", "success"), '<button class="table-action" data-open-screen="WF-10">Hồ sơ</button>'], ["HS-0194", "Lê Hoàng Nam", "hs0194", "Lê Đức Dũng<br>091•••887", "1", status("Hoạt động", "success"), '<button class="table-action" data-open-screen="WF-10">Hồ sơ</button>']]) }
@@ -308,7 +308,7 @@
       id: "WF-10", role: "management", group: "Trung tâm", title: "Hồ sơ người dùng",
       requirements: "FR-PPL-001–003 · FR-IAM-006", flow: "FL-03 · FL-04",
       render: () => `
-        ${screenHead("GV-0031", "Nguyễn Thùy Lan", "Hồ sơ mở rộng của giáo viên; tệp HR chỉ hiển thị với Admin.", actions("Khóa tài khoản", "Chỉnh sửa"))}
+        ${screenHead("GV-0031 · version 4", "Nguyễn Thùy Lan", "Username, profileType và mã là bất biến; mọi thay đổi ghi before/after/reason.", actions("Khóa tài khoản", "Lưu thay đổi"))}
         <div class="grid grid-3">
           <section class="card">
             <div class="profile-head"><div class="profile-photo">NL</div><div><h2>Nguyễn Thùy Lan</h2>${status("Đang hoạt động", "success")}<p class="meta-line">gv.nguyenlan</p></div></div>
@@ -317,8 +317,8 @@
           <section class="card span-2">
             ${tabs([
               { id: "professional", label: "Chuyên môn", content: `<div class="stat-pair"><div><small>Môn / kỹ năng</small><strong>Toán tư duy</strong></div><div><small>Lớp đang dạy</small><strong>03</strong></div></div><br>${table(["Lớp", "Vai trò", "Từ ngày", "Trạng thái"], [["Toán tư duy 4A", "GV chính", "03/05/2026", status("Đang học", "success")], ["Toán 7A", "Dạy thay 2 buổi", "12/06/2026", status("Lịch sử", "muted")]])}` },
-              { id: "hr", label: "Hồ sơ HR · Admin", content: `<div class="file-grid"><div class="file-thumb">PDF<br><strong>Hợp đồng 2026</strong></div><div class="file-thumb">PDF<br><strong>Bằng Đại học</strong></div><div class="file-thumb">JPG<br><strong>CCCD</strong></div><button class="file-thumb" data-action="Tải tệp HR">+ Thêm tệp</button></div>` },
-              { id: "security", label: "Tài khoản", content: `${notice("Lần đăng nhập gần nhất", "24/07/2026 · 07:42 · Chrome / Windows", "i")}<br><button class="button button-secondary" data-action="Đặt lại mật khẩu">Đặt lại mật khẩu tạm</button>` }
+              { id: "roles", label: "Vai trò", content: `${notice("TEACHER là vai trò bắt buộc", "Admin có thể gán thêm vai trò quản lý; Học vụ không thấy các lựa chọn này.", "i")}` },
+              { id: "security", label: "Tài khoản", content: `${notice("Lần đăng nhập gần nhất", "24/07/2026 · 07:42 · Chrome / Windows", "i")}<br><button class="button button-secondary" data-action="Đặt lại mật khẩu">Reset về 123456 + thu hồi JWT</button>` }
             ])}
           </section>
         </div>`

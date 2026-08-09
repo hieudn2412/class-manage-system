@@ -17,6 +17,7 @@ export interface AuthRepository {
   login(input: LoginInput): Promise<AuthSession>;
   forgotPassword(tenantSlug: string, username: string): Promise<{ message: string }>;
   changePassword(input: ChangePasswordInput): Promise<AuthSession>;
+  platformLogin(username: string, password: string): Promise<AuthSession>;
 }
 
 export const authRepository: AuthRepository = {
@@ -39,4 +40,7 @@ export const authRepository: AuthRepository = {
       tenantSlug,
       body: JSON.stringify({ newPassword }),
     }),
+  platformLogin: (username, password) => apiRequest<AuthSession>("platform/auth/login", {
+    method: "POST", body: JSON.stringify({ username, password }),
+  }),
 };

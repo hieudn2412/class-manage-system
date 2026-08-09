@@ -38,7 +38,8 @@ export const firstLoginUser: User = {
 
 export const createTestSession = (user: User = adminUser): AuthSession => ({
   token: `test-token-${user.username}`,
+  scope: "TENANT",
   user,
   tenant: tenantAnhDuong,
-  expiresAt: "2026-07-26T00:00:00Z",
+  expiresAt: "2099-07-26T00:00:00Z",
 });

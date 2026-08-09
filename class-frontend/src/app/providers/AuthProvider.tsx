@@ -14,6 +14,7 @@ import type { AuthSession } from "../../shared/types/domain";
 interface AuthContextValue {
   session: AuthSession | null;
   login: (input: LoginInput, remember: boolean) => Promise<AuthSession>;
+  platformLogin: (username: string, password: string, remember: boolean) => Promise<AuthSession>;
   setChangedPasswordSession: (session: AuthSession) => void;
   logout: () => void;
 }
@@ -45,14 +46,21 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setSession(nextSession);
   }, []);
 
+  const platformLogin = useCallback(async (username: string, password: string, remember: boolean) => {
+    const nextSession = await authRepository.platformLogin(username, password);
+    saveSession(nextSession, remember);
+    setSession(nextSession);
+    return nextSession;
+  }, []);
+
   const logout = useCallback(() => {
     clearSession();
     setSession(null);
   }, []);
 
   const value = useMemo(
-    () => ({ session, login, setChangedPasswordSession, logout }),
-    [session, login, setChangedPasswordSession, logout],
+    () => ({ session, login, platformLogin, setChangedPasswordSession, logout }),
+    [session, login, platformLogin, setChangedPasswordSession, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

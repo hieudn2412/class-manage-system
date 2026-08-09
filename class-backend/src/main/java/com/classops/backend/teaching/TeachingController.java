@@ -7,8 +7,8 @@ import com.classops.backend.teaching.TeachingDtos.SessionOperationsDetail;
 import com.classops.backend.teaching.TeachingDtos.TeacherClassItem;
 import com.classops.backend.teaching.TeachingDtos.TeacherClassSessions;
 import com.classops.backend.teaching.TeachingDtos.TeacherDashboardData;
-import com.classops.backend.teaching.TeachingDtos.TestResult;
-import com.classops.backend.teaching.TeachingDtos.TestResultInput;
+import com.classops.backend.teaching.TeachingDtos.SessionTestInput;
+import com.classops.backend.teaching.TeachingDtos.SessionTestUpdateInput;
 import com.classops.backend.teaching.TeachingDtos.VerificationDecisionInput;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -70,10 +69,11 @@ public class TeachingController {
     @PreAuthorize("hasAuthority('VIEW_OWN_TEACHING')")
     TeacherClassSessions classSessions(
         @PathVariable UUID classId,
+        @RequestParam(defaultValue = "") String status,
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "20") int pageSize
     ) {
-        return service.classSessions(classId, page, pageSize);
+        return service.classSessions(classId, status, page, pageSize);
     }
 
     @GetMapping("/sessions/{sessionId}")
@@ -105,29 +105,26 @@ public class TeachingController {
         return service.savePedagogicalRecord(sessionId, input, idempotencyKey);
     }
 
-    @PostMapping("/sessions/{sessionId}/students/{studentId}/test-results")
+    @PostMapping("/sessions/{sessionId}/tests")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('EDIT_OWN_SESSION_RECORDS')")
-    TestResult addTestResult(
+    SessionOperationsDetail createSessionTest(
         @PathVariable UUID sessionId,
-        @PathVariable UUID studentId,
-        @Valid @RequestBody TestResultInput input,
+        @Valid @RequestBody SessionTestInput input,
         @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
-        return service.addTestResult(sessionId, studentId, input, idempotencyKey);
+        return service.createSessionTest(sessionId, input, idempotencyKey);
     }
 
-    @PutMapping("/sessions/{sessionId}/students/{studentId}/test-results/{resultId}")
+    @PatchMapping("/sessions/{sessionId}/tests/{testId}")
     @PreAuthorize("hasAuthority('EDIT_OWN_SESSION_RECORDS')")
-    TestResult updateTestResult(
+    SessionOperationsDetail updateSessionTest(
         @PathVariable UUID sessionId,
-        @PathVariable UUID studentId,
-        @PathVariable UUID resultId,
-        @Valid @RequestBody TestResultInput input,
+        @PathVariable UUID testId,
+        @Valid @RequestBody SessionTestUpdateInput input,
         @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
-        return service.updateTestResult(
-            sessionId, studentId, resultId, input, idempotencyKey);
+        return service.updateSessionTest(sessionId, testId, input, idempotencyKey);
     }
 
     @PostMapping("/sessions/{sessionId}/verification-decisions")

@@ -30,21 +30,29 @@ test("Giáo viên đi từ dashboard đến check-in và lưu hồ sơ bằng AP
   }
 
   await page.getByLabel("Tên bài học").fill("Phân số và so sánh");
-  await page.getByLabel("Nội dung thực dạy").fill("Ôn tập quy đồng và so sánh phân số.");
   await page.getByLabel("Link record").fill("https://youtube.com/watch?v=demo");
   const firstStudent = page.locator(".student-record-card").first();
   await firstStudent.getByLabel("Trạng thái đi học").selectOption("PRESENT");
-  await firstStudent.getByLabel("Nhận xét buổi học").fill("Tập trung và hoàn thành bài trên lớp.");
+  await firstStudent.getByLabel("Đánh giá buổi học").fill("Tập trung và hoàn thành bài trên lớp.");
   await page.getByRole("button", { name: "Lưu hồ sơ buổi" }).click();
   await expect(page.getByText("Đã lưu điểm danh và hồ sơ buổi học.")).toBeVisible();
 
-  await firstStudent.getByRole("button", { name: "Thêm điểm kiểm tra" }).click();
-  const testDialog = page.getByRole("dialog", { name: /Thêm điểm kiểm tra/ });
-  await testDialog.getByLabel("Tên bài kiểm tra").fill("Kiểm tra nhanh phân số");
-  await testDialog.getByLabel("Điểm đạt").fill("8.5");
-  await testDialog.getByLabel("Điểm tối đa").fill("10");
-  await testDialog.getByRole("button", { name: "Lưu điểm" }).click();
-  await expect(page.getByText("Đã lưu điểm kiểm tra.")).toBeVisible();
+  const createTest = page.getByRole("button", { name: "Tạo bài kiểm tra" });
+  if (await createTest.isVisible()) {
+    await createTest.click();
+    const testDialog = page.getByRole("dialog", { name: "Tạo bài kiểm tra cho buổi" });
+    await testDialog.getByLabel("Tên bài kiểm tra").fill("Kiểm tra nhanh phân số");
+    await testDialog.getByLabel("Điểm tối đa").fill("10");
+    await testDialog
+      .getByLabel("Nhận xét chung bài kiểm tra")
+      .fill("Kiểm tra mức độ nắm bài sau buổi học.");
+    await testDialog.getByRole("button", { name: "Tạo bài kiểm tra" }).click();
+    await expect(page.getByText("Đã tạo bài kiểm tra cho buổi học.")).toBeVisible();
+  }
+  await firstStudent.getByLabel(/Điểm \/ 10/).fill("8.5");
+  await firstStudent.getByLabel("Nhận xét bài kiểm tra").fill("Nắm kiến thức tốt.");
+  await page.getByRole("button", { name: "Lưu điểm kiểm tra" }).click();
+  await expect(page.getByText("Đã lưu bài kiểm tra và điểm học sinh.")).toBeVisible();
 
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(

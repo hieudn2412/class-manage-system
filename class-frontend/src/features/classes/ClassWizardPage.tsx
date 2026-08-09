@@ -6,7 +6,11 @@ import { FormProvider, useForm, useWatch, type FieldPath } from "react-hook-form
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTenant } from "../../app/providers/TenantProvider";
 import { classRepository } from "../../services/repositories/classRepository";
-import { getTodayInBusinessTimezone, getWeekStart } from "../../shared/lib/calendar";
+import {
+  dateKeyFromIso,
+  getTodayInBusinessTimezone,
+  getWeekStart,
+} from "../../shared/lib/calendar";
 import { ApiError } from "../../shared/types/api";
 import type {
   ClassDraftInput,
@@ -183,8 +187,9 @@ export const ClassWizardPage = () => {
       void queryClient.invalidateQueries({ queryKey: ["classes"] });
       void queryClient.invalidateQueries({ queryKey: ["management-schedule"] });
       void queryClient.invalidateQueries({ queryKey: ["teacher-schedule"] });
-      const firstSessionDate =
-        currentPreview?.sessions[0]?.startAt.slice(0, 10) ?? getValues("startDate");
+      const firstSessionDate = currentPreview?.sessions[0]?.startAt
+        ? dateKeyFromIso(currentPreview.sessions[0].startAt)
+        : getValues("startDate");
       void navigate(`/t/${tenant.slug}/app/schedule?week=${getWeekStart(firstSessionDate)}`, {
         replace: true,
       });

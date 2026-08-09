@@ -14,7 +14,7 @@ fs.mkdirSync(desktopDir, { recursive: true });
 fs.mkdirSync(mobileDir, { recursive: true });
 
 const allScreens = Array.from({ length: 27 }, (_, index) => `WF-${String(index + 1).padStart(2, "0")}`);
-const mobileScreens = ["WF-17", "WF-18", "WF-19", "WF-20", "WF-21", "WF-23", "WF-24", "WF-25", "WF-26", "WF-27"];
+const mobileScreens = ["WF-02", "WF-09", "WF-10", "WF-17", "WF-18", "WF-19", "WF-20", "WF-21", "WF-23", "WF-24", "WF-25", "WF-26", "WF-27"];
 
 (async () => {
   const browser = await chromium.launch({ headless: true });

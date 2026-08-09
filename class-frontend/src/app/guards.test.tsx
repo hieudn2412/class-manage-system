@@ -3,7 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { saveSession } from "../shared/lib/sessionStorage";
 import { PERMISSIONS } from "../shared/lib/permissions";
 import { renderWithProviders } from "../test/render";
-import { RequireAuth, RequirePermission } from "./guards";
+import { RequireAuth, RequirePermission, RequirePlatformScope, RequireTenantScope } from "./guards";
 import { createTestSession, studentUser } from "../test/fixtures";
 
 describe("auth và role guards", () => {
@@ -46,5 +46,19 @@ describe("auth và role guards", () => {
     );
 
     expect(await screen.findByText("Không có quyền")).toBeInTheDocument();
+  });
+
+  it("tách phiên platform khỏi route tenant", async () => {
+    saveSession({
+      ...createTestSession(), scope: "PLATFORM", tenant: null, expiresAt: "2099-01-01T00:00:00Z",
+      user: { ...createTestSession().user, tenantId: null, roles: ["SUPER_ADMIN"] },
+    }, false);
+    renderWithProviders(<Routes>
+      <Route path="/platform/app" element={<RequirePlatformScope><div>Platform workspace</div></RequirePlatformScope>} />
+      <Route path="/t/:tenantSlug/app" element={<RequireTenantScope><div>Tenant workspace</div></RequireTenantScope>} />
+      <Route path="/t/:tenantSlug/403" element={<div>Không có quyền tenant</div>} />
+    </Routes>, ["/platform/app"]);
+    expect(await screen.findByText("Platform workspace")).toBeInTheDocument();
+    expect(screen.queryByText("Tenant workspace")).not.toBeInTheDocument();
   });
 });

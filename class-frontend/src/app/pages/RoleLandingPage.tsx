@@ -18,6 +18,9 @@ export const RoleLandingPage = () => {
   if (hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_TEACHING)) {
     return <Navigate to={`${base}/teacher-dashboard`} replace />;
   }
+  if (hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_LEARNING)) {
+    return <Navigate to={`${base}/learning-classes`} replace />;
+  }
   const firstRole = session.user.roles[0];
   return (
     <StatePanel

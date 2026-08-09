@@ -1,6 +1,7 @@
 package com.classops.backend.teaching;
 
 import com.classops.backend.common.ApiException;
+import com.classops.backend.salary.SalaryAccrualService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -8,9 +9,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Map;
@@ -23,12 +21,15 @@ public class SessionCompletionService {
     private final JdbcClient jdbc;
     private final TeachingProperties properties;
     private final TeachingSupport support;
+    private final SalaryAccrualService salaryAccruals;
 
     public SessionCompletionService(JdbcClient jdbc, TeachingProperties properties,
-                                    TeachingSupport support) {
+                                    TeachingSupport support,
+                                    SalaryAccrualService salaryAccruals) {
         this.jdbc = jdbc;
         this.properties = properties;
         this.support = support;
+        this.salaryAccruals = salaryAccruals;
     }
 
     @Transactional
@@ -70,7 +71,8 @@ public class SessionCompletionService {
     public void autoCompleteCheckedIn(UUID tenantId, UUID sessionId, OffsetDateTime now) {
         CompletionRow row = lock(tenantId, sessionId);
         if ("COMPLETED".equals(row.status())) {
-            ensureSalary(row);
+            salaryAccruals.reconcile(tenantId, sessionId, null,
+                "Đồng bộ lại lương cho buổi đã hoàn tất.");
             return;
         }
         if (!"IN_PROGRESS".equals(row.status()) || row.endAt().isAfter(now)) {
@@ -96,7 +98,8 @@ public class SessionCompletionService {
                                String reason, OffsetDateTime now) {
         CompletionRow row = lock(tenantId, sessionId);
         if ("COMPLETED".equals(row.status())) {
-            ensureSalary(row);
+            salaryAccruals.reconcile(tenantId, sessionId, actorId,
+                "Đồng bộ lại lương sau xác nhận quản lý.");
             return;
         }
         if (!"PENDING_CONFIRMATION".equals(row.status())) {
@@ -119,9 +122,11 @@ public class SessionCompletionService {
         }
         jdbc.sql("""
                 UPDATE class_sessions
-                SET status='CANCELLED', updated_at=:now, version=version+1
+                SET status='CANCELLED', cancelled_at=:now, cancelled_by=:actorId,
+                    cancellation_reason=:reason, updated_at=:now, version=version+1
                 WHERE tenant_id=:tenantId AND id=:sessionId
                 """)
+            .param("actorId", actorId).param("reason", reason)
             .param("tenantId", tenantId).param("sessionId", sessionId).param("now", now).update();
         support.audit(tenantId, actorId, "USER", "SESSION_CANCELLED_AFTER_VERIFICATION",
             "SESSION", sessionId, Map.of("status", row.status()),
@@ -155,7 +160,6 @@ public class SessionCompletionService {
     private void completeLocked(CompletionRow row, String source, UUID actorId,
                                 OffsetDateTime now, String reason) {
         freezeRoster(row, now);
-        ensureSalary(row);
         boolean missing = documentationMissing(row.tenantId(), row.id());
         jdbc.sql("""
                 UPDATE class_sessions
@@ -166,6 +170,7 @@ public class SessionCompletionService {
                 """)
             .param("now", now).param("source", source).param("missing", missing)
             .param("tenantId", row.tenantId()).param("sessionId", row.id()).update();
+        salaryAccruals.reconcile(row.tenantId(), row.id(), actorId, reason);
         updateClassProgress(row.tenantId(), row.classId());
         support.audit(row.tenantId(), actorId, actorId == null ? "SYSTEM" : "USER",
             "SESSION_COMPLETED", "SESSION", row.id(), Map.of("status", row.status()),
@@ -189,7 +194,7 @@ public class SessionCompletionService {
                 FROM class_enrollments e
                 WHERE e.tenant_id=:tenantId AND e.class_id=:classId
                   AND e.effective_from <= :sessionDate
-                  AND (e.effective_to IS NULL OR e.effective_to >= :sessionDate)
+                  AND (e.effective_to IS NULL OR e.effective_to > :sessionDate)
                 ON CONFLICT (tenant_id, session_id, student_id) DO NOTHING
                 """)
             .param("sessionId", row.id()).param("now", now)
@@ -219,49 +224,6 @@ public class SessionCompletionService {
                 rs.getBoolean("has_record")))
             .single();
         return count.rosterCount() != count.attendanceCount() || !count.hasRecord();
-    }
-
-    private void ensureSalary(CompletionRow row) {
-        boolean exists = jdbc.sql("""
-                SELECT EXISTS(
-                  SELECT 1 FROM salary_accruals
-                  WHERE tenant_id=:tenantId AND session_id=:sessionId
-                )
-                """)
-            .param("tenantId", row.tenantId()).param("sessionId", row.id())
-            .query(Boolean.class).single();
-        if (exists) {
-            return;
-        }
-        int minutes = Math.toIntExact(Duration.between(
-            row.startAt().toInstant(), row.endAt().toInstant()).toMinutes());
-        var sessionDate = row.startAt().atZoneSameInstant(properties.zoneId()).toLocalDate();
-        BigDecimal rate = jdbc.sql("""
-                SELECT hourly_rate FROM class_hourly_rates
-                WHERE tenant_id=:tenantId AND class_id=:classId
-                  AND effective_date <= :sessionDate
-                ORDER BY effective_date DESC
-                LIMIT 1
-                """)
-            .param("tenantId", row.tenantId()).param("classId", row.classId())
-            .param("sessionDate", sessionDate).query(BigDecimal.class)
-            .optional().orElseThrow(() -> new ApiException(
-                HttpStatus.CONFLICT, "HOURLY_RATE_NOT_FOUND",
-                "Không tìm thấy đơn giá có hiệu lực cho buổi học."));
-        BigDecimal amount = rate.multiply(BigDecimal.valueOf(minutes))
-            .divide(BigDecimal.valueOf(60), 0, RoundingMode.HALF_UP);
-        jdbc.sql("""
-                INSERT INTO salary_accruals (
-                  id, tenant_id, session_id, teacher_id, scheduled_minutes,
-                  hourly_rate_snapshot, amount
-                ) VALUES (
-                  :id, :tenantId, :sessionId, :teacherId, :minutes, :rate, :amount
-                )
-                ON CONFLICT (tenant_id, session_id) DO NOTHING
-                """)
-            .param("id", UUID.randomUUID()).param("tenantId", row.tenantId())
-            .param("sessionId", row.id()).param("teacherId", row.actualTeacherId())
-            .param("minutes", minutes).param("rate", rate).param("amount", amount).update();
     }
 
     private void updateClassProgress(UUID tenantId, UUID classId) {

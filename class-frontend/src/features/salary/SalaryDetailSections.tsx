@@ -1,0 +1,18 @@
+import { CalendarDays, History, Landmark, TimerReset } from "lucide-react";
+import { Link } from "react-router-dom";
+import { formatCurrency, formatDate } from "../../shared/lib/format";
+import type { SalaryAdjustment, SalaryPayment, TeacherPayrollDetail } from "../../shared/types/domain";
+import { Badge } from "../../shared/ui/Badge";
+import { Button } from "../../shared/ui/Button";
+import { StatePanel } from "../../shared/ui/StatePanel";
+
+interface Props { detail: TeacherPayrollDetail; basePath: string; editable?: boolean; onEditAdjustment?: (item: SalaryAdjustment) => void; onEditPayment?: (item: SalaryPayment) => void; }
+
+export const SalaryDetailSections = ({ detail, basePath, editable = false, onEditAdjustment, onEditPayment }: Props) => <div className="salary-ledger-stack">
+  <section className="panel salary-ledger-section"><header><div><p className="eyebrow">ACCRUALS / SESSION BASIS</p><h2>Phát sinh theo buổi</h2></div><span>{detail.accruals.length} dòng</span></header>
+    {!detail.accruals.length ? <StatePanel kind="empty" title="Chưa có buổi phát sinh lương" description="Accrual xuất hiện khi buổi được hoàn tất." /> : <div className="salary-line-list">{detail.accruals.map((line) => <article key={line.id} className={line.status === "REVERSED" ? "salary-line reversed" : "salary-line"}><div className="salary-line-date"><CalendarDays size={17} /><strong>{formatDate(line.sessionDate)}</strong><small>Buổi {line.ordinal}</small></div><div><Link to={`${basePath}/sessions/${line.sessionId}`}><strong>{line.className}</strong></Link><small>{line.classCode}{line.substitution ? " · Dạy thay" : ""}</small></div><div><span><TimerReset size={15} /> {line.scheduledMinutes} phút</span><small>{formatCurrency(line.hourlyRate)}/giờ</small></div><div className="salary-line-amount"><strong>{formatCurrency(line.amount)}</strong><small>Revision {line.revision}</small></div><Badge tone={line.status === "ACTIVE" ? "success" : "neutral"}>{line.status === "ACTIVE" ? "Đã ghi nhận" : "Đã đảo"}</Badge></article>)}</div>}
+  </section>
+  <div className="salary-ledger-columns"><section className="panel salary-ledger-section compact"><header><div><p className="eyebrow">ADJUSTMENTS</p><h2>Cộng / trừ</h2></div><History size={20} /></header>{!detail.adjustments.length ? <p className="salary-empty-note">Không có điều chỉnh trong kỳ.</p> : detail.adjustments.map((item) => <article className="salary-transaction" key={item.id}><div><strong className={item.amount < 0 ? "amount-negative" : "amount-positive"}>{formatCurrency(item.amount)}</strong><p>{item.reason}</p><small>Cập nhật {formatDate(item.updatedAt)} · v{item.version}</small></div>{editable ? <Button variant="ghost" onClick={() => onEditAdjustment?.(item)}>Sửa</Button> : null}</article>)}</section>
+    <section className="panel salary-ledger-section compact"><header><div><p className="eyebrow">PAYMENTS</p><h2>Lịch sử thanh toán</h2></div><Landmark size={20} /></header>{!detail.payments.length ? <p className="salary-empty-note">Chưa ghi thanh toán trong kỳ.</p> : detail.payments.map((item) => <article className="salary-transaction" key={item.id}><div><strong>{formatCurrency(item.amount)}</strong><p>{formatDate(item.paidAt)} · {item.method === "CASH" ? "Tiền mặt" : "Chuyển khoản"}</p><small>{item.reference ?? "Không có tham chiếu"} · v{item.version}</small>{item.overpaymentReason ? <em>Trả vượt: {item.overpaymentReason}</em> : null}</div>{editable ? <Button variant="ghost" onClick={() => onEditPayment?.(item)}>Sửa</Button> : null}</article>)}</section>
+  </div>
+</div>;

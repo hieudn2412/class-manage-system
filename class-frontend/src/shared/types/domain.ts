@@ -32,9 +32,41 @@ export interface User {
 
 export interface AuthSession {
   token: string;
+  scope: "PLATFORM" | "TENANT";
   user: User;
   tenant: Tenant | null;
   expiresAt: string;
+}
+
+export interface InitialAdministrator {
+  id: string;
+  username: string;
+  displayName: string;
+  email: string | null;
+  status: UserStatus;
+  version: number;
+}
+export interface PlatformTenant extends Tenant {
+  initialAdmin: InitialAdministrator | null;
+  createdAt: string;
+  version: number;
+}
+export type ProfileType = "STAFF" | "TEACHER" | "STUDENT";
+export interface Account {
+  id: string;
+  profileType: ProfileType;
+  code: string | null;
+  username: string;
+  displayName: string;
+  email: string | null;
+  roles: Role[];
+  status: UserStatus;
+  passwordState: PasswordState;
+  parentName: string | null;
+  parentPhone: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+  version: number;
 }
 
 export const CLASS_STATUSES = [
@@ -158,6 +190,7 @@ export interface SkippedHoliday {
 export interface SchedulePreview {
   previewId: string;
   generatedAt: string;
+  expiresAt?: string;
   inputVersion: string;
   sessions: SchedulePreviewSession[];
   skippedHolidays: SkippedHoliday[];
@@ -191,6 +224,14 @@ export interface CalendarSession {
   roomName: string | null;
   onlineUrl: string | null;
   isSubstitution: boolean;
+  isMakeup: boolean;
+  status: string;
+  scheduleState: "UPCOMING" | "TAUGHT" | "MISSING_CHECK_IN" | "CANCELLED";
+  makeupRootSessionId: string | null;
+  replacesSessionId: string | null;
+  replacementSessionId: string | null;
+  cancellationReason: string | null;
+  allowedActions: SessionAction[];
   version: number;
 }
 
@@ -209,6 +250,79 @@ export interface SessionSchedulePreviewInput {
 export interface ApplySessionScheduleInput extends SessionSchedulePreviewInput {
   previewId: string;
   acknowledgedWarningIds: string[];
+}
+
+export type SessionAction = "SUBSTITUTE_TEACHER" | "CANCEL_SESSION" | "CREATE_MAKEUP";
+
+export interface SubstitutionPreviewInput {
+  teacherId: string;
+  note: string;
+  version: number;
+}
+
+export interface ApplySubstitutionInput extends SubstitutionPreviewInput {
+  previewId: string;
+  acknowledgedWarningIds: string[];
+}
+
+export interface MakeupScheduleInput {
+  date: string;
+  startTime: string;
+  endTime: string;
+  teacherId: string;
+  mode: DeliveryMode;
+  roomId: string | null;
+}
+
+export interface MakeupPreviewInput {
+  makeup: MakeupScheduleInput;
+  version: number;
+}
+
+export interface CancelSessionInput {
+  reason: string;
+  version: number;
+  makeup?: MakeupScheduleInput | null;
+  previewId?: string | null;
+  acknowledgedWarningIds: string[];
+}
+
+export interface CreateMakeupInput {
+  version: number;
+  previewId: string;
+  makeup: MakeupScheduleInput;
+  acknowledgedWarningIds: string[];
+}
+
+export interface SessionMutationView {
+  id: string;
+  classId: string;
+  classCode: string;
+  className: string;
+  ordinal: number;
+  startAt: string;
+  endAt: string;
+  plannedTeacherId: string;
+  actualTeacherId: string;
+  teacherName: string;
+  mode: DeliveryMode;
+  roomId: string | null;
+  roomName: string | null;
+  isSubstitution: boolean;
+  isMakeup: boolean;
+  status: string;
+  makeupRootSessionId: string | null;
+  replacesSessionId: string | null;
+  replacementSessionId: string | null;
+  cancellationReason: string | null;
+  allowedActions: SessionAction[];
+  version: number;
+}
+
+export interface SessionMutationResult {
+  source: SessionMutationView;
+  makeup: SessionMutationView | null;
+  conflicts: ScheduleConflict[];
 }
 
 export interface ClassListItem {
@@ -232,6 +346,7 @@ export interface ClassSessionSummary {
   teacherName: string;
   attendanceRate: number | null;
   recordStatus: "COMPLETE" | "MISSING";
+  recordUrl: string | null;
 }
 
 export interface ClassDetail extends ClassListItem {
@@ -244,6 +359,126 @@ export interface ClassDetail extends ClassListItem {
   studentCount: number;
   outstandingItems: string[];
   sessions: ClassSessionSummary[];
+  version: number;
+  allowedTransitions: ("Closed" | "AwaitingClose" | "Cancelled")[];
+  closeReadiness: {
+    missingAttendanceCount: number;
+    missingRecordCount: number;
+    warnings: LifecycleWarning[];
+  };
+  futureSessionCount: number;
+}
+
+export interface LifecycleWarning {
+  id: string;
+  code: string;
+  message: string;
+  studentIds?: string[];
+}
+
+export type EnrollmentStatus = "Active" | "Left" | "Transferred";
+
+export interface EnrollmentStudent {
+  id: string;
+  code: string;
+  name: string;
+  parentName: string | null;
+  parentPhone: string | null;
+}
+
+export interface EnrollmentItem {
+  id: string;
+  student: EnrollmentStudent;
+  status: EnrollmentStatus;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  endReason: string | null;
+  tuitionChargeId: string | null;
+  originalTuitionAmount: number | null;
+  tuitionStatus: string | null;
+  version: number;
+}
+
+export interface EnrollmentCandidate {
+  id: string;
+  code: string;
+  name: string;
+  parentName: string | null;
+  parentPhone: string | null;
+}
+
+export interface EnrollmentMutationResult {
+  enrollments: EnrollmentItem[];
+  classVersion: number;
+}
+
+export interface EndEnrollmentResult {
+  enrollment: EnrollmentItem;
+  classVersion: number;
+}
+
+export interface ClassStatusMutationResult {
+  classId: string;
+  status: ClassStatus;
+  version: number;
+  cancelledFutureSessions: number;
+  acknowledgedWarnings: LifecycleWarning[];
+}
+
+export type StudentClassAccess = "Accessible" | "Locked";
+
+export interface StudentClassItem {
+  id: string;
+  code: string;
+  name: string;
+  teacherName: string;
+  scheduleSummary: string;
+  status: ClassStatus;
+  access: StudentClassAccess;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  completedSessions: number;
+  totalSessions: number;
+  expectedEndDate: string | null;
+}
+
+export interface StudentClassDetail {
+  id: string;
+  code: string;
+  name: string;
+  description: string;
+  teacherName: string;
+  scheduleSummary: string;
+  status: ClassStatus;
+  completedSessions: number;
+  totalSessions: number;
+  expectedEndDate: string | null;
+}
+
+export interface StudentSessionItem {
+  id: string;
+  ordinal: number;
+  startAt: string;
+  endAt: string;
+  status: string;
+  teacherName: string;
+  lessonName: string;
+  lessonContent: string;
+  attendanceStatus: AttendanceStatus | null;
+  attendanceNote: string | null;
+  recordUrl: string | null;
+  comment: string | null;
+  testResult: StudentTestResult | null;
+}
+
+export interface StudentTestResult {
+  id: string;
+  testName: string;
+  score: number | null;
+  maxScore: number;
+  testDate: string;
+  comment: string;
+  testComment: string;
 }
 
 export interface Page<T> {
@@ -308,6 +543,7 @@ export interface TodayTeachingSession {
   startAt: string;
   endAt: string;
   mode: DeliveryMode;
+  roomId: string | null;
   roomName: string | null;
   status: string;
   checkInState: CheckInState;
@@ -320,6 +556,130 @@ export interface TeacherDashboardData {
   teacherName: string;
   metrics: TeacherDashboardMetrics;
   sessions: TodayTeachingSession[];
+}
+
+export type SalaryBalanceStatus = "OWED" | "SETTLED" | "OVERPAID";
+export type SalaryAccrualStatus = "ACTIVE" | "REVERSED";
+export type SalaryPaymentMethod = "CASH" | "BANK_TRANSFER";
+
+export interface HourlyRate {
+  id: string;
+  classId: string;
+  effectiveDate: string;
+  effectiveTo: string | null;
+  hourlyRate: number;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayrollMetrics {
+  teacherCount: number;
+  sessionCount: number;
+  totalMinutes: number;
+  accrued: number;
+  adjustments: number;
+  due: number;
+  paid: number;
+  outstanding: number;
+  overpaidTeachers: number;
+}
+
+export interface PayrollTeacherRow {
+  teacherId: string;
+  teacherName: string;
+  sessionCount: number;
+  totalMinutes: number;
+  accrued: number;
+  adjustments: number;
+  due: number;
+  paid: number;
+  outstanding: number;
+  status: SalaryBalanceStatus;
+}
+
+export interface PayrollPage {
+  month: string;
+  metrics: PayrollMetrics;
+  teachers: Page<PayrollTeacherRow>;
+}
+
+export interface SalaryAccrualLine {
+  id: string;
+  sessionId: string;
+  classCode: string;
+  className: string;
+  ordinal: number;
+  sessionDate: string;
+  scheduledMinutes: number;
+  hourlyRate: number;
+  amount: number;
+  revision: number;
+  status: SalaryAccrualStatus;
+  substitution: boolean;
+}
+
+export interface SalaryAdjustment {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  salaryMonth: string;
+  amount: number;
+  reason: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SalaryPayment {
+  id: string;
+  teacherId: string;
+  teacherName: string;
+  salaryMonth: string;
+  paidAt: string;
+  amount: number;
+  method: SalaryPaymentMethod;
+  reference: string | null;
+  overpaymentReason: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeacherPayrollMetrics {
+  sessionCount: number;
+  totalMinutes: number;
+  accrued: number;
+  adjustments: number;
+  due: number;
+  paid: number;
+  outstanding: number;
+  status: SalaryBalanceStatus;
+}
+
+export interface TeacherPayrollDetail {
+  month: string;
+  teacherId: string;
+  teacherName: string;
+  metrics: TeacherPayrollMetrics;
+  accruals: SalaryAccrualLine[];
+  adjustments: SalaryAdjustment[];
+  payments: SalaryPayment[];
+}
+
+export interface SalaryMonthSummary {
+  month: string;
+  accrued: number;
+  adjustments: number;
+  due: number;
+  paidBySalaryMonth: number;
+  paidCashFlow: number;
+  outstanding: number;
+}
+
+export interface SalaryYearSummary {
+  year: number;
+  months: SalaryMonthSummary[];
 }
 
 export interface TeacherClassItem {
@@ -357,6 +717,7 @@ export interface TeacherSessionSummary {
   participatedStudents: number;
   rosterStudents: number;
   missingDocumentation: boolean;
+  hasTest: boolean;
   testResultCount: number;
 }
 
@@ -377,12 +738,18 @@ export interface LessonReport {
   version: number;
 }
 
-export interface TestResult {
+export interface SessionTest {
   id: string;
   testName: string;
-  score: number;
   maxScore: number;
   testDate: string;
+  comment: string;
+  version: number;
+}
+
+export interface TestResult {
+  id: string;
+  score: number | null;
   comment: string;
   version: number;
 }
@@ -396,7 +763,7 @@ export interface RosterStudent {
   attendanceVersion: number;
   sessionComment: string;
   commentVersion: number;
-  testResults: TestResult[];
+  testResult: TestResult | null;
 }
 
 export interface SessionOperationsDetail {
@@ -408,10 +775,20 @@ export interface SessionOperationsDetail {
   startAt: string;
   endAt: string;
   mode: DeliveryMode;
+  roomId: string | null;
   roomName: string | null;
   onlineLink: string | null;
   status: string;
+  plannedTeacherId: string;
+  actualTeacherId: string;
   actualTeacherName: string;
+  substitution: boolean;
+  makeup: boolean;
+  makeupRootSessionId: string | null;
+  replacesSessionId: string | null;
+  replacementSessionId: string | null;
+  cancellationReason: string | null;
+  allowedActions: SessionAction[];
   actualTeacher: boolean;
   canEdit: boolean;
   canVerify: boolean;
@@ -423,6 +800,7 @@ export interface SessionOperationsDetail {
   missingDocumentation: boolean;
   version: number;
   lessonReport: LessonReport;
+  sessionTest: SessionTest | null;
   students: RosterStudent[];
   participatedStudents: number;
 }
@@ -445,13 +823,22 @@ export interface PedagogicalRecordInput {
   }>;
 }
 
-export interface TestResultInput {
+export interface SessionTestInput {
   testName: string;
-  score: number;
   maxScore: number;
   testDate: string;
   comment: string;
+}
+
+export interface SessionTestUpdateInput extends SessionTestInput {
   version: number;
+  rosterRevision: string;
+  results: Array<{
+    studentId: string;
+    score: number | null;
+    comment: string;
+    version: number;
+  }>;
 }
 
 export type VerificationDecision = "CONFIRM_TAUGHT" | "CANCEL";

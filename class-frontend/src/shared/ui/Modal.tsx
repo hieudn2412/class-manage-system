@@ -6,6 +6,7 @@ interface ModalProps {
   title: string;
   onClose: () => void;
   confirmLabel?: string;
+  closeLabel?: string;
   onConfirm?: () => void;
   confirmDisabled?: boolean;
   confirmLoading?: boolean;
@@ -16,6 +17,7 @@ export const Modal = ({
   title,
   onClose,
   confirmLabel,
+  closeLabel = "Hủy",
   onConfirm,
   confirmDisabled = false,
   confirmLoading = false,
@@ -77,7 +79,7 @@ export const Modal = ({
         <div>{children}</div>
         <div className="modal-actions">
           <Button ref={closeRef} variant="secondary" onClick={onClose}>
-            Hủy
+            {closeLabel}
           </Button>
           {confirmLabel && onConfirm ? (
             <Button onClick={onConfirm} disabled={confirmDisabled} loading={confirmLoading}>

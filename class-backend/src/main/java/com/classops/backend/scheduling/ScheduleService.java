@@ -47,9 +47,10 @@ public class ScheduleService {
     @Transactional(readOnly = true)
     public WeekSchedule management(LocalDate weekStart, UUID teacherId, UUID roomId) {
         validateMonday(weekStart);
+        boolean canManage = actor.hasPermission("MANAGE_SESSION_SCHEDULE");
         return new WeekSchedule(weekStart, weekStart.plusDays(6),
-            store.calendar(actor.tenantId(), weekStart, teacherId, roomId),
-            actor.hasPermission("MANAGE_SESSION_SCHEDULE"));
+            store.calendar(actor.tenantId(), weekStart, teacherId, roomId, canManage),
+            canManage);
     }
 
     @Transactional(readOnly = true)
@@ -57,7 +58,7 @@ public class ScheduleService {
         validateMonday(weekStart);
         UUID teacherId = store.teacherProfileIdForUser(actor.tenantId(), actor.userId());
         return new WeekSchedule(weekStart, weekStart.plusDays(6),
-            store.calendar(actor.tenantId(), weekStart, teacherId, null), false);
+            store.calendar(actor.tenantId(), weekStart, teacherId, null, false), false);
     }
 
     @Transactional
@@ -164,7 +165,7 @@ public class ScheduleService {
         LocalDate weekStart = session.startAt().toLocalDate()
             .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY));
         WeekSchedule response = new WeekSchedule(weekStart, weekStart.plusDays(6),
-            store.calendar(tenantId, weekStart, null, null), true);
+            store.calendar(tenantId, weekStart, null, null, true), true);
         jdbc.sql("""
                 INSERT INTO idempotency_records (
                   id, tenant_id, operation, idempotency_key, request_hash,

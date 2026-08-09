@@ -13,4 +13,26 @@ describe("quyền vertical slice lịch lớp", () => {
     expect(hasPermission(["TEACHER"], PERMISSIONS.VIEW_OWN_SCHEDULE)).toBe(true);
     expect(hasPermission(["ACCOUNTANT"], PERMISSIONS.VIEW_OWN_SCHEDULE)).toBe(false);
   });
+
+  it("phân quyền quản lý tài khoản theo vai trò", () => {
+    expect(hasPermission(["ADMIN"], PERMISSIONS.MANAGE_TENANT_ACCOUNTS)).toBe(true);
+    expect(hasPermission(["ACADEMIC_MANAGER"], PERMISSIONS.MANAGE_LEARNING_ACCOUNTS)).toBe(true);
+    expect(hasPermission(["ACADEMIC_MANAGER"], PERMISSIONS.MANAGE_TENANT_ACCOUNTS)).toBe(false);
+    expect(hasPermission(["SUPER_ADMIN"], PERMISSIONS.MANAGE_PLATFORM_TENANTS)).toBe(true);
+  });
+
+  it("chỉ cấp không gian học tập của chính học sinh", () => {
+    expect(hasPermission(["STUDENT"], PERMISSIONS.VIEW_OWN_LEARNING)).toBe(true);
+    expect(hasPermission(["STUDENT"], PERMISSIONS.VIEW_CLASSES)).toBe(false);
+    expect(hasPermission(["TEACHER"], PERMISSIONS.VIEW_OWN_LEARNING)).toBe(false);
+  });
+
+  it("tách quyền đơn giá, sổ lương và lương cá nhân", () => {
+    expect(hasPermission(["ADMIN"], PERMISSIONS.MANAGE_CLASS_RATES)).toBe(true);
+    expect(hasPermission(["ACADEMIC_MANAGER"], PERMISSIONS.MANAGE_CLASS_RATES)).toBe(true);
+    expect(hasPermission(["ACADEMIC_MANAGER"], PERMISSIONS.VIEW_SALARY)).toBe(false);
+    expect(hasPermission(["ACCOUNTANT"], PERMISSIONS.MANAGE_SALARY)).toBe(true);
+    expect(hasPermission(["TEACHER"], PERMISSIONS.VIEW_OWN_SALARY)).toBe(true);
+    expect(hasPermission(["TEACHER"], PERMISSIONS.VIEW_SALARY)).toBe(false);
+  });
 });

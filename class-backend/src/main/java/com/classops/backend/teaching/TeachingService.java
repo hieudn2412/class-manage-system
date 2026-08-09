@@ -3,6 +3,8 @@ package com.classops.backend.teaching;
 import com.classops.backend.common.ApiException;
 import com.classops.backend.common.PageResponse;
 import com.classops.backend.scheduling.SchedulingEngine;
+import com.classops.backend.scheduling.SessionMutationService;
+import com.classops.backend.scheduling.SchedulingDtos.SessionAction;
 import com.classops.backend.security.CurrentActor;
 import com.classops.backend.teaching.TeachingDtos.AttendanceStatus;
 import com.classops.backend.teaching.TeachingDtos.CheckInInput;
@@ -12,8 +14,12 @@ import com.classops.backend.teaching.TeachingDtos.LessonReport;
 import com.classops.backend.teaching.TeachingDtos.LessonReportInput;
 import com.classops.backend.teaching.TeachingDtos.PedagogicalRecordInput;
 import com.classops.backend.teaching.TeachingDtos.RosterStudent;
+import com.classops.backend.teaching.TeachingDtos.SessionTest;
+import com.classops.backend.teaching.TeachingDtos.SessionTestInput;
+import com.classops.backend.teaching.TeachingDtos.SessionTestUpdateInput;
 import com.classops.backend.teaching.TeachingDtos.SessionOperationsDetail;
 import com.classops.backend.teaching.TeachingDtos.StudentRecordInput;
+import com.classops.backend.teaching.TeachingDtos.StudentTestResultInput;
 import com.classops.backend.teaching.TeachingDtos.TeacherClassHeader;
 import com.classops.backend.teaching.TeachingDtos.TeacherClassItem;
 import com.classops.backend.teaching.TeachingDtos.TeacherClassSessions;
@@ -21,7 +27,6 @@ import com.classops.backend.teaching.TeachingDtos.TeacherDashboardData;
 import com.classops.backend.teaching.TeachingDtos.TeacherDashboardMetrics;
 import com.classops.backend.teaching.TeachingDtos.TeacherSessionSummary;
 import com.classops.backend.teaching.TeachingDtos.TestResult;
-import com.classops.backend.teaching.TeachingDtos.TestResultInput;
 import com.classops.backend.teaching.TeachingDtos.TodayTeachingSession;
 import com.classops.backend.teaching.TeachingDtos.VerificationDecision;
 import com.classops.backend.teaching.TeachingDtos.VerificationDecisionInput;
@@ -37,7 +42,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -53,16 +57,18 @@ public class TeachingService {
     private final TeachingProperties properties;
     private final TeachingSupport support;
     private final SessionCompletionService completion;
+    private final SessionMutationService sessionMutations;
     private final Clock clock;
 
     public TeachingService(JdbcClient jdbc, CurrentActor actor, TeachingProperties properties,
                            TeachingSupport support, SessionCompletionService completion,
-                           Clock clock) {
+                           SessionMutationService sessionMutations, Clock clock) {
         this.jdbc = jdbc;
         this.actor = actor;
         this.properties = properties;
         this.support = support;
         this.completion = completion;
+        this.sessionMutations = sessionMutations;
         this.clock = clock;
     }
 
@@ -222,8 +228,12 @@ public class TeachingService {
     }
 
     @Transactional(readOnly = true)
-    public TeacherClassSessions classSessions(UUID classId, int page, int pageSize) {
+    public TeacherClassSessions classSessions(UUID classId, String status, int page, int pageSize) {
         validatePage(page, pageSize);
+        String normalizedStatus = normalizeFilter(status,
+            Set.of("", "SCHEDULED", "IN_PROGRESS", "PENDING_CONFIRMATION", "COMPLETED",
+                "CANCELLED"),
+            "INVALID_SESSION_STATUS");
         UUID tenantId = actor.tenantId();
         UUID teacherId = requireTeacherId();
         TeacherClassHeader header = jdbc.sql("""
@@ -258,11 +268,13 @@ public class TeachingService {
                   AND a.teacher_id=:teacherId
                   AND (s.start_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date >= a.effective_from
                   AND (a.effective_to IS NULL OR
-                    (s.start_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date <= a.effective_to))
+                    (s.start_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date < a.effective_to))
             )
+            AND (:sessionStatus='' OR s.status=:sessionStatus)
             """;
         long total = jdbc.sql("SELECT count(*) FROM class_sessions s WHERE " + visible)
             .param("tenantId", tenantId).param("classId", classId).param("teacherId", teacherId)
+            .param("sessionStatus", normalizedStatus)
             .query(Long.class).single();
         List<TeacherSessionSummary> sessions = jdbc.sql("""
                 SELECT s.id, s.ordinal, s.start_at, s.end_at, s.status,
@@ -280,12 +292,15 @@ public class TeachingService {
                           WHERE e.tenant_id=s.tenant_id AND e.class_id=s.class_id
                             AND e.effective_from <=
                               (s.start_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
-                            AND (e.effective_to IS NULL OR e.effective_to >=
+                            AND (e.effective_to IS NULL OR e.effective_to >
                               (s.start_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date))
                        END AS roster_count,
                        s.missing_documentation,
+                       EXISTS (SELECT 1 FROM session_tests test
+                         WHERE test.tenant_id=s.tenant_id AND test.session_id=s.id) AS has_test,
                        (SELECT count(*) FROM session_test_results tr
-                         WHERE tr.tenant_id=s.tenant_id AND tr.session_id=s.id) AS tests
+                         WHERE tr.tenant_id=s.tenant_id AND tr.session_id=s.id
+                           AND tr.score IS NOT NULL) AS tests
                 FROM class_sessions s
                 JOIN teacher_profiles t
                   ON t.tenant_id=s.tenant_id AND t.id=s.actual_teacher_id
@@ -298,6 +313,7 @@ public class TeachingService {
                 LIMIT :limit OFFSET :offset
                 """)
             .param("tenantId", tenantId).param("classId", classId).param("teacherId", teacherId)
+            .param("sessionStatus", normalizedStatus)
             .param("limit", pageSize).param("offset", (page - 1) * pageSize)
             .query((rs, row) -> {
                 boolean actual = rs.getBoolean("is_actual");
@@ -308,7 +324,8 @@ public class TeachingService {
                     rs.getString("status"), rs.getString("teacher_name"),
                     actual, !actual, rs.getString("lesson_name"),
                     rs.getInt("participated"), rs.getInt("roster_count"),
-                    rs.getBoolean("missing_documentation"), rs.getInt("tests"));
+                    rs.getBoolean("missing_documentation"), rs.getBoolean("has_test"),
+                    rs.getInt("tests"));
             })
             .list();
         return new TeacherClassSessions(header, PageResponse.of(sessions, page, pageSize, total));
@@ -457,82 +474,162 @@ public class TeachingService {
     }
 
     @Transactional
-    public TestResult addTestResult(UUID sessionId, UUID studentId, TestResultInput input,
-                                    String idempotencyKey) {
+    public SessionOperationsDetail createSessionTest(UUID sessionId, SessionTestInput input,
+                                                     String idempotencyKey) {
         support.requireIdempotencyKey(idempotencyKey);
-        validateScore(input);
         UUID tenantId = actor.tenantId();
-        String operation = "CREATE_TEST_RESULT:" + sessionId + ":" + studentId;
+        String operation = "CREATE_SESSION_TEST:" + sessionId;
         String hash = support.requestHash(input);
-        TestResult repeated = support.repeated(
-            tenantId, operation, idempotencyKey, hash, TestResult.class);
+        SessionOperationsDetail repeated = support.repeated(
+            tenantId, operation, idempotencyKey, hash, SessionOperationsDetail.class);
         if (repeated != null) {
             return repeated;
         }
         UUID teacherId = requireTeacherId();
         SessionRow session = session(tenantId, sessionId, true);
         requireEditable(session, teacherId);
-        requireRosterStudent(session, studentId);
-        UUID resultId = UUID.randomUUID();
+        if (sessionTest(session) != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "SESSION_TEST_ALREADY_EXISTS",
+                "Mỗi buổi học chỉ được có một bài kiểm tra.");
+        }
+        UUID testId = UUID.randomUUID();
         jdbc.sql("""
-                INSERT INTO session_test_results (
-                  id, tenant_id, session_id, student_id, test_name, score,
-                  max_score, test_date, comment_text
-                ) VALUES (
-                  :id, :tenantId, :sessionId, :studentId, :testName, :score,
-                  :maxScore, :testDate, :comment
-                )
+                INSERT INTO session_tests (
+                  id, tenant_id, session_id, test_name, max_score, test_date, comment_text
+                ) VALUES (:id, :tenantId, :sessionId, :testName, :maxScore, :testDate, :comment)
                 """)
-            .param("id", resultId).param("tenantId", tenantId).param("sessionId", sessionId)
-            .param("studentId", studentId).param("testName", input.testName())
-            .param("score", input.score()).param("maxScore", input.maxScore())
+            .param("id", testId).param("tenantId", tenantId).param("sessionId", sessionId)
+            .param("testName", input.testName()).param("maxScore", input.maxScore())
             .param("testDate", input.testDate()).param("comment", input.comment()).update();
-        TestResult result = testResult(tenantId, sessionId, studentId, resultId);
-        support.audit(tenantId, actor.userId(), "USER", "TEST_RESULT_CREATED",
-            "TEST_RESULT", resultId, null, result);
-        support.remember(tenantId, operation, idempotencyKey, hash, 201, result);
-        return result;
+        for (RosterRow student : rosterRows(session)) {
+            jdbc.sql("""
+                    INSERT INTO session_test_results (
+                      id, tenant_id, session_id, session_test_id, student_id,
+                      test_name, score, max_score, test_date, comment_text
+                    ) VALUES (
+                      :id, :tenantId, :sessionId, :testId, :studentId,
+                      :testName, NULL, :maxScore, :testDate, ''
+                    )
+                    """)
+                .param("id", UUID.randomUUID()).param("tenantId", tenantId)
+                .param("sessionId", sessionId).param("testId", testId)
+                .param("studentId", student.studentId()).param("testName", input.testName())
+                .param("maxScore", input.maxScore()).param("testDate", input.testDate()).update();
+        }
+        SessionTest created = sessionTest(session);
+        support.audit(tenantId, actor.userId(), "USER", "SESSION_TEST_CREATED",
+            "SESSION_TEST", testId, null, created);
+        SessionOperationsDetail response = detail(session(tenantId, sessionId, false),
+            teacherId, false);
+        support.remember(tenantId, operation, idempotencyKey, hash, 201, response);
+        return response;
     }
 
     @Transactional
-    public TestResult updateTestResult(UUID sessionId, UUID studentId, UUID resultId,
-                                       TestResultInput input, String idempotencyKey) {
+    public SessionOperationsDetail updateSessionTest(UUID sessionId, UUID testId,
+                                                     SessionTestUpdateInput input,
+                                                     String idempotencyKey) {
         support.requireIdempotencyKey(idempotencyKey);
-        validateScore(input);
         UUID tenantId = actor.tenantId();
-        String operation = "UPDATE_TEST_RESULT:" + resultId;
+        String operation = "UPDATE_SESSION_TEST:" + testId;
         String hash = support.requestHash(input);
-        TestResult repeated = support.repeated(
-            tenantId, operation, idempotencyKey, hash, TestResult.class);
+        SessionOperationsDetail repeated = support.repeated(
+            tenantId, operation, idempotencyKey, hash, SessionOperationsDetail.class);
         if (repeated != null) {
             return repeated;
         }
         UUID teacherId = requireTeacherId();
         SessionRow session = session(tenantId, sessionId, true);
         requireEditable(session, teacherId);
-        requireRosterStudent(session, studentId);
-        TestResult old = testResult(tenantId, sessionId, studentId, resultId);
+        SessionTest old = sessionTest(session);
+        if (old == null || !old.id().equals(testId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "SESSION_TEST_NOT_FOUND",
+                "Không tìm thấy bài kiểm tra của buổi học.");
+        }
+        List<RosterRow> roster = rosterRows(session);
+        if (!rosterRevision(session, roster).equals(input.rosterRevision())) {
+            throw new ApiException(HttpStatus.CONFLICT, "ROSTER_CHANGED",
+                "Danh sách học sinh đã thay đổi. Hãy tải lại trước khi lưu.");
+        }
+        Set<UUID> rosterIds = roster.stream().map(RosterRow::studentId).collect(
+            java.util.stream.Collectors.toSet());
+        Set<UUID> resultIds = input.results().stream()
+            .map(StudentTestResultInput::studentId).collect(java.util.stream.Collectors.toSet());
+        if (!rosterIds.equals(resultIds) || resultIds.size() != input.results().size()) {
+            throw new ApiException(HttpStatus.CONFLICT, "ROSTER_CHANGED",
+                "Dữ liệu điểm không khớp danh sách học sinh hiện tại.");
+        }
+        for (StudentTestResultInput result : input.results()) {
+            if (result.score() != null && result.score().compareTo(input.maxScore()) > 0) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "SCORE_EXCEEDS_MAX",
+                    "Điểm học sinh không được lớn hơn điểm tối đa.",
+                    Map.of("studentId", result.studentId()));
+            }
+        }
         int updated = jdbc.sql("""
-                UPDATE session_test_results
-                SET test_name=:testName, score=:score, max_score=:maxScore,
-                    test_date=:testDate, comment_text=:comment,
-                    updated_at=now(), version=version+1
+                UPDATE session_tests
+                SET test_name=:testName, max_score=:maxScore, test_date=:testDate,
+                    comment_text=:comment, updated_at=now(), version=version+1
                 WHERE tenant_id=:tenantId AND session_id=:sessionId
-                  AND student_id=:studentId AND id=:resultId AND version=:version
+                  AND id=:testId AND version=:version
                 """)
-            .param("testName", input.testName()).param("score", input.score())
-            .param("maxScore", input.maxScore()).param("testDate", input.testDate())
+            .param("testName", input.testName()).param("maxScore", input.maxScore())
+            .param("testDate", input.testDate())
             .param("comment", input.comment()).param("tenantId", tenantId)
-            .param("sessionId", sessionId).param("studentId", studentId)
-            .param("resultId", resultId).param("version", input.version()).update();
+            .param("sessionId", sessionId).param("testId", testId)
+            .param("version", input.version()).update();
         if (updated == 0) {
             throw optimisticConflict();
         }
-        TestResult result = testResult(tenantId, sessionId, studentId, resultId);
-        support.audit(tenantId, actor.userId(), "USER", "TEST_RESULT_UPDATED",
-            "TEST_RESULT", resultId, old, result);
-        support.remember(tenantId, operation, idempotencyKey, hash, 200, result);
-        return result;
+        jdbc.sql("""
+                UPDATE session_test_results
+                SET test_name=:testName, max_score=:maxScore, test_date=:testDate,
+                    updated_at=now()
+                WHERE tenant_id=:tenantId
+                  AND (session_test_id=:testId OR session_id=:sessionId)
+                """)
+            .param("testName", input.testName()).param("maxScore", input.maxScore())
+            .param("testDate", input.testDate()).param("tenantId", tenantId)
+            .param("testId", testId).param("sessionId", sessionId).update();
+        for (RosterRow student : roster) {
+            jdbc.sql("""
+                    INSERT INTO session_test_results (
+                      id, tenant_id, session_id, session_test_id, student_id,
+                      test_name, score, max_score, test_date, comment_text
+                    ) VALUES (
+                      :id, :tenantId, :sessionId, :testId, :studentId,
+                      :testName, NULL, :maxScore, :testDate, ''
+                    )
+                    ON CONFLICT (tenant_id, session_test_id, student_id) DO NOTHING
+                    """)
+                .param("id", UUID.randomUUID()).param("tenantId", tenantId)
+                .param("sessionId", sessionId).param("testId", testId)
+                .param("studentId", student.studentId()).param("testName", input.testName())
+                .param("maxScore", input.maxScore()).param("testDate", input.testDate()).update();
+        }
+        for (StudentTestResultInput result : input.results()) {
+            int resultUpdated = jdbc.sql("""
+                    UPDATE session_test_results
+                    SET score=:score, comment_text=:comment, updated_at=now(), version=version+1
+                    WHERE tenant_id=:tenantId
+                      AND (session_test_id=:testId OR session_id=:sessionId)
+                      AND student_id=:studentId AND version=:version
+                    """)
+                .param("score", result.score()).param("comment", result.comment())
+                .param("tenantId", tenantId).param("testId", testId)
+                .param("sessionId", sessionId).param("studentId", result.studentId())
+                .param("version", result.version()).update();
+            if (resultUpdated == 0) {
+                throw optimisticConflict();
+            }
+        }
+        SessionTest next = sessionTest(session);
+        support.audit(tenantId, actor.userId(), "USER", "SESSION_TEST_UPDATED",
+            "SESSION_TEST", testId, old, next);
+        SessionOperationsDetail response = detail(session(tenantId, sessionId, false),
+            teacherId, false);
+        support.remember(tenantId, operation, idempotencyKey, hash, 200, response);
+        return response;
     }
 
     @Transactional
@@ -553,7 +650,8 @@ public class TeachingService {
         if (input.decision() == VerificationDecision.CONFIRM_TAUGHT) {
             completion.managerConfirm(tenantId, sessionId, actor.userId(), input.reason(), now);
         } else {
-            completion.cancelPending(tenantId, sessionId, actor.userId(), input.reason(), now);
+            sessionMutations.cancelFromVerification(
+                tenantId, sessionId, actor.userId(), input.reason(), now);
         }
         SessionOperationsDetail response = detail(
             session(tenantId, sessionId, false), teacherIdOrNull(), true);
@@ -565,13 +663,15 @@ public class TeachingService {
                                            boolean management) {
         OffsetDateTime now = now();
         boolean actual = teacherId != null && teacherId.equals(session.actualTeacherId());
+        boolean canManageSchedule = actor.hasPermission("MANAGE_SESSION_SCHEDULE");
         boolean canEdit = actual && !"CANCELLED".equals(session.status())
             && (!"SCHEDULED".equals(session.status()) || !now.isBefore(session.startAt()));
         boolean canVerify = management && "PENDING_CONFIRMATION".equals(session.status());
         List<RosterRow> roster = rosterRows(session);
         Map<UUID, AttendanceRow> attendance = attendanceRows(session);
         Map<UUID, CommentRow> comments = commentRows(session);
-        Map<UUID, List<TestResult>> tests = testResults(session);
+        SessionTest test = sessionTest(session);
+        Map<UUID, TestResult> tests = testResults(session);
         List<RosterStudent> students = roster.stream().map(student -> {
             AttendanceRow a = attendance.get(student.studentId());
             CommentRow c = comments.get(student.studentId());
@@ -580,7 +680,7 @@ public class TeachingService {
                 a == null ? null : a.status(), a == null ? "" : a.note(),
                 a == null ? 0 : a.version(), c == null ? "" : c.comment(),
                 c == null ? 0 : c.version(),
-                tests.getOrDefault(student.studentId(), List.of()));
+                tests.get(student.studentId()));
         }).toList();
         int participated = (int) students.stream()
             .filter(student -> student.attendanceStatus() == AttendanceStatus.PRESENT
@@ -604,12 +704,18 @@ public class TeachingService {
         return new SessionOperationsDetail(
             session.id(), session.classId(), session.classCode(), session.className(),
             session.ordinal(), session.startAt(), session.endAt(), session.mode(),
-            session.roomName(), session.onlineLink(), session.status(),
-            session.actualTeacherName(), actual, canEdit, canVerify,
+            session.roomId(), session.roomName(), session.onlineLink(), session.status(),
+            session.plannedTeacherId(), session.actualTeacherId(), session.actualTeacherName(),
+            session.substitution(), session.replacesSessionId() != null,
+            session.makeupRootSessionId(), session.replacesSessionId(),
+            session.replacementSessionId(), session.cancellationReason(),
+            allowedActions(session, checkedIn, canManageSchedule),
+            actual, canEdit, canVerify,
             checkInState(session.status(), session.startAt(), session.endAt(), checkedIn, now),
             session.startAt().minus(properties.checkInBeforeStart()), checkIn,
             session.rosterFrozenAt() != null, rosterRevision(session, roster),
-            session.missingDocumentation(), session.version(), lesson, students, participated);
+            session.missingDocumentation(), session.version(), lesson, test, students,
+            participated);
     }
 
     private void saveLessonReport(SessionRow session, LessonReportInput input) {
@@ -769,7 +875,7 @@ public class TeachingService {
                 JOIN users u ON u.tenant_id=sp.tenant_id AND u.id=sp.user_id
                 WHERE e.tenant_id=:tenantId AND e.class_id=:classId
                   AND e.effective_from <= :sessionDate
-                  AND (e.effective_to IS NULL OR e.effective_to >= :sessionDate)
+                  AND (e.effective_to IS NULL OR e.effective_to > :sessionDate)
                 ORDER BY u.display_name
                 """)
             .param("tenantId", session.tenantId()).param("classId", session.classId())
@@ -849,55 +955,50 @@ public class TeachingService {
             .optional().orElse(null);
     }
 
-    private Map<UUID, List<TestResult>> testResults(SessionRow session) {
-        Map<UUID, List<TestResult>> result = new LinkedHashMap<>();
+    private SessionTest sessionTest(SessionRow session) {
+        return jdbc.sql("""
+                SELECT id, test_name, max_score, test_date, comment_text, version
+                FROM session_tests
+                WHERE tenant_id=:tenantId AND session_id=:sessionId
+                """)
+            .param("tenantId", session.tenantId()).param("sessionId", session.id())
+            .query((rs, row) -> new SessionTest(
+                rs.getObject("id", UUID.class), rs.getString("test_name"),
+                rs.getBigDecimal("max_score"), rs.getObject("test_date", LocalDate.class),
+                rs.getString("comment_text"), rs.getLong("version")))
+            .optional().orElse(null);
+    }
+
+    private Map<UUID, TestResult> testResults(SessionRow session) {
+        Map<UUID, TestResult> result = new LinkedHashMap<>();
         jdbc.sql("""
-                SELECT id, student_id, test_name, score, max_score, test_date,
-                       comment_text, version
+                SELECT id, student_id, score, comment_text, version
                 FROM session_test_results
                 WHERE tenant_id=:tenantId AND session_id=:sessionId
-                ORDER BY test_date DESC, created_at DESC
                 """)
             .param("tenantId", session.tenantId()).param("sessionId", session.id())
             .query((rs, row) -> Map.entry(
                 rs.getObject("student_id", UUID.class),
                 new TestResult(
-                    rs.getObject("id", UUID.class), rs.getString("test_name"),
-                    rs.getBigDecimal("score"), rs.getBigDecimal("max_score"),
-                    rs.getObject("test_date", LocalDate.class),
+                    rs.getObject("id", UUID.class), rs.getBigDecimal("score"),
                     rs.getString("comment_text"), rs.getLong("version"))))
-            .list().forEach(entry ->
-                result.computeIfAbsent(entry.getKey(), ignored -> new ArrayList<>())
-                    .add(entry.getValue()));
+            .list().forEach(entry -> result.put(entry.getKey(), entry.getValue()));
         return result;
-    }
-
-    private TestResult testResult(UUID tenantId, UUID sessionId, UUID studentId, UUID resultId) {
-        return jdbc.sql("""
-                SELECT id, test_name, score, max_score, test_date, comment_text, version
-                FROM session_test_results
-                WHERE tenant_id=:tenantId AND session_id=:sessionId
-                  AND student_id=:studentId AND id=:resultId
-                """)
-            .param("tenantId", tenantId).param("sessionId", sessionId)
-            .param("studentId", studentId).param("resultId", resultId)
-            .query((rs, row) -> new TestResult(
-                rs.getObject("id", UUID.class), rs.getString("test_name"),
-                rs.getBigDecimal("score"), rs.getBigDecimal("max_score"),
-                rs.getObject("test_date", LocalDate.class),
-                rs.getString("comment_text"), rs.getLong("version")))
-            .optional().orElseThrow(() -> new ApiException(
-                HttpStatus.NOT_FOUND, "TEST_RESULT_NOT_FOUND",
-                "Không tìm thấy điểm kiểm tra."));
     }
 
     private SessionRow session(UUID tenantId, UUID sessionId, boolean lock) {
         String suffix = lock ? " FOR UPDATE OF s" : "";
         return jdbc.sql("""
                 SELECT s.id, s.tenant_id, s.class_id, c.code AS class_code,
-                       c.name AS class_name, s.ordinal, s.start_at, s.end_at, s.mode,
+                       c.name AS class_name, s.ordinal, s.start_at, s.end_at, s.mode, s.room_id,
                        r.name AS room_name, s.online_link, s.status,
+                       s.planned_teacher_id,
                        s.actual_teacher_id, u.display_name AS actual_teacher_name,
+                       s.is_substitution, s.makeup_root_session_id, s.replaces_session_id,
+                       s.cancellation_reason,
+                       (SELECT child.id FROM class_sessions child
+                        WHERE child.tenant_id=s.tenant_id AND child.replaces_session_id=s.id
+                        LIMIT 1) AS replacement_session_id,
                        s.roster_frozen_at, s.missing_documentation, s.version
                 FROM class_sessions s
                 JOIN classes c ON c.tenant_id=s.tenant_id AND c.id=s.class_id
@@ -914,9 +1015,15 @@ public class TeachingService {
                 rs.getString("class_name"), rs.getInt("ordinal"),
                 rs.getObject("start_at", OffsetDateTime.class),
                 rs.getObject("end_at", OffsetDateTime.class),
-                rs.getString("mode"), rs.getString("room_name"), rs.getString("online_link"),
-                rs.getString("status"), rs.getObject("actual_teacher_id", UUID.class),
-                rs.getString("actual_teacher_name"),
+                rs.getString("mode"), rs.getObject("room_id", UUID.class),
+                rs.getString("room_name"), rs.getString("online_link"),
+                rs.getString("status"), rs.getObject("planned_teacher_id", UUID.class),
+                rs.getObject("actual_teacher_id", UUID.class), rs.getString("actual_teacher_name"),
+                rs.getBoolean("is_substitution"),
+                rs.getObject("makeup_root_session_id", UUID.class),
+                rs.getObject("replaces_session_id", UUID.class),
+                rs.getObject("replacement_session_id", UUID.class),
+                rs.getString("cancellation_reason"),
                 rs.getObject("roster_frozen_at", OffsetDateTime.class),
                 rs.getBoolean("missing_documentation"), rs.getLong("version")))
             .optional().orElseThrow(() -> new ApiException(
@@ -924,7 +1031,7 @@ public class TeachingService {
     }
 
     private boolean sessionInTeacherScope(SessionRow session, UUID teacherId) {
-        if (teacherId.equals(session.actualTeacherId())) {
+        if (teacherId.equals(session.actualTeacherId()) || teacherId.equals(session.plannedTeacherId())) {
             return true;
         }
         LocalDate date = session.startAt().atZoneSameInstant(properties.zoneId()).toLocalDate();
@@ -933,7 +1040,7 @@ public class TeachingService {
                   SELECT 1 FROM class_teacher_assignments
                   WHERE tenant_id=:tenantId AND class_id=:classId AND teacher_id=:teacherId
                     AND effective_from <= :sessionDate
-                    AND (effective_to IS NULL OR effective_to >= :sessionDate)
+                    AND (effective_to IS NULL OR effective_to > :sessionDate)
                 )
                 """)
             .param("tenantId", session.tenantId()).param("classId", session.classId())
@@ -941,13 +1048,19 @@ public class TeachingService {
             .query(Boolean.class).single();
     }
 
-    private void requireRosterStudent(SessionRow session, UUID studentId) {
-        boolean allowed = rosterRows(session).stream()
-            .anyMatch(row -> row.studentId().equals(studentId));
-        if (!allowed) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "STUDENT_NOT_IN_SESSION_ROSTER",
-                "Học sinh không thuộc danh sách của buổi.");
+    private List<SessionAction> allowedActions(SessionRow session, boolean checkedIn,
+                                               boolean canManageSchedule) {
+        if (!canManageSchedule) {
+            return List.of();
         }
+        if (("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))
+            && !checkedIn) {
+            return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION);
+        }
+        if ("CANCELLED".equals(session.status()) && session.replacementSessionId() == null) {
+            return List.of(SessionAction.CREATE_MAKEUP);
+        }
+        return List.of();
     }
 
     private void requireActualTeacher(SessionRow session, UUID teacherId) {
@@ -972,14 +1085,6 @@ public class TeachingService {
     private void requireVersion(SessionRow session, long version) {
         if (session.version() != version) {
             throw optimisticConflict();
-        }
-    }
-
-    private void validateScore(TestResultInput input) {
-        if (input.score().compareTo(input.maxScore()) > 0) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "TEST_SCORE_INVALID",
-                "Điểm đạt không được lớn hơn điểm tối đa.",
-                Map.of("field", "score"));
         }
     }
 
@@ -1086,8 +1191,10 @@ public class TeachingService {
     private record SessionRow(
         UUID id, UUID tenantId, UUID classId, String classCode, String className,
         int ordinal, OffsetDateTime startAt, OffsetDateTime endAt, String mode,
-        String roomName, String onlineLink, String status, UUID actualTeacherId,
-        String actualTeacherName, OffsetDateTime rosterFrozenAt,
+        UUID roomId, String roomName, String onlineLink, String status, UUID plannedTeacherId,
+        UUID actualTeacherId, String actualTeacherName, boolean substitution,
+        UUID makeupRootSessionId, UUID replacesSessionId, UUID replacementSessionId,
+        String cancellationReason, OffsetDateTime rosterFrozenAt,
         boolean missingDocumentation, long version
     ) {
     }

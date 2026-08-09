@@ -1,6 +1,6 @@
 import { createContext, useContext, type PropsWithChildren } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { authRepository } from "../../services/repositories/authRepository";
 import { ApiError } from "../../shared/types/api";
 import type { Tenant } from "../../shared/types/domain";
@@ -43,6 +43,16 @@ export const TenantProvider = ({ children }: PropsWithChildren) => {
               isLocked
                 ? "Tài khoản trong trung tâm này tạm thời không thể đăng nhập. Vui lòng liên hệ quản trị nền tảng."
                 : "Đường dẫn trung tâm không hợp lệ hoặc trung tâm không còn hoạt động."
+            }
+            action={
+              <div className="state-actions">
+                <Link className="button button-secondary" to="/">
+                  Nhập slug khác
+                </Link>
+                <Link className="button" to="/platform/login">
+                  Đăng nhập Super Admin
+                </Link>
+              </div>
             }
           />
         </div>

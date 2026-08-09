@@ -1,7 +1,7 @@
 flowchart TB
-  SA["Super Admin"] --> U1["Quản lý tenant"]
-  ADM["Admin trung tâm"] --> U2["Quản lý toàn bộ tenant"]
-  OPS["Quản lý học vụ"] --> U3["Tài khoản, lớp, lịch, buổi, khảo sát"]
+  SA["Super Admin"] --> U1["Tenant + Admin ban đầu"]
+  ADM["Admin trung tâm"] --> U2["Mọi tài khoản + nghiệp vụ tenant"]
+  OPS["Quản lý học vụ"] --> U3["GV/HS thuần + lớp, lịch, buổi, khảo sát"]
   ACC["Kế toán"] --> U4["Học phí, lương, báo cáo tài chính"]
   TEA["Giáo viên"] --> U5["Lịch, lớp đang/đã dạy, buổi, BTVN, điểm kiểm tra, lương cá nhân"]
   STU["Học sinh"] --> U6["Lịch/lớp active, BTVN, tài liệu, phản hồi"]
@@ -21,6 +21,7 @@ flowchart TB
   MULTI --> R1
 
   SA -. "Không được xem nghiệp vụ tenant" .-> DENY
+  OPS -. "Không thấy tài khoản có role quản lý" .-> DENY
   STU -. "Không xem học phí / không sửa hồ sơ" .-> DENY
   OPS -. "Không xem tài chính / tệp HR" .-> DENY
 

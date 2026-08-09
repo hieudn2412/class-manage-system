@@ -4,15 +4,20 @@ flowchart TD
   SOURCE -->|"Quản lý xác nhận"| CALC
   CALC["Lấy GV thực tế, phút lịch, đơn giá lớp hiệu lực"] --> FORMULA["amount = minutes / 60 × hourly_rate"]
   FORMULA --> UPSERT["Upsert SalaryAccrual idempotent + snapshot"]
+  RATE["Lịch sử đơn giá có hiệu lực + version"] --> CALC
+  RATE -->|"Sửa quá khứ có lý do"| RECALC_RATE["Reconcile các buổi Completed bị ảnh hưởng"]
+  RECALC_RATE --> AUDIT
   UPSERT --> MONTH["Tổng hợp tháng"]
   MONTH --> ADJUST["Cộng/trừ có lý do"]
   ADJUST --> DUE["Phải trả = accrual + adjustments"]
   DUE --> PAYMENT["Ghi một hoặc nhiều SalaryPayment"]
   PAYMENT --> BALANCE["Còn lại = phải trả - đã trả"]
+  PAYMENT --> CASHFLOW["Dòng tiền theo ngày trả thực tế"]
   BALANCE --> STATE{"Số dư"}
   STATE -->|Dương| OWED["Còn phải trả"]
   STATE -->|Bằng 0| SETTLED["Đã cân bằng"]
   STATE -->|Âm| OVER["Đã trả thừa"]
+  OVER --> WARN["Chỉ cảnh báo; không tự bù/chuyển kỳ ở v1"]
 
   SESSION --> EDIT{"Sửa ngày / thời lượng / GV thực tế?"}
   EDIT -->|Có| RECALC["Tính lại bằng rate hiệu lực mới tương ứng"]
@@ -21,4 +26,3 @@ flowchart TD
   EDIT -->|Không| MONTH
 
   CANCEL["Session.Cancelled"] --> NO_PAY["Không accrual / đảo accrual sai có audit"]
-

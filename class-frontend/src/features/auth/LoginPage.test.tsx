@@ -9,6 +9,7 @@ import { ApiError } from "../../shared/types/api";
 import { adminUser, createTestSession, firstLoginUser, tenantAnhDuong } from "../../test/fixtures";
 import { ChangePasswordPage } from "./ChangePasswordPage";
 import { LoginPage } from "./LoginPage";
+import { TenantLoginGatewayPage } from "./TenantLoginGatewayPage";
 
 const AuthTestRoutes = () => (
   <Routes>
@@ -50,9 +51,34 @@ describe("WF-01 đăng nhập", () => {
     renderWithProviders(<AuthTestRoutes />, ["/t/anh-duong/login"]);
 
     await screen.findByRole("heading", { name: "Đăng nhập an toàn" });
+    await user.type(screen.getByLabelText("Tên đăng nhập"), "admin.anhduong");
+    await user.type(screen.getByLabelText("Mật khẩu"), "Demo@123");
     await user.click(screen.getByRole("button", { name: /Đăng nhập/i }));
 
     expect(await screen.findByText("Trang ứng dụng đã đăng nhập")).toBeInTheDocument();
+  });
+
+  it("cổng mặc định chuyển theo slug và có lối sang platform", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <Routes>
+        <Route path="/" element={<TenantLoginGatewayPage />} />
+        <Route path="/t/:tenantSlug/login" element={<div>Login tenant đã chọn</div>} />
+        <Route path="/platform/login" element={<div>Login nền tảng</div>} />
+      </Routes>,
+      ["/"],
+    );
+    await user.type(screen.getByLabelText("Slug trung tâm"), "Anh-Duong");
+    await user.click(screen.getByRole("button", { name: "Tiếp tục đăng nhập" }));
+    expect(await screen.findByText("Login tenant đã chọn")).toBeInTheDocument();
+  });
+
+  it("trang login tenant có liên kết đăng nhập Super Admin", async () => {
+    renderWithProviders(<AuthTestRoutes />, ["/t/anh-duong/login"]);
+    expect(await screen.findByRole("link", { name: "Đăng nhập Super Admin" })).toHaveAttribute(
+      "href",
+      "/platform/login",
+    );
   });
 
   it("hiển thị lỗi đăng nhập mà không tiết lộ tài khoản", async () => {
@@ -60,7 +86,7 @@ describe("WF-01 đăng nhập", () => {
     renderWithProviders(<AuthTestRoutes />, ["/t/anh-duong/login"]);
 
     const password = await screen.findByLabelText("Mật khẩu");
-    await user.clear(password);
+    await user.type(await screen.findByLabelText("Tên đăng nhập"), "admin.anhduong");
     await user.type(password, "SaiMatKhau");
     await user.click(screen.getByRole("button", { name: /Đăng nhập/i }));
 
@@ -72,8 +98,8 @@ describe("WF-01 đăng nhập", () => {
     renderWithProviders(<AuthTestRoutes />, ["/t/anh-duong/login"]);
 
     const username = await screen.findByLabelText("Tên đăng nhập");
-    await user.clear(username);
     await user.type(username, "first.login");
+    await user.type(screen.getByLabelText("Mật khẩu"), "Demo@123");
     await user.click(screen.getByRole("button", { name: /Đăng nhập/i }));
 
     await waitFor(() =>

@@ -1,33 +1,40 @@
 flowchart TD
-  DRAFT["Class.Draft"] --> SCHEDULED["Class.Scheduled"]
-  SCHEDULED -->|"Tới buổi đầu"| ACTIVE["Class.Active"]
+  DRAFT["Class.Draft"] -->|"Publish nguyên tử"| SCHEDULED["Class.Scheduled"]
+  SCHEDULED -->|"Scheduler ≤ 30 giây từ buổi đầu chưa hủy"| ACTIVE["Class.Active"]
 
-  ACTIVE --> ADD["Admin / Học vụ chọn học sinh có sẵn"]
-  ADD --> VALID{"Đã active trong lớp?"}
-  VALID -->|Có| DUP["Từ chối tạo trùng"]
-  VALID -->|Không| ENR["Tạo nguyên tử: Enrollment.Active + Tuition.Unpaid"]
-  ENR --> ACCESS["Cấp quyền lịch, BTVN, tài liệu, record"]
-  ACTIVE --> TEACHER["Giáo viên xem roster chỉ đọc"]
-  TEACHER --> ATTEND["Chỉ điểm danh học sinh thuộc danh sách buổi"]
+  SCHEDULED & ACTIVE & AWAIT --> ADD["Admin / Học vụ thêm một hoặc nhiều học sinh"]
+  ADD --> VALID{"Tenant, trạng thái, version và active unique hợp lệ?"}
+  VALID -->|Không| ROLLBACK["Rollback toàn bộ lô"]
+  VALID -->|Có| WARN{"Vượt sức chứa hoặc trùng lịch?"}
+  WARN -->|"Có, chưa ack ID"| CONFIRM["Trả cảnh báo có ID"]
+  CONFIRM -->|"Gửi lại + ack"| ENR["Enrollment.Active + Tuition.Unpaid + audit/outbox"]
+  WARN -->|Không| ENR
+  ENR --> ACCESS["Mở quyền Lớp của tôi"]
 
-  ENR --> REMOVE{"Kết thúc enrollment?"}
-  REMOVE -->|"Giáo viên"| DENY["Từ chối: không có quyền thay đổi roster"]
-  REMOVE -->|"Admin / Học vụ + lý do"| LEFT["Enrollment.Left / Transferred"]
-  LEFT --> REVOKE["Thu hồi quyền lớp, giữ lịch sử"]
-  LEFT --> FINANCE["Giữ giao dịch; hoàn tiền là luồng riêng"]
+  ENR --> END{"Kết thúc enrollment?"}
+  END -->|"Giáo viên/Kế toán"| DENY["Từ chối hoặc chỉ đọc"]
+  END -->|"Admin/Học vụ + lý do"| LEFT["Left / Transferred; effective_to loại trừ hôm nay"]
+  LEFT --> LOCKED["Thẻ metadata khóa; API nội dung 403"]
+  LEFT --> REENTER["Vào lại tạo enrollment + học phí mới"]
+  REENTER --> ENR
+
+  ENR --> ROSTER{"Buổi đã snapshot?"}
+  ROSTER -->|Chưa| DYNAMIC["Roster động phản ánh vào/rời ngay"]
+  ROSTER -->|Rồi| FROZEN["Giữ snapshot bất biến"]
 
   ACTIVE --> PROGRESS{"Đủ số buổi hoàn tất?"}
   PROGRESS -->|Chưa| ACTIVE
   PROGRESS -->|Đủ| AWAIT["Class.AwaitingClose"]
-  AWAIT --> CHECK["Quản lý kiểm tra hồ sơ/BTVN"]
-  CHECK -->|Chưa đủ| AWAIT
-  CHECK -->|Đóng lớp| CLOSED["Class.Closed"]
-  CLOSED --> REVOKE
-  CLOSED -->|"Admin mở lại + lý do"| AWAIT
+  AWAIT --> CHECK["Đếm buổi thiếu điểm danh/record"]
+  CHECK -->|"Thiếu, chưa ack"| CLOSEWARN["Cảnh báo có ID"]
+  CLOSEWARN -->|"Admin/Học vụ xác nhận"| CLOSED["Class.Closed"]
+  CHECK -->|Đủ| CLOSED
+  CLOSED --> LOCKED
+  CLOSED -->|"Chỉ Admin + lý do"| AWAIT
 
-  DRAFT --> CANCEL["Class.Cancelled"]
-  SCHEDULED --> CANCEL
-  ACTIVE --> CANCEL
-  AWAIT --> CANCEL
-  CANCEL --> REVOKE
-  CANCEL --> KEEP["Giữ buổi cũ, enrollment và tài chính"]
+  DRAFT & SCHEDULED & ACTIVE & AWAIT -->|"Admin/Học vụ + lý do"| CANCEL["Class.Cancelled — terminal"]
+  CANCEL --> FUTURE["Chỉ hủy buổi chưa bắt đầu"]
+  FUTURE --> KEEP["Giữ buổi cũ, enrollment, tài chính và snapshot"]
+  CANCEL --> LOCKED
+
+  ENR & LEFT & CLOSED & CANCEL --> AUDIT["Audit + outbox đúng một lần; không notification mới"]
