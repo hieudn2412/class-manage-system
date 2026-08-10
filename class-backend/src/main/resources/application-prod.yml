@@ -1,7 +1,38 @@
-# Production is deliberately disabled while the project is local-development only.
-# Activating this profile fails during config loading before a datasource or web server starts.
 spring:
   config:
-    activate:
-      on-profile: prod
-    import: "file:./PRODUCTION_PROFILE_IS_DISABLED.yml"
+    import: optional:file:./.env.prod[.properties]
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+
+app:
+  security:
+    jwt-secret: ${JWT_SECRET}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+  seed:
+    default-password: ${DEFAULT_ACCOUNT_PASSWORD}
+    admin:
+      username: ${PLATFORM_ADMIN_USERNAME}
+      password: ${PLATFORM_ADMIN_PASSWORD}
+      email: ${PLATFORM_ADMIN_EMAIL}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

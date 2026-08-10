@@ -11,19 +11,19 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 
 @Component
-@Profile("dev")
+@Profile({"dev", "prod"})
 public class PlatformAdminBootstrap implements ApplicationRunner {
-    public static final String USERNAME = "superadmin";
-    public static final String INITIAL_PASSWORD = "123456";
     private static final UUID USER_ID =
         UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     private final JdbcClient jdbc;
     private final PasswordEncoder passwords;
+    private final SeedProperties seed;
 
-    public PlatformAdminBootstrap(JdbcClient jdbc, PasswordEncoder passwords) {
+    public PlatformAdminBootstrap(JdbcClient jdbc, PasswordEncoder passwords, SeedProperties seed) {
         this.jdbc = jdbc;
         this.passwords = passwords;
+        this.seed = seed;
     }
 
     @Override
@@ -39,8 +39,8 @@ public class PlatformAdminBootstrap implements ApplicationRunner {
                 ON CONFLICT (singleton_slot) DO NOTHING
                 """)
             .param("id", USER_ID)
-            .param("username", USERNAME)
-            .param("password", passwords.encode(INITIAL_PASSWORD))
+            .param("username", seed.admin().username())
+            .param("password", passwords.encode(seed.admin().password()))
             .update();
 
         UUID platformUserId = jdbc.sql("SELECT id FROM platform_users WHERE singleton_slot=1")

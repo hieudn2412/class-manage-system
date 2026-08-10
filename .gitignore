@@ -2,6 +2,7 @@ node_modules/
 dist/
 target/
 .env
+.env.prod
 *.log
 .idea/
 coverage/
@@ -10,5 +11,6 @@ test-results/
 artifacts/
 .env
 .env.local
+.env.prod
 *.log
 .DS_Store

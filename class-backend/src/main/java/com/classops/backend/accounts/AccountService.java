@@ -2,7 +2,7 @@ package com.classops.backend.accounts;
 
 import com.classops.backend.common.ApiException;
 import com.classops.backend.common.PageResponse;
-import com.classops.backend.platform.PlatformTenantService;
+import com.classops.backend.config.SeedProperties;
 import com.classops.backend.security.CurrentActor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,10 +24,11 @@ public class AccountService {
     private final CurrentActor actor;
     private final PasswordEncoder passwords;
     private final ObjectMapper json;
+    private final SeedProperties seed;
 
     public AccountService(JdbcClient jdbc, CurrentActor actor, PasswordEncoder passwords,
-                          ObjectMapper json) {
-        this.jdbc = jdbc; this.actor = actor; this.passwords = passwords; this.json = json;
+                          ObjectMapper json, SeedProperties seed) {
+        this.jdbc = jdbc; this.actor = actor; this.passwords = passwords; this.json = json; this.seed = seed;
     }
 
     @Transactional(readOnly = true)
@@ -101,7 +102,7 @@ public class AccountService {
                 VALUES (:id,:tenant,:username,:name,:email,:password,'ACTIVE','READY',:profile)
                 """).param("id", id).param("tenant", access.tenantId).param("username", username)
                 .param("name", command.displayName().trim()).param("email", clean(command.email()))
-                .param("password", passwords.encode(PlatformTenantService.DEFAULT_PASSWORD))
+                .param("password", passwords.encode(defaultPassword()))
                 .param("profile", profile).update();
             for (String role : roles) jdbc.sql("""
                 INSERT INTO user_roles(tenant_id,user_id,role_code) VALUES (:tenant,:id,:role)
@@ -123,7 +124,7 @@ public class AccountService {
         } catch (DuplicateKeyException ex) {
             throw new ApiException(HttpStatus.CONFLICT, "DUPLICATE_USERNAME", "Tên đăng nhập đã tồn tại trong trung tâm.");
         }
-        return new CreatedAccount(find(access.tenantId, id), PlatformTenantService.DEFAULT_PASSWORD);
+        return new CreatedAccount(find(access.tenantId, id), defaultPassword());
     }
 
     @Transactional
@@ -184,12 +185,12 @@ public class AccountService {
         int changed = jdbc.sql("""
             UPDATE users SET password_hash=:password,password_state='READY',token_version=token_version+1,
                 updated_at=now(),version=version+1 WHERE tenant_id=:tenant AND id=:id AND version=:version
-            """).param("password", passwords.encode(PlatformTenantService.DEFAULT_PASSWORD))
+            """).param("password", passwords.encode(defaultPassword()))
             .param("tenant", access.tenantId).param("id", id).param("version", version).update();
         ensureVersion(changed);
         audit(access.tenantId, "ACCOUNT_CREDENTIAL_RESET", id, before,
             Map.of("passwordState", "READY", "reason", reason.trim()));
-        return new CredentialReset(id, PlatformTenantService.DEFAULT_PASSWORD, "READY");
+        return new CredentialReset(id, defaultPassword(), "READY");
     }
 
     private AccountView find(UUID tenantId, UUID id) {
@@ -272,6 +273,7 @@ public class AccountService {
     }
     private String toJson(Object value) { if (value == null) return null; try { return json.writeValueAsString(value); }
         catch (JsonProcessingException ex) { throw new IllegalStateException(ex); } }
+    private String defaultPassword() { return seed.defaultPassword(); }
     private JdbcClient.StatementSpec bind(JdbcClient.StatementSpec q, UUID tenant, String status,
                                            String profile, String role, String term) {
         return q.param("tenant", tenant).param("status", status).param("profile", profile)
