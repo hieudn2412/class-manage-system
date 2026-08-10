@@ -2,6 +2,7 @@ package com.classops.backend.platform;
 
 import com.classops.backend.common.ApiException;
 import com.classops.backend.common.PageResponse;
+import com.classops.backend.config.SeedProperties;
 import com.classops.backend.security.CurrentActor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,18 +22,19 @@ import java.util.UUID;
 
 @Service
 public class PlatformTenantService {
-    public static final String DEFAULT_PASSWORD = "123456";
     private final JdbcClient jdbc;
     private final PasswordEncoder passwords;
     private final CurrentActor actor;
     private final ObjectMapper json;
+    private final SeedProperties seed;
 
     public PlatformTenantService(JdbcClient jdbc, PasswordEncoder passwords,
-                                 CurrentActor actor, ObjectMapper json) {
+                                 CurrentActor actor, ObjectMapper json, SeedProperties seed) {
         this.jdbc = jdbc;
         this.passwords = passwords;
         this.actor = actor;
         this.json = json;
+        this.seed = seed;
     }
 
     @Transactional(readOnly = true)
@@ -108,7 +110,7 @@ public class PlatformTenantService {
                     """).param("id", adminId).param("tenantId", tenantId).param("username", username)
                 .param("displayName", command.initialAdmin().displayName().trim())
                 .param("email", clean(command.initialAdmin().email()))
-                .param("password", passwords.encode(DEFAULT_PASSWORD)).update();
+                .param("password", passwords.encode(defaultPassword())).update();
             jdbc.sql("INSERT INTO user_roles(tenant_id,user_id,role_code) VALUES (:tenant,:user,'ADMIN')")
                 .param("tenant", tenantId).param("user", adminId).update();
             jdbc.sql("UPDATE tenants SET initial_admin_user_id=:admin WHERE id=:tenant")
@@ -120,7 +122,7 @@ public class PlatformTenantService {
             throw new ApiException(HttpStatus.CONFLICT, "DUPLICATE_TENANT_SLUG",
                 "Slug trung tâm đã tồn tại.");
         }
-        return new CreatedTenant(find(tenantId), DEFAULT_PASSWORD);
+        return new CreatedTenant(find(tenantId), defaultPassword());
     }
 
     @Transactional
@@ -184,12 +186,12 @@ public class PlatformTenantService {
                 UPDATE users SET password_hash=:password, password_state='READY', status='ACTIVE',
                     token_version=token_version+1, updated_at=now(), version=version+1
                 WHERE tenant_id=:tenant AND id=:id AND version=:version
-                """).param("password", passwords.encode(DEFAULT_PASSWORD)).param("tenant", tenantId)
+                """).param("password", passwords.encode(defaultPassword())).param("tenant", tenantId)
             .param("id", before.id()).param("version", version).update();
         ensureVersion(changed);
         audit(tenantId, "INITIAL_ADMIN_CREDENTIAL_RESET", "User", before.id(), before,
             Map.of("passwordState", "READY", "status", "ACTIVE", "reason", reason.trim()));
-        return new CredentialReset(before.id(), DEFAULT_PASSWORD, "READY");
+        return new CredentialReset(before.id(), defaultPassword(), "READY");
     }
 
     private TenantView find(UUID id) {
@@ -254,6 +256,7 @@ public class PlatformTenantService {
         return new ApiException(HttpStatus.BAD_REQUEST, code, message);
     }
     private String clean(String value) { return value == null || value.isBlank() ? null : value.trim(); }
+    private String defaultPassword() { return seed.defaultPassword(); }
 
     public record InitialAdminInput(String username, String displayName, String email) {}
     public record CreateTenant(String name, String slug, InitialAdminInput initialAdmin) {}

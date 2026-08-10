@@ -1,0 +1,16 @@
+.git
+.idea
+.codex
+.agents
+node_modules
+dist
+target
+coverage
+playwright-report
+test-results
+artifacts
+*.log
+.env
+.env.local
+.env.prod
+New Text Document.txt
