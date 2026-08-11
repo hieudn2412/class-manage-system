@@ -26,11 +26,17 @@
         <p>EDU OPS processes account, tenant, class, student, teacher, schedule, homework, material, notification and operational data provided by users of each learning center.</p>
         <h2>Google OAuth data</h2>
         <p>When a tenant administrator connects Gmail, EDU OPS requests <code>openid</code>, <code>email</code> and <code>https://www.googleapis.com/auth/gmail.send</code>.</p>
-        <p>EDU OPS uses Gmail access only to send tenant notification emails such as homework assignments, document updates, review results and operational messages. EDU OPS does not request permission to read, search, download, modify or delete Gmail messages.</p>
+        <p>The Google data EDU OPS receives is the connected account's email address, Google account identifier, granted scopes and OAuth token material. EDU OPS uses this data only to identify the selected sender and send tenant notification emails such as homework assignments, document updates, review results and operational messages.</p>
+        <p>EDU OPS does not request permission to read, search, download, modify or delete Gmail messages, labels, contacts or Google Drive files.</p>
         <h2>Token storage and security</h2>
         <p>EDU OPS stores only the Google refresh token required for background email delivery. The refresh token is encrypted before storage. Access tokens are used in memory and are not intentionally stored.</p>
-        <h2>Sharing and retention</h2>
-        <p>EDU OPS does not sell Google user data. Tenant data is not shared with other tenants. Tenant administrators can disconnect Gmail inside EDU OPS, and Gmail owners can revoke access from Google Account permissions at any time.</p>
+        <h2>Sharing, human access and advertising</h2>
+        <p>EDU OPS does not sell, rent or transfer Google user data to advertising platforms, data brokers or information resellers. Google user data is not used for advertising, retargeting, credit decisions, or training generalized artificial intelligence or machine-learning models.</p>
+        <p>EDU OPS does not allow humans to read Google user data except when necessary for security, legal compliance, or support that the user explicitly requests and authorizes. Tenant data is not shared with other tenants.</p>
+        <h2>Retention and deletion</h2>
+        <p>The encrypted refresh token and connection metadata are retained while the tenant's Gmail connection remains active. Tenant administrators can disconnect Gmail inside EDU OPS to delete local token material. Gmail owners can also revoke access from Google Account permissions at any time.</p>
+        <h2>Google API Services User Data Policy</h2>
+        <p>EDU OPS's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
         <h2>Contact</h2>
         <p>For privacy questions, contact <a href="mailto:hieudnhe186375@fpt.edu.vn">hieudnhe186375@fpt.edu.vn</a>.</p>
       </article>
