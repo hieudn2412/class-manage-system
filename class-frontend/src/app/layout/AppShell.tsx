@@ -1,12 +1,13 @@
 import { useState } from "react";
 import {
-  Bell,
   BookOpen,
   ChevronRight,
   CircleDollarSign,
+  ClipboardList,
   GraduationCap,
   LayoutDashboard,
   LogOut,
+  Mail,
   Menu,
   School,
   ShieldCheck,
@@ -18,8 +19,8 @@ import { useAuth } from "../providers/AuthProvider";
 import { useTenant } from "../providers/TenantProvider";
 import { hasPermission, PERMISSIONS, roleLabels } from "../../shared/lib/permissions";
 import { Badge } from "../../shared/ui/Badge";
-import { useToast } from "../../shared/ui/Toast";
 import { cn } from "../../shared/lib/cn";
+import { NotificationBell } from "../../features/content/NotificationBell";
 
 interface NavItem {
   label: string;
@@ -35,7 +36,6 @@ export const AppShell = () => {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { showToast } = useToast();
   if (!session) return null;
   const base = `/t/${tenantSlug ?? tenant.slug}/app`;
   const canDashboard = hasPermission(session.user.roles, PERMISSIONS.VIEW_MANAGEMENT_DASHBOARD);
@@ -44,10 +44,13 @@ export const AppShell = () => {
   const canViewOwnSchedule = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_SCHEDULE);
   const canViewOwnTeaching = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_TEACHING);
   const canViewOwnLearning = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_LEARNING);
+  const canViewHomework = hasPermission(session.user.roles, PERMISSIONS.VIEW_HOMEWORK);
+  const canSubmitHomework = hasPermission(session.user.roles, PERMISSIONS.SUBMIT_HOMEWORK);
   const canFinance = hasPermission(session.user.roles, PERMISSIONS.VIEW_FINANCE);
   const canViewSalary = hasPermission(session.user.roles, PERMISSIONS.VIEW_SALARY);
   const canViewOwnSalary = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_SALARY);
   const canAccounts = hasPermission(session.user.roles, PERMISSIONS.MANAGE_TENANT_ACCOUNTS) || hasPermission(session.user.roles, PERMISSIONS.MANAGE_LEARNING_ACCOUNTS);
+  const canManageTenantEmail = hasPermission(session.user.roles, PERMISSIONS.MANAGE_TENANT_EMAIL);
   const isPlatform = hasPermission(session.user.roles, PERMISSIONS.VIEW_PLATFORM_TENANTS);
 
   const navItems: NavItem[] = [
@@ -57,6 +60,9 @@ export const AppShell = () => {
     ...(canClasses ? [{ label: "Danh sách lớp", icon: BookOpen, to: `${base}/classes` }] : []),
     ...(canManageSchedule
       ? [{ label: "Thời khóa biểu", icon: School, to: `${base}/schedule` }]
+      : []),
+    ...(canViewHomework
+      ? [{ label: "BTVN", icon: ClipboardList, to: `${base}/homeworks` }]
       : []),
     ...(isPlatform ? [{ label: "Quản trị tenant", icon: ShieldCheck, planned: true }] : []),
     ...(canViewOwnSchedule
@@ -78,10 +84,18 @@ export const AppShell = () => {
         ]
       : []),
     ...(canViewOwnLearning
-      ? [{ label: "Lớp của tôi", icon: GraduationCap, to: `${base}/learning-classes` }]
+      ? [
+          { label: "Lớp của tôi", icon: GraduationCap, to: `${base}/learning-classes` },
+          ...(canSubmitHomework
+            ? [{ label: "BTVN của tôi", icon: ClipboardList, to: `${base}/student-homeworks` }]
+            : []),
+        ]
       : []),
     ...(canAccounts
       ? [{ label: "Người dùng", icon: Users, to: `${base}/accounts` }]
+      : []),
+    ...(canManageTenantEmail
+      ? [{ label: "Gmail thông báo", icon: Mail, to: `${base}/settings/email` }]
       : []),
     ...(canViewSalary
       ? [{ label: "Bảng lương", icon: CircleDollarSign, to: `${base}/finance/salaries` }]
@@ -197,18 +211,7 @@ export const AppShell = () => {
           </nav>
           <strong className="mobile-page-label">{currentLabel}</strong>
           <div className="topbar-actions">
-            <button
-              className="icon-button notification-button"
-              onClick={() =>
-                showToast("Trung tâm thông báo sẽ được triển khai trong vertical slice sau.")
-              }
-              aria-label="Thông báo, 4 thông báo chưa đọc"
-            >
-              <Bell size={18} aria-hidden="true" />
-              <span className="notification-count" aria-hidden="true">
-                4
-              </span>
-            </button>
+            <NotificationBell tenantSlug={tenant.slug} base={base} />
           </div>
         </header>
         <main className="app-main" id="main-content">

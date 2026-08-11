@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Class Operations API
-  version: 1.5.0
+  version: 1.6.0
   license:
     name: Proprietary
     identifier: LicenseRef-ClassOps-Proprietary
@@ -34,7 +34,219 @@ tags:
     description: Lớp và nội dung buổi của chính học sinh, có kiểm tra quyền tại thời điểm đọc.
   - name: Salary and payroll
     description: Đơn giá hiệu lực, accrual có revision, điều chỉnh, thanh toán và bảng lương trực tiếp.
+  - name: Homework and materials
+    description: FL-10 BTVN, tài liệu private, upload staging, notification và quota.
+  - name: Tenant Gmail connection
+    description: FL-10.1 Gmail OAuth sender riêng từng tenant, không dùng SMTP global.
 paths:
+  /tenant-email-connection:
+    get:
+      operationId: getTenantEmailConnection
+      tags: [Tenant Gmail connection]
+      summary: Xem trạng thái Gmail thông báo của tenant
+      responses:
+        "200":
+          description: Trạng thái kết nối; chưa kết nối không trả 404
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TenantEmailConnection"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+    delete:
+      operationId: disconnectTenantEmailConnection
+      tags: [Tenant Gmail connection]
+      summary: Ngắt Gmail khỏi tenant hiện tại và xóa token cục bộ
+      parameters:
+        - {name: version, in: query, required: true, schema: {type: integer, format: int64, minimum: 0}}
+      responses:
+        "204": {description: Đã ngắt kết nối}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /tenant-email-connection/oauth-authorizations:
+    post:
+      operationId: createTenantGmailAuthorization
+      tags: [Tenant Gmail connection]
+      summary: Tạo Google OAuth authorization URL với state và PKCE
+      parameters: [{$ref: "#/components/parameters/IdempotencyKey"}]
+      responses:
+        "201":
+          description: URL chuyển hướng sang Google
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/GmailAuthorization"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+  /tenant-email-connection/test-messages:
+    post:
+      operationId: sendTenantGmailTestMessage
+      tags: [Tenant Gmail connection]
+      summary: Gửi đồng bộ một email thử qua Gmail tenant
+      parameters: [{$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recipientEmail: {type: string, format: email}
+      responses:
+        "200":
+          description: Gmail message id
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TestGmailResult"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "429": {$ref: "#/components/responses/TooManyRequests"}
+  /oauth/google/gmail/callback:
+    get:
+      operationId: handleTenantGmailCallback
+      tags: [Tenant Gmail connection]
+      security: []
+      summary: Public callback duy nhất từ Google OAuth
+      parameters:
+        - {name: state, in: query, schema: {type: string}}
+        - {name: code, in: query, schema: {type: string}}
+        - {name: error, in: query, schema: {type: string}}
+      responses:
+        "303":
+          description: Redirect về màn Gmail tenant với gmailResult đã sanitize
+  /uploads/staging:
+    post:
+      operationId: stagePrivateFile
+      tags: [Homework and materials]
+      summary: Upload một file vào staging token 24 giờ
+      parameters:
+        - name: purpose
+          in: query
+          required: true
+          schema: {type: string, enum: [HOMEWORK_ATTACHMENT, SUBMISSION_IMAGE, REVIEW_ATTACHMENT, MATERIAL]}
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: {type: string, format: binary}
+      responses:
+        "200": {description: Token staging, content: {application/json: {schema: {$ref: "#/components/schemas/StoredFile"}}}}
+        "400": {$ref: "#/components/responses/ValidationError"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /files/{fileId}/content:
+    get:
+      operationId: downloadPrivateFile
+      tags: [Homework and materials]
+      summary: Xem/tải file private, kiểm quyền tại thời điểm đọc
+      parameters:
+        - {name: fileId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: Range, in: header, schema: {type: string}}
+      responses:
+        "200": {description: Nội dung file}
+        "206": {description: Nội dung file theo Range}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+  /classes/{classId}/homeworks:
+    get:
+      operationId: listClassHomeworks
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/ClassId"}, {$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}]
+      responses: {"200": {description: Trang BTVN, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkPage"}}}}}
+    post:
+      operationId: createHomework
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/ClassId"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkInput"}}}}
+      responses: {"200": {description: BTVN Draft, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkDetail"}}}}}
+  /homeworks/{id}:
+    get:
+      operationId: getHomework
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      responses: {"200": {description: Chi tiết BTVN, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkDetail"}}}}}
+    patch:
+      operationId: updateHomework
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkUpdate"}}}}
+      responses: {"200": {description: BTVN đã cập nhật}}
+  /homeworks/{id}/publish:
+    post:
+      operationId: publishHomework
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {$ref: "#/components/requestBodies/VersionOnly"}
+      responses: {"200": {description: BTVN Published}}
+  /homeworks/{id}/close:
+    post:
+      operationId: closeHomework
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {$ref: "#/components/requestBodies/VersionOnly"}
+      responses: {"200": {description: BTVN Closed}}
+  /homeworks/{id}/reopen:
+    post:
+      operationId: reopenHomework
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [reason, version], properties: {reason: {type: string}, version: {type: integer}}}}}}
+      responses: {"200": {description: BTVN mở lại}}
+  /students/me/homeworks:
+    get:
+      operationId: listMyHomeworks
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}]
+      responses: {"200": {description: BTVN của học sinh, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkPage"}}}}}
+  /students/me/homeworks/{id}/submissions:
+    post:
+      operationId: submitHomework
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/SubmissionInput"}}}}
+      responses: {"200": {description: Lượt nộp mới, content: {application/json: {schema: {$ref: "#/components/schemas/Submission"}}}}}
+  /homeworks/{homeworkId}/submissions/{submissionId}/reviews:
+    post:
+      operationId: reviewSubmission
+      tags: [Homework and materials]
+      parameters:
+        - {name: homeworkId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: submissionId, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/ReviewInput"}}}}
+      responses: {"200": {description: Lượt nộp sau review}}
+  /classes/{classId}/materials:
+    get:
+      operationId: listMaterials
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/ClassId"}, {$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}]
+      responses: {"200": {description: Trang tài liệu, content: {application/json: {schema: {$ref: "#/components/schemas/MaterialPage"}}}}}
+    post:
+      operationId: createMaterial
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/ClassId"}, {$ref: "#/components/parameters/IdempotencyKey"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/MaterialInput"}}}}
+      responses: {"200": {description: Tài liệu mới, content: {application/json: {schema: {$ref: "#/components/schemas/Material"}}}}}
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [Homework and materials]
+      responses: {"200": {description: Thông báo phân trang}}
+  /storage/usage:
+    get:
+      operationId: getTenantStorageUsage
+      tags: [Homework and materials]
+      responses: {"200": {description: Dung lượng tenant, content: {application/json: {schema: {$ref: "#/components/schemas/TenantStorageUsage"}}}}}
+  /platform/tenants/{id}/quota:
+    get:
+      operationId: getTenantQuota
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      responses: {"200": {description: Quota tenant}}
+    patch:
+      operationId: updateTenantQuota
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [quotaBytes, version], properties: {quotaBytes: {type: integer, format: int64}, version: {type: integer}}}}}}
+      responses: {"200": {description: Quota mới}}
   /platform/auth/login:
     post:
       operationId: platformLogin
@@ -986,6 +1198,9 @@ components:
     CredentialReset:
       required: true
       content: {application/json: {schema: {type: object, required: [reason, version], properties: {reason: {type: string}, version: {type: integer, minimum: 0}}}}}
+    VersionOnly:
+      required: true
+      content: {application/json: {schema: {type: object, required: [version], properties: {version: {type: integer, minimum: 0}}}}}
   responses:
     ValidationError:
       description: Dữ liệu không hợp lệ
@@ -1028,6 +1243,154 @@ components:
         application/problem+json:
           schema: {$ref: "#/components/schemas/Problem"}
   schemas:
+    StoredFile:
+      type: object
+      required: [id, originalFilename, contentType, sizeBytes, checksumSha256, url, previewUrl]
+      properties:
+        id: {type: string, format: uuid}
+        token: {type: [string, "null"], description: Chỉ trả khi file còn ở staging}
+        originalFilename: {type: string}
+        contentType: {type: string}
+        sizeBytes: {type: integer, format: int64}
+        checksumSha256: {type: string}
+        expiresAt: {type: [string, "null"], format: date-time}
+        url: {type: string}
+        previewUrl: {type: string}
+    HomeworkInput:
+      type: object
+      required: [title, audienceType]
+      properties:
+        sessionId: {type: [string, "null"], format: uuid}
+        title: {type: string}
+        description: {type: string}
+        deadlineAt: {type: [string, "null"], format: date-time}
+        audienceType: {type: string, enum: [CLASS, SELECTED]}
+        studentIds: {type: array, items: {type: string, format: uuid}}
+        fileTokens: {type: array, items: {type: string}}
+        links:
+          type: array
+          items:
+            type: object
+            required: [label, url]
+            properties: {label: {type: string}, url: {type: string, format: uri}}
+    HomeworkUpdate:
+      allOf:
+        - {$ref: "#/components/schemas/HomeworkInput"}
+        - type: object
+          required: [version]
+          properties: {version: {type: integer, minimum: 0}}
+    HomeworkSummary:
+      type: object
+      required: [id, classId, classCode, className, title, status, recipientCount, submittedCount, reviewedCount, version]
+      properties:
+        id: {type: string, format: uuid}
+        classId: {type: string, format: uuid}
+        sessionId: {type: [string, "null"], format: uuid}
+        classCode: {type: string}
+        className: {type: string}
+        sessionOrdinal: {type: [integer, "null"]}
+        title: {type: string}
+        status: {type: string, enum: [DRAFT, PUBLISHED, CLOSED]}
+        deadlineAt: {type: [string, "null"], format: date-time}
+        recipientCount: {type: integer}
+        submittedCount: {type: integer}
+        reviewedCount: {type: integer}
+        version: {type: integer}
+    HomeworkDetail:
+      allOf:
+        - {$ref: "#/components/schemas/HomeworkSummary"}
+        - type: object
+          properties:
+            description: {type: string}
+            audienceType: {type: string, enum: [CLASS, SELECTED]}
+            resources: {type: array, items: {type: object}}
+            recipients: {type: array, items: {type: object}}
+            submissions: {type: array, items: {$ref: "#/components/schemas/Submission"}}
+    HomeworkPage:
+      allOf:
+        - {$ref: "#/components/schemas/Page"}
+        - type: object
+          properties: {items: {type: array, items: {$ref: "#/components/schemas/HomeworkSummary"}}}
+    SubmissionInput:
+      type: object
+      required: [fileTokens]
+      properties:
+        note: {type: string}
+        fileTokens: {type: array, maxItems: 10, items: {type: string}}
+    Submission:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        reviewStatus: {type: string, enum: [WAITING_REVIEW, REVIEWED, REVISION_REQUESTED]}
+        version: {type: integer}
+    ReviewInput:
+      type: object
+      required: [status, submissionVersion]
+      properties:
+        status: {type: string, enum: [REVIEWED, REVISION_REQUESTED]}
+        comment: {type: string}
+        fileTokens: {type: array, items: {type: string}}
+        submissionVersion: {type: integer, minimum: 0}
+    MaterialInput:
+      type: object
+      required: [title, fileToken]
+      properties:
+        sessionId: {type: [string, "null"], format: uuid}
+        title: {type: string}
+        description: {type: string}
+        fileToken: {type: string}
+    Material:
+      type: object
+      additionalProperties: true
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        file: {$ref: "#/components/schemas/StoredFile"}
+        version: {type: integer}
+    MaterialPage:
+      allOf:
+        - {$ref: "#/components/schemas/Page"}
+        - type: object
+          properties: {items: {type: array, items: {$ref: "#/components/schemas/Material"}}}
+    TenantEmailConnection:
+      type: object
+      required: [status, oauthConfigured, pendingEmailCount, version]
+      properties:
+        status: {type: string, enum: [NOT_CONNECTED, CONNECTED, REAUTH_REQUIRED, DISCONNECTED]}
+        oauthConfigured: {type: boolean}
+        gmailAddressMasked: {type: [string, "null"]}
+        gmailAddress: {type: [string, "null"], format: email}
+        connectedBy: {type: [string, "null"]}
+        connectedAt: {type: [string, "null"], format: date-time}
+        lastSuccessfulSendAt: {type: [string, "null"], format: date-time}
+        lastErrorCode: {type: [string, "null"]}
+        lastErrorMessage: {type: [string, "null"]}
+        lastErrorAt: {type: [string, "null"], format: date-time}
+        pendingEmailCount: {type: integer, format: int64, minimum: 0}
+        version: {type: integer, format: int64, minimum: 0}
+    GmailAuthorization:
+      type: object
+      required: [authorizationUrl, expiresAt]
+      properties:
+        authorizationUrl: {type: string, format: uri}
+        expiresAt: {type: string, format: date-time}
+    TestGmailResult:
+      type: object
+      required: [sentAt]
+      properties:
+        gmailMessageId: {type: [string, "null"]}
+        sentAt: {type: string, format: date-time}
+    TenantStorageUsage:
+      type: object
+      required: [tenantId, quotaBytes, usedBytes, remainingBytes, stagingBytes, version]
+      properties:
+        tenantId: {type: string, format: uuid}
+        quotaBytes: {type: integer, format: int64}
+        usedBytes: {type: integer, format: int64}
+        remainingBytes: {type: integer, format: int64}
+        stagingBytes: {type: integer, format: int64}
+        version: {type: integer}
     LoginCredentials:
       type: object
       required: [username, password]

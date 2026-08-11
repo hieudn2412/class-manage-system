@@ -99,11 +99,17 @@ const NotFoundPage = lazy(() =>
 );
 const PlatformLoginPage = lazy(() => import("../features/platform/PlatformLoginPage").then(m=>({default:m.PlatformLoginPage})));
 const PlatformTenantListPage = lazy(() => import("../features/platform/PlatformTenantListPage").then(m=>({default:m.PlatformTenantListPage})));
+const PlatformQuotaPage = lazy(() => import("../features/platform/PlatformQuotaPage").then(m=>({default:m.PlatformQuotaPage})));
 const AccountListPage = lazy(() => import("../features/accounts/AccountListPage").then(m=>({default:m.AccountListPage})));
 const AccountFormPage = lazy(() => import("../features/accounts/AccountFormPage").then(m=>({default:m.AccountFormPage})));
 const SalaryPayrollPage = lazy(() => import("../features/salary/SalaryPayrollPage").then(m=>({default:m.SalaryPayrollPage})));
 const SalaryTeacherDetailPage = lazy(() => import("../features/salary/SalaryTeacherDetailPage").then(m=>({default:m.SalaryTeacherDetailPage})));
 const MySalaryPage = lazy(() => import("../features/salary/MySalaryPage").then(m=>({default:m.MySalaryPage})));
+const HomeworkWorkspacePage = lazy(() => import("../features/content/HomeworkWorkspacePage").then(m=>({default:m.HomeworkWorkspacePage})));
+const HomeworkDetailPage = lazy(() => import("../features/content/HomeworkDetailPage").then(m=>({default:m.HomeworkDetailPage})));
+const StudentHomeworksPage = lazy(() => import("../features/content/StudentHomeworksPage").then(m=>({default:m.StudentHomeworksPage})));
+const NotificationsPage = lazy(() => import("../features/content/NotificationsPage").then(m=>({default:m.NotificationsPage})));
+const TenantEmailSettingsPage = lazy(() => import("../features/content/TenantEmailSettingsPage").then(m=>({default:m.TenantEmailSettingsPage})));
 
 const withSuspense = (content: ReactNode) => (
   <Suspense fallback={<PageSkeleton />}>{content}</Suspense>
@@ -125,6 +131,7 @@ export const router = createBrowserRouter([
   { path: "/platform/app", element: <RequireAuth><RequirePlatformScope><PlatformShell /></RequirePlatformScope></RequireAuth>, children: [
     { index: true, element: <Navigate to="tenants" replace /> },
     { path: "tenants", element: withSuspense(<PlatformTenantListPage />) },
+    { path: "quotas", element: withSuspense(<PlatformQuotaPage />) },
   ]},
   {
     path: "/t/:tenantSlug",
@@ -235,6 +242,46 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: "student-homeworks",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.SUBMIT_HOMEWORK}>
+                  {withSuspense(<StudentHomeworksPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "student-homeworks/:homeworkId",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.SUBMIT_HOMEWORK}>
+                  {withSuspense(<HomeworkDetailPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "homeworks",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_HOMEWORK}>
+                  {withSuspense(<HomeworkWorkspacePage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "homeworks/:homeworkId",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_HOMEWORK}>
+                  {withSuspense(<HomeworkDetailPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
             path: "teacher-dashboard",
             element: (
               <RequireTenantScope>
@@ -317,6 +364,26 @@ export const router = createBrowserRouter([
               <RequireTenantScope>
                 <RequirePermission permission={PERMISSIONS.VIEW_OWN_SALARY}>
                   {withSuspense(<MySalaryPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "notifications",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_NOTIFICATIONS}>
+                  {withSuspense(<NotificationsPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "settings/email",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.MANAGE_TENANT_EMAIL}>
+                  {withSuspense(<TenantEmailSettingsPage />)}
                 </RequirePermission>
               </RequireTenantScope>
             ),

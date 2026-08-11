@@ -16,6 +16,7 @@ import { PageHeader } from "../../shared/ui/PageHeader";
 import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { classStatusLabels, classStatusTones } from "./classPresentation";
+import { ClassMaterialsPanel } from "../content/ClassMaterialsPanel";
 
 const attendanceLabels: Record<string, string> = {
   PRESENT: "Có mặt",
@@ -144,6 +145,7 @@ export const StudentClassDetailPage = () => {
         </div>
       </section>
       <section className="learning-session-section" aria-labelledby="learning-sessions-heading">
+        <ClassMaterialsPanel tenantSlug={tenant.slug} classId={classId} canManage={false} />
         <div className="learning-section-heading">
           <div>
             <span className="eyebrow">NHẬT KÝ HỌC TẬP</span>

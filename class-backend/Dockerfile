@@ -11,7 +11,9 @@ FROM eclipse-temurin:17-jre-alpine
 
 RUN apk add --no-cache curl \
     && addgroup -S app \
-    && adduser -S app -G app
+    && adduser -S app -G app \
+    && mkdir -p /data/private-files /data/staging-files /maintenance \
+    && chown -R app:app /data /maintenance
 
 WORKDIR /app
 COPY --from=build /workspace/target/class-backend-*.jar /app/app.jar

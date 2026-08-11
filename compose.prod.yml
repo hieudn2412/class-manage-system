@@ -25,8 +25,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      clamav:
+        condition: service_healthy
     expose:
       - "8080"
+    volumes:
+      - private_files:/data/private-files
+      - staging_files:/data/staging-files
+      - maintenance_flags:/maintenance
     networks:
       - backend
     healthcheck:
@@ -35,6 +41,20 @@ services:
       timeout: 5s
       retries: 5
       start_period: 60s
+
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    networks:
+      - backend
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD-SHELL", "clamdscan --version >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
   frontend:
     build:
@@ -83,5 +103,9 @@ networks:
 
 volumes:
   postgres_data:
+  private_files:
+  staging_files:
+  maintenance_flags:
+  clamav_data:
   caddy_data:
   caddy_config:

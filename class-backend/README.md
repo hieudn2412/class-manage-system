@@ -16,6 +16,9 @@ $env:JAVA_HOME='C:\Program Files\Java\jdk-17'
 .\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
+Local backend đọc biến từ `.env` trong thư mục `class-backend`; file này bị `.gitignore`
+bỏ qua để có thể chứa Google OAuth client local và encryption key development.
+
 Để khởi tạo lại database development hoàn toàn bằng Flyway:
 
 ```powershell
@@ -26,6 +29,9 @@ docker compose up -d postgres
 
 Lệnh `down -v` chỉ dùng khi chấp nhận xóa volume development
 `class-backend_class-postgres-data`.
+
+FL-10 lưu file private ở `STORAGE_ROOT` và staging ở `STAGING_ROOT`. Dev mặc định tắt
+ClamAV (`CLAMAV_ENABLED=false`); production bật ClamAV qua Compose.
 
 API mặc định: `http://localhost:8080/api/v1`. Swagger UI:
 `http://localhost:8080/swagger-ui.html`. Health check:
@@ -50,9 +56,8 @@ Dữ liệu profile `dev`:
 
 Các mật khẩu trên chỉ được tạo bởi initializer của profile `dev`.
 
-Profile `prod` đang bị vô hiệu hóa có chủ đích và sẽ dừng ngay trong giai đoạn nạp cấu
-hình nếu bị kích hoạt. Dự án hiện không có cấu hình deploy, Docker image ứng dụng hoặc
-runtime production.
+Production chạy với `SPRING_PROFILES_ACTIVE=prod` và đọc biến từ `.env.prod` hoặc secret
+store của hạ tầng. Không dùng `.env` development cho production.
 
 ## Lệnh kiểm tra
 
@@ -69,7 +74,8 @@ nhất; Hibernate không tự tạo hoặc sửa bảng.
 - Tenant lấy duy nhất từ JWT sau đăng nhập; `X-Tenant-Slug` không thể đổi tenant của request.
 - Đăng nhập sai bị giới hạn theo tài khoản và IP; JWT cũ mất hiệu lực khi đổi mật khẩu.
 - Phiên `MUST_CHANGE` chỉ được gọi endpoint đổi mật khẩu.
-- Quên mật khẩu luôn trả thông điệp chung; local chỉ ghi nhận/outbox, chưa gửi email thật.
+- Quên mật khẩu vẫn ghi outbox riêng. Notification email FL-10 dùng Gmail OAuth riêng từng tenant;
+  không còn SMTP global hoặc Gmail App Password trong cấu hình ứng dụng.
 - Tất cả business table có `tenant_id`; các quan hệ nhạy cảm dùng foreign key ghép
   `(tenant_id, id)` để chặn tham chiếu chéo tenant ở database.
 - Preview có TTL và input hash. Publish/override kiểm tra lại xung đột trong transaction.
@@ -78,6 +84,22 @@ nhất; Hibernate không tự tạo hoặc sửa bảng.
 - Khoảng lịch là nửa mở `[start, end)`; session `CANCELLED` không chiếm lịch.
 - `online_link` được lưu nullable cho check-in tương lai nhưng không xuất hiện trong
   request tạo lớp/ca/override và không bị các API lập lịch cập nhật.
+
+## FL-10 file, email và backup
+
+Các biến mới nằm trong `.env`, `.env.example` và `.env.prod.example`: Gmail OAuth tenant,
+`APP_PUBLIC_URL`, `STORAGE_ROOT`, `STAGING_ROOT`, quota mặc định 50GB/tenant, giới hạn
+file, ClamAV và backup. Secret thật chỉ đặt trong `.env` local, `.env.prod` hoặc secret
+production, không commit vào file example.
+
+Để bật Gmail tenant ở production: bật Gmail API trong Google Cloud, tạo OAuth Web Client,
+đăng ký redirect URI chính xác `/api/v1/oauth/google/gmail/callback`, cấu hình External/In
+production, privacy policy và Terms of Service. Scope dùng `openid email gmail.send`;
+tenant Admin kết nối tại `/t/{tenantSlug}/app/settings/email`.
+
+Production Compose gắn file private vào Docker named volume và thêm `clamav`. Backup Linux
+host dùng [`../tools/backup-production.sh`](../tools/backup-production.sh) với runbook tại
+[`../docs/operations/FL-10-backup-restore.md`](../docs/operations/FL-10-backup-restore.md).
 - Roster tính động trước completion và được snapshot khi completion; enrollment đổi sau
   đó không làm thay đổi lịch sử buổi.
 - Scheduler và quản lý xác nhận dùng chung completion service có row lock; trạng thái,

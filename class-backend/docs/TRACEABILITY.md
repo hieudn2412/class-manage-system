@@ -42,6 +42,14 @@
 | `GET /teachers/me/salary` | FR-PAY-008 | Chỉ teacher profile của JWT, `VIEW_OWN_SALARY` | FL-12 / WF-22 | `MySalaryPage` |
 | `GET /salary/payroll/export` | FR-RPT-004 | Tenant/RBAC/bộ lọc hiện tại, XLSX 2 sheet | FL-12 / WF-15 | `SalaryPayrollPage` |
 | `GET /finance/salary-summary` | FR-RPT-002 | Phân biệt kỳ công nợ và dòng tiền theo `paid_at` | FL-12 / WF-13 | Consumer WF-13 sau FL-11 |
+| `POST /uploads/staging`, `GET /files/{id}/content` | FR-HW-002/004, FR-MAT-001/004, NFR-SEC | DEC-055/056, private files, ClamAV, quota, Range | FL-10 / WF-21/24/25/27 | `learningContentRepository.upload`, file viewers |
+| `GET/POST/PATCH /classes/{id}/homeworks`, `/homeworks/{id}/publish|close|reopen` | FR-HW-001–008 | DEC-054/057, idempotency, optimistic version, audit/notification | FL-10 / WF-21/27 | `ClassHomeworksPanel`, `HomeworkDetailPage` |
+| `POST /students/me/homeworks/{id}/submissions` | FR-HW-004–006 | 10 images/attempt, immutable attempts, late stamp at submit time | FL-10 / WF-25 | `HomeworkDetailPage` |
+| `POST /homeworks/{id}/submissions/{submissionId}/reviews` | FR-HW-007/008 | Current attempt only, status/comment/files, no score | FL-10 / WF-21/27 | `HomeworkDetailPage` |
+| `GET/POST/PATCH/DELETE /classes/{id}/materials`, `/materials/{id}` | FR-MAT-001–004 | DEC-055/056/057, active enrollment access, physical delete on replace/remove | FL-10 / WF-24/27 | `ClassMaterialsPanel` |
+| `GET/PATCH /notifications*` | FR-NTF-001, DEC-037 | In-app + tenant Gmail outbox retry, no periodic reminders | FL-14 base / FL-10 events | `NotificationBell`, `NotificationsPage` |
+| `GET/POST/DELETE /tenant-email-connection*`, `GET /oauth/google/gmail/callback` | FR-NTF-001, NFR-SEC | DEC-058, Gmail OAuth tenant, encrypted refresh token, no SMTP global | FL-10.1 / settings email | `tenantEmailRepository`, `TenantEmailSettingsPage` |
+| `GET /storage/usage`, `GET/PATCH /platform/tenants/{id}/quota` | NFR-OPS, NFR-SEC | Default 50GB tenant quota, Super Admin manages | FL-10 ops | `PlatformQuotaPage` |
 | `GET/POST/PATCH /classes/{id}/hourly-rates*` | FR-PAY-001/004 | Lịch sử hiệu lực, optimistic version, không xóa mức đã dùng | FL-12 / WF-05, WF-15 | `salaryRepository.hourlyRates/createHourlyRate/updateHourlyRate` |
 | `PATCH /sessions/{id}/completion-correction` | FR-PAY-004/007/009 | Reconcile idempotent, audit before/after, Asia/Ho_Chi_Minh | FL-12 / WF-08, WF-15 | `CompletionCorrectionModal` |
 | `GET /salary/payroll*` | FR-PAY-002–009, FR-RPT-004 | Kỳ là projection trực tiếp, không snapshot/khóa | FL-12 / WF-15 | `SalaryPayrollPage`, `SalaryTeacherDetailPage` |

@@ -682,6 +682,181 @@ export interface SalaryYearSummary {
   months: SalaryMonthSummary[];
 }
 
+export type FilePurpose =
+  | "HOMEWORK_ATTACHMENT"
+  | "SUBMISSION_IMAGE"
+  | "REVIEW_ATTACHMENT"
+  | "MATERIAL";
+
+export interface StoredFile {
+  id: string;
+  token: string | null;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  expiresAt: string | null;
+  url: string;
+  previewUrl: string;
+}
+
+export interface HomeworkResource {
+  id: string;
+  kind: "FILE" | "LINK";
+  label: string | null;
+  url: string | null;
+  file: StoredFile | null;
+  sortOrder: number;
+}
+
+export interface HomeworkRecipient {
+  studentId: string;
+  code: string;
+  name: string;
+  addedAt: string;
+  submitted: boolean;
+  removed: boolean;
+}
+
+export interface HomeworkReview {
+  id: string;
+  status: "REVIEWED" | "REVISION_REQUESTED";
+  comment: string;
+  reviewedBy: string;
+  reviewedAt: string;
+  files: StoredFile[];
+}
+
+export interface HomeworkSubmission {
+  id: string;
+  homeworkId: string;
+  studentId: string;
+  studentCode: string;
+  studentName: string;
+  attemptNo: number;
+  note: string;
+  submittedAt: string;
+  deadlineSnapshot: string | null;
+  late: boolean;
+  reviewStatus: "WAITING_REVIEW" | "REVIEWED" | "REVISION_REQUESTED";
+  files: StoredFile[];
+  review: HomeworkReview | null;
+  version: number;
+}
+
+export interface HomeworkSummary {
+  id: string;
+  classId: string;
+  sessionId: string | null;
+  classCode: string;
+  className: string;
+  sessionOrdinal: number | null;
+  title: string;
+  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  deadlineAt: string | null;
+  recipientCount: number;
+  submittedCount: number;
+  reviewedCount: number;
+  version: number;
+}
+
+export interface HomeworkDetail extends HomeworkSummary {
+  description: string;
+  audienceType: "CLASS" | "SELECTED";
+  publishedAt: string | null;
+  closedAt: string | null;
+  resources: HomeworkResource[];
+  recipients: HomeworkRecipient[];
+  submissions: HomeworkSubmission[];
+}
+
+export interface Material {
+  id: string;
+  classId: string;
+  sessionId: string | null;
+  classCode: string;
+  className: string;
+  sessionOrdinal: number | null;
+  title: string;
+  description: string;
+  status: "ACTIVE" | "REMOVED";
+  file: StoredFile;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+}
+
+export interface HomeworkReportRow {
+  classId: string;
+  classCode: string;
+  className: string;
+  teacherName: string;
+  homeworkCount: number;
+  recipientCount: number;
+  submittedCount: number;
+  reviewedCount: number;
+}
+
+export interface AppNotification {
+  id: string;
+  eventType: string;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface AuditTimelineItem {
+  id: string;
+  action: string;
+  actorName: string;
+  occurredAt: string;
+  oldValue: unknown;
+  newValue: unknown;
+  traceId: string | null;
+}
+
+export interface TenantStorageUsage {
+  tenantId: string;
+  quotaBytes: number;
+  usedBytes: number;
+  remainingBytes: number;
+  stagingBytes: number;
+  version: number;
+}
+
+export type TenantEmailConnectionStatus =
+  | "NOT_CONNECTED"
+  | "CONNECTED"
+  | "REAUTH_REQUIRED"
+  | "DISCONNECTED";
+
+export interface TenantEmailConnection {
+  status: TenantEmailConnectionStatus;
+  oauthConfigured: boolean;
+  gmailAddressMasked: string | null;
+  gmailAddress: string | null;
+  connectedBy: string | null;
+  connectedAt: string | null;
+  lastSuccessfulSendAt: string | null;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
+  lastErrorAt: string | null;
+  pendingEmailCount: number;
+  version: number;
+}
+
+export interface GmailAuthorization {
+  authorizationUrl: string;
+  expiresAt: string;
+}
+
+export interface TestGmailResult {
+  gmailMessageId: string | null;
+  sentAt: string;
+}
+
 export interface TeacherClassItem {
   id: string;
   code: string;

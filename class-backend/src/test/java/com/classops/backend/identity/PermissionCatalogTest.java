@@ -25,7 +25,7 @@ class PermissionCatalogTest {
     @Test
     void studentCanOnlyViewOwnLearning() {
         assertThat(PermissionCatalog.union(List.of("STUDENT")))
-            .containsExactly("VIEW_OWN_LEARNING");
+            .containsExactlyInAnyOrder("VIEW_OWN_LEARNING", "SUBMIT_HOMEWORK", "VIEW_MATERIALS", "VIEW_NOTIFICATIONS");
     }
 
     @Test
@@ -33,6 +33,12 @@ class PermissionCatalogTest {
         assertThat(PermissionCatalog.union(List.of("ACADEMIC_MANAGER")))
             .contains("MANAGE_CLASS_RATES")
             .doesNotContain("VIEW_SALARY", "MANAGE_SALARY");
+    }
+
+    @Test
+    void adminCanManageTenantEmailConnection() {
+        assertThat(PermissionCatalog.union(List.of("ADMIN")))
+            .contains("MANAGE_TENANT_EMAIL");
     }
 
 }

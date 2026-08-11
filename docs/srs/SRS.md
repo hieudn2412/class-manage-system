@@ -315,7 +315,7 @@ Mỗi hàng gồm acceptance criterion ngắn dạng Given/When/Then và liên k
 | ID | Yêu cầu | Acceptance criterion | Tham chiếu |
 |---|---|---|---|
 | FR-NTF-001 | Tạo thông báo trong hệ thống khi đổi/hủy/bù lịch, thay GV, giao/chữa BTVN, có tài liệu/record và mở khảo sát. | `AC-NTF-001`: When sự kiện commit thành công, then đúng người nhận có một thông báo; retry không nhân đôi. | FL-07, FL-10, FL-13; WF-03, WF-17, WF-23 |
-| FR-NTF-002 | Gửi email cho cùng sự kiện nếu tài khoản có email. | `AC-NTF-002`: When email thất bại, then giao dịch nghiệp vụ vẫn thành công, lỗi được ghi để retry và thông báo trong app vẫn có. | FL-04, FL-14; WF-01 |
+| FR-NTF-002 | Gửi email cho cùng sự kiện nếu tài khoản có email bằng Gmail OAuth riêng của tenant, không dùng SMTP global. | `AC-NTF-002`: When email thất bại hoặc tenant chưa kết nối Gmail, then giao dịch nghiệp vụ vẫn thành công, in-app notification vẫn có, email được giữ retry tối đa 72 giờ và gửi bù sau khi reconnect. | FL-04, FL-10.1, FL-14; WF-01, WF-23 |
 | FR-NTF-003 | Người dùng đánh dấu đã đọc/tất cả đã đọc và mở deep link đúng tenant. | `AC-NTF-003`: When click, then điều hướng đúng đối tượng nếu còn quyền; nếu mất quyền, hiển thị thông báo an toàn. | FL-01, FL-14; WF-03, WF-17, WF-23 |
 | FR-NTF-004 | Không chạy nhắc định kỳ trong v1. | `AC-NTF-004`: Given không có sự kiện mới, then hệ thống không tự gửi nhắc lịch/BTVN/học phí. | FL-14; WF-03 |
 | FR-AUD-001 | Audit mọi thay đổi lịch, GV, lương, học phí, sĩ số, điểm danh, record, BTVN, nhận xét và điểm kiểm tra. | `AC-AUD-001`: When sửa, then log có actor/time/object/before/after/reason/tenant. | FL-14; WF-16, WF-27 |
