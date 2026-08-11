@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, AlertTriangle, BookOpenCheck, ExternalLink } from "lucide-react";
+import { ArrowLeft, AlertTriangle, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useTenant } from "../../app/providers/TenantProvider";
@@ -15,8 +15,10 @@ import { hasPermission, PERMISSIONS } from "../../shared/lib/permissions";
 import { EnrollmentPanel } from "./components/EnrollmentPanel";
 import { LifecycleActions } from "./components/LifecycleActions";
 import { HourlyRatePanel } from "./components/HourlyRatePanel";
+import { ClassMaterialsPanel } from "../content/ClassMaterialsPanel";
+import { ClassHomeworksPanel } from "../content/ClassHomeworksPanel";
 
-type Tab = "overview" | "sessions" | "students" | "materials";
+type Tab = "overview" | "sessions" | "students" | "homeworks" | "materials";
 
 export const ClassDetailPage = () => {
   const tenant = useTenant();
@@ -57,11 +59,18 @@ export const ClassDetailPage = () => {
     hasPermission(session.user.roles, PERMISSIONS.MANAGE_CLASSES) &&
     ["Scheduled", "Active", "AwaitingClose"].includes(item.status),
   );
+  const canManageHomeworks = Boolean(
+    session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_HOMEWORK),
+  );
+  const canManageMaterials = Boolean(
+    session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_MATERIALS),
+  );
   const progress = Math.round((item.completedSessions / item.totalSessions) * 100);
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Tổng quan" },
     { id: "sessions", label: "Buổi học" },
     { id: "students", label: "Học sinh" },
+    { id: "homeworks", label: "BTVN" },
     { id: "materials", label: "Tài liệu" },
   ];
 
@@ -274,12 +283,10 @@ export const ClassDetailPage = () => {
       ) : null}
 
       {tab === "materials" ? (
-        <StatePanel
-          kind="empty"
-          title="Chưa có tài liệu trong mock dataset"
-          description="Tài liệu PDF/audio thuộc vertical slice học tập tiếp theo."
-          action={<BookOpenCheck size={30} aria-hidden="true" />}
-        />
+        <ClassMaterialsPanel tenantSlug={tenant.slug} classId={item.id} canManage={canManageMaterials} />
+      ) : null}
+      {tab === "homeworks" ? (
+        <ClassHomeworksPanel tenantSlug={tenant.slug} classId={item.id} canManage={canManageHomeworks} />
       ) : null}
     </>
   );

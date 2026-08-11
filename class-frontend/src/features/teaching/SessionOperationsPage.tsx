@@ -789,9 +789,9 @@ export const SessionOperationsPage = () => {
           }}
           options={optionsQuery.data}
           onClose={() => setSessionMutationAction(null)}
-          onSaved={async () => {
+          onSaved={() => {
             setSessionMutationAction(null);
-            await invalidateRelated();
+            void invalidateRelated();
           }}
         />
       ) : null}
