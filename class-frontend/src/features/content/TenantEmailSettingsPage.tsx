@@ -20,6 +20,10 @@ const callbackMessages: Record<string, string> = {
   GMAIL_OAUTH_STATE_USED: "Phiên kết nối này đã được dùng.",
   GMAIL_VERSION_CONFLICT: "Kết nối Gmail đã thay đổi bởi Admin khác. Trang đã được tải lại.",
   GMAIL_REAUTH_REQUIRED: "Google chưa cấp refresh token. Vui lòng kết nối lại.",
+  GMAIL_SEND_FAILED: "Google từ chối hoặc máy chủ không hoàn tất được bước trao đổi OAuth. Hãy kiểm tra client secret, redirect URI và log backend.",
+  GMAIL_SEND_TIMEOUT: "Máy chủ không kết nối được Google OAuth/Gmail API trong thời gian cho phép.",
+  GMAIL_RATE_LIMITED: "Google đang giới hạn tạm thời. Vui lòng thử lại sau.",
+  FORBIDDEN: "Tài khoản Admin khởi tạo không còn quyền quản lý Gmail tenant.",
 };
 
 export const TenantEmailSettingsPage = () => {
@@ -41,7 +45,7 @@ export const TenantEmailSettingsPage = () => {
     const result = params.get("gmailResult");
     if (!result) return;
     const code = params.get("code");
-    showToast(result === "success" ? "Đã kết nối Gmail thông báo cho tenant." : callbackMessages[code ?? ""] ?? "Không thể hoàn tất kết nối Gmail.");
+    showToast(result === "success" ? "Đã kết nối Gmail thông báo cho tenant." : callbackMessages[code ?? ""] ?? `Không thể hoàn tất kết nối Gmail${code ? ` (${code})` : ""}.`);
     void client.invalidateQueries({ queryKey: ["tenant-email-connection", tenantSlug] });
     void navigate(`/t/${tenantSlug}/app/settings/email`, { replace: true });
   }, [client, navigate, params, showToast, tenantSlug]);
@@ -61,7 +65,8 @@ export const TenantEmailSettingsPage = () => {
       showToast(`Đã gửi email thử${response.gmailMessageId ? ` (${response.gmailMessageId})` : ""}.`);
       await client.invalidateQueries({ queryKey: ["tenant-email-connection", tenantSlug] });
     },
-    onError: (error) => {
+    onError: async (error) => {
+      await client.invalidateQueries({ queryKey: ["tenant-email-connection", tenantSlug] });
       if (error instanceof ApiError && error.retryAfterSeconds) {
         showToast(`Vui lòng thử lại sau ${error.retryAfterSeconds} giây.`);
       } else {

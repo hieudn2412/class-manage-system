@@ -182,6 +182,22 @@ public class TenantEmailConnectionService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public String callbackFailureRedirect(String state, String code) {
+        String tenantSlug = null;
+        if (state != null && !state.isBlank()) {
+            try {
+                StateRow row = stateRow(hash(state));
+                if (row != null) {
+                    tenantSlug = tenantSlug(row.tenantId());
+                }
+            } catch (RuntimeException ignored) {
+                tenantSlug = null;
+            }
+        }
+        return redirect(tenantSlug, "failure", code);
+    }
+
     @Transactional
     public TestGmailResult test(TestGmailInput input, String key) {
         UUID tenantId = actor.tenantId();
@@ -207,8 +223,23 @@ public class TenantEmailConnectionService {
                 "Vui lòng đợi 30 giây trước khi gửi thử lại.", Map.of("retryAfterSeconds", 30));
         }
         String refreshToken = cipher.decrypt(row.refreshTokenCiphertext(), row.refreshTokenIv(), tenantId, row.id());
-        String messageId = gmail.sendMessage(refreshToken, tenantName(tenantId), row.gmailAddress(),
-            recipient, "Kiểm tra Gmail thông báo", "Email thử từ hệ thống quản lý lớp học.", tenantSettingsUrl());
+        String messageId;
+        try {
+            messageId = gmail.sendMessage(refreshToken, tenantName(tenantId), row.gmailAddress(),
+                recipient, "Kiểm tra Gmail thông báo", "Email thử từ hệ thống quản lý lớp học.", tenantSettingsUrl());
+        } catch (GmailSendException ex) {
+            if (ex.reauthRequired()) {
+                markReauthRequired(tenantId, row.id(), ex.code(), ex.getMessage());
+                throw new ApiException(HttpStatus.CONFLICT, "GMAIL_REAUTH_REQUIRED",
+                    "Gmail cần được xác thực lại trước khi gửi email thử.");
+            }
+            updateConnectionSendFailure(tenantId, row.id(), ex.code(), ex.getMessage());
+            HttpStatus status = ex.retryable() ? HttpStatus.SERVICE_UNAVAILABLE : HttpStatus.CONFLICT;
+            Map<String, Object> details = ex.retryAfter() == null
+                ? Map.of()
+                : Map.of("retryAfterSeconds", Math.max(1, ex.retryAfter().toSeconds()));
+            throw new ApiException(status, ex.code(), ex.getMessage(), details);
+        }
         OffsetDateTime sentAt = OffsetDateTime.now(ZoneOffset.UTC);
         jdbc.sql("""
                 UPDATE tenant_email_connections
@@ -286,6 +317,20 @@ public class TenantEmailConnectionService {
                 """)
             .param("tenantId", tenantId)
             .param("connectionId", connectionId)
+            .update();
+    }
+
+    void updateConnectionSendFailure(UUID tenantId, UUID connectionId, String code, String message) {
+        jdbc.sql("""
+                UPDATE tenant_email_connections
+                SET last_error_at=now(), last_error_code=:code,
+                    last_error_message=:message, updated_at=now()
+                WHERE tenant_id=:tenantId AND id=:connectionId
+                """)
+            .param("tenantId", tenantId)
+            .param("connectionId", connectionId)
+            .param("code", code)
+            .param("message", message)
             .update();
     }
 

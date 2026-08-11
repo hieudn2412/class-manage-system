@@ -1,6 +1,7 @@
 package com.classops.backend.tenantemail;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
@@ -8,6 +9,8 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.MediaType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.web.client.ResourceAccessException;
@@ -29,6 +32,7 @@ import java.util.stream.Collectors;
 
 @Component
 public class GmailApiClient {
+    private static final Logger log = LoggerFactory.getLogger(GmailApiClient.class);
     private final GmailProperties properties;
     private final RestClient rest;
 
@@ -74,7 +78,9 @@ public class GmailApiClient {
                 .body(SendResponse.class);
             return response == null ? null : response.id();
         } catch (RestClientResponseException ex) {
-            throw sendFailure(ex);
+            log.warn("Google Gmail send endpoint rejected request: status={}, body={}",
+                ex.getStatusCode().value(), safeGoogleBody(ex));
+            throw gmailSendFailure(ex);
         } catch (ResourceAccessException ex) {
             throw new GmailSendException("GMAIL_SEND_TIMEOUT", "Gmail API timeout.",
                 true, false, properties.httpTimeout());
@@ -113,6 +119,8 @@ public class GmailApiClient {
             }
             return token;
         } catch (RestClientResponseException ex) {
+            log.warn("Google OAuth token endpoint rejected request: status={}, body={}",
+                ex.getStatusCode().value(), safeGoogleBody(ex));
             if (ex.getResponseBodyAsString().toLowerCase(Locale.ROOT).contains("invalid_grant")) {
                 throw new GmailSendException("GMAIL_REAUTH_REQUIRED",
                     "Quyền Gmail đã bị thu hồi hoặc refresh token không còn hợp lệ.",
@@ -138,8 +146,16 @@ public class GmailApiClient {
             }
             return response;
         } catch (RestClientResponseException ex) {
+            log.warn("Google userinfo endpoint rejected request: status={}, body={}",
+                ex.getStatusCode().value(), safeGoogleBody(ex));
             throw sendFailure(ex);
         }
+    }
+
+    private String safeGoogleBody(RestClientResponseException ex) {
+        String body = ex.getResponseBodyAsString();
+        if (body == null || body.isBlank()) return "<empty>";
+        return body.length() > 600 ? body.substring(0, 600) + "..." : body;
     }
 
     private GmailSendException sendFailure(RestClientResponseException ex) {
@@ -152,6 +168,33 @@ public class GmailApiClient {
         if (status == 429 || status >= 500) {
             return new GmailSendException(status == 429 ? "GMAIL_RATE_LIMITED" : "GMAIL_SEND_FAILED",
                 "Google tạm thời chưa nhận email.", true, false, retryAfter);
+        }
+        return new GmailSendException("GMAIL_SEND_FAILED",
+            "Google từ chối email hoặc nội dung MIME.", false, false, null);
+    }
+
+    private GmailSendException gmailSendFailure(RestClientResponseException ex) {
+        int status = ex.getStatusCode().value();
+        String body = ex.getResponseBodyAsString() == null
+            ? ""
+            : ex.getResponseBodyAsString().toLowerCase(Locale.ROOT);
+        Duration retryAfter = retryAfter(ex);
+        if (status == 401
+            || body.contains("invalid credentials")
+            || body.contains("access_token_scope_insufficient")
+            || body.contains("insufficientpermissions")
+            || body.contains("insufficient authentication scopes")) {
+            return new GmailSendException("GMAIL_REAUTH_REQUIRED",
+                "Quyền Gmail cần được xác thực lại.", false, true, null);
+        }
+        if (status == 429 || status >= 500) {
+            return new GmailSendException(status == 429 ? "GMAIL_RATE_LIMITED" : "GMAIL_SEND_FAILED",
+                "Google tạm thời chưa nhận email.", true, false, retryAfter);
+        }
+        if (status == 403) {
+            return new GmailSendException("GMAIL_SEND_FAILED",
+                "Google từ chối Gmail API. Hãy kiểm tra Gmail API đã được bật, app không bị policy chặn và Gmail sender được phép gửi email.",
+                false, false, null);
         }
         return new GmailSendException("GMAIL_SEND_FAILED",
             "Google từ chối email hoặc nội dung MIME.", false, false, null);
@@ -200,6 +243,7 @@ public class GmailApiClient {
     ) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record TokenResponse(
         @JsonProperty("access_token") String accessToken,
         @JsonProperty("refresh_token") String refreshToken,
@@ -209,6 +253,7 @@ public class GmailApiClient {
     ) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record UserInfoResponse(
         String sub,
         String email,
@@ -216,6 +261,7 @@ public class GmailApiClient {
     ) {
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     private record SendResponse(String id) {
     }
 }

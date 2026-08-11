@@ -20,12 +20,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/v1")
 @Tag(name = "FL-10.1 tenant Gmail connection")
 @SecurityRequirement(name = "bearerAuth")
 public class TenantEmailConnectionController {
+    private static final Logger log = LoggerFactory.getLogger(TenantEmailConnectionController.class);
     private final TenantEmailConnectionService service;
 
     public TenantEmailConnectionController(TenantEmailConnectionService service) {
@@ -62,8 +65,15 @@ public class TenantEmailConnectionController {
     ResponseEntity<Void> callback(@RequestParam(required = false) String state,
                                   @RequestParam(required = false) String code,
                                   @RequestParam(required = false, name = "error") String googleError) {
+        String location;
+        try {
+            location = service.callbackRedirect(state, code, googleError);
+        } catch (RuntimeException ex) {
+            log.error("Unexpected Gmail OAuth callback failure", ex);
+            location = service.callbackFailureRedirect(state, "GMAIL_SEND_FAILED");
+        }
         return ResponseEntity.status(HttpStatus.SEE_OTHER)
-            .location(URI.create(service.callbackRedirect(state, code, googleError)))
+            .location(URI.create(location))
             .build();
     }
 }
