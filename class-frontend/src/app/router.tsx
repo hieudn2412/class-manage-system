@@ -110,6 +110,9 @@ const HomeworkDetailPage = lazy(() => import("../features/content/HomeworkDetail
 const StudentHomeworksPage = lazy(() => import("../features/content/StudentHomeworksPage").then(m=>({default:m.StudentHomeworksPage})));
 const NotificationsPage = lazy(() => import("../features/content/NotificationsPage").then(m=>({default:m.NotificationsPage})));
 const TenantEmailSettingsPage = lazy(() => import("../features/content/TenantEmailSettingsPage").then(m=>({default:m.TenantEmailSettingsPage})));
+const PublicAboutPage = lazy(() => import("./pages/PublicTrustPages").then(m=>({default:m.PublicAboutPage})));
+const PrivacyPolicyPage = lazy(() => import("./pages/PublicTrustPages").then(m=>({default:m.PrivacyPolicyPage})));
+const TermsOfServicePage = lazy(() => import("./pages/PublicTrustPages").then(m=>({default:m.TermsOfServicePage})));
 
 const withSuspense = (content: ReactNode) => (
   <Suspense fallback={<PageSkeleton />}>{content}</Suspense>
@@ -126,6 +129,9 @@ export const router = createBrowserRouter([
     path: "/",
     element: withSuspense(<TenantLoginGatewayPage />),
   },
+  { path: "/about", element: withSuspense(<PublicAboutPage />) },
+  { path: "/privacy", element: withSuspense(<PrivacyPolicyPage />) },
+  { path: "/terms", element: withSuspense(<TermsOfServicePage />) },
   { path: "/platform/login", element: withSuspense(<PlatformLoginPage />) },
   { path: "/platform/403", element: withSuspense(<ForbiddenPage />) },
   { path: "/platform/app", element: <RequireAuth><RequirePlatformScope><PlatformShell /></RequirePlatformScope></RequireAuth>, children: [
