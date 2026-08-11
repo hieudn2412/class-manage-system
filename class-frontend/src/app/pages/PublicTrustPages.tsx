@@ -43,15 +43,16 @@ const PublicShell = ({
 export const PublicAboutPage = () => (
   <PublicShell
     eyebrow="EDU OPS / SaaS for learning centers"
-    title="A private operations workspace for education centers"
-    description="EDU OPS helps learning centers manage classes, schedules, homework, documents, notifications and internal operations in one tenant-isolated system."
+    title="EDU OPS helps learning centers run their education operations"
+    description="EDU OPS is a multi-tenant SaaS application for managing classes, schedules, homework, documents, notifications, reports and tenant operations in one private workspace."
   >
     <section>
-      <h2>What EDU OPS does</h2>
+      <h2>Purpose of EDU OPS</h2>
       <p>
-        EDU OPS is a SaaS management system for education centers. Each center works inside its own tenant
-        workspace to manage classes, students, teachers, homework, learning materials, salary operations and
-        notifications.
+        EDU OPS centralizes daily learning-center operations so administrators, academic staff, teachers,
+        students and accountants can coordinate class work, homework, documents and notifications securely.
+        Each center works inside its own tenant workspace to manage classes, students, teachers, homework,
+        learning materials, salary operations and notifications.
       </p>
     </section>
     <section>
