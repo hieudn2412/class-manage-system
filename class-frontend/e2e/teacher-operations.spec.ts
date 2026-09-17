@@ -9,7 +9,7 @@ const loginTeacher = async (page: Page) => {
   await expect(page).toHaveURL(/\/t\/anh-duong\/app\/teacher-dashboard$/);
 };
 
-test("Giáo viên đi từ dashboard đến check-in và lưu hồ sơ bằng API thật", async ({
+test("Giáo viên đi từ tổng quan đến xác nhận buổi dạy và lưu hồ sơ bằng API thật", async ({
   page,
 }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Luồng ghi dữ liệu chỉ chạy ở desktop.");
@@ -17,20 +17,20 @@ test("Giáo viên đi từ dashboard đến check-in và lưu hồ sơ bằng AP
 
   await expect(page.getByRole("heading", { name: /Chào Cô Nguyễn Ngọc Lan/ })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Buổi dạy hôm nay" })).toBeVisible();
-  await page.getByRole("button", { name: "Vào check-in" }).click();
+  await page.getByRole("button", { name: "Xác nhận buổi dạy" }).click();
 
   await expect(page.getByRole("heading", { name: /Toán tư duy 4A · Buổi/ })).toBeVisible();
-  const checkInButton = page.getByRole("button", { name: "Check-in dạy" });
+  const checkInButton = page.getByRole("button", { name: "Xác nhận buổi dạy" });
   if (await checkInButton.isVisible()) {
     await checkInButton.click();
-    const dialog = page.getByRole("dialog", { name: "Check-in buổi dạy" });
-    await expect(dialog.getByLabel("Link dạy Online")).toHaveCount(0);
-    await dialog.getByRole("button", { name: "Xác nhận check-in" }).click();
-    await expect(page.getByText("Check-in thành công.")).toBeVisible();
+    const dialog = page.getByRole("dialog", { name: "Xác nhận buổi dạy" });
+    await expect(dialog.getByLabel("Đường dẫn học trực tuyến")).toHaveCount(0);
+    await dialog.getByRole("button", { name: "Xác nhận buổi dạy" }).click();
+    await expect(page.getByText("Đã xác nhận buổi dạy.")).toBeVisible();
   }
 
   await page.getByLabel("Tên bài học").fill("Phân số và so sánh");
-  await page.getByLabel("Link record").fill("https://youtube.com/watch?v=demo");
+  await page.getByLabel("Đường dẫn bản ghi buổi học").fill("https://youtube.com/watch?v=demo");
   const firstStudent = page.locator(".student-record-card").first();
   await firstStudent.getByLabel("Trạng thái đi học").selectOption("PRESENT");
   await firstStudent.getByLabel("Đánh giá buổi học").fill("Tập trung và hoàn thành bài trên lớp.");
@@ -62,7 +62,7 @@ test("Giáo viên đi từ dashboard đến check-in và lưu hồ sơ bằng AP
   ).toEqual([]);
 });
 
-test("Lớp của tôi và workspace buổi không overflow ở mobile 390px", async ({ page }, testInfo) => {
+test("Lớp của tôi và trang buổi học không bị tràn ở màn hình 390px", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Kiểm tra ở viewport mobile.");
   await loginTeacher(page);
   await page.getByRole("button", { name: "Lớp của tôi" }).click();

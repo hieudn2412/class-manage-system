@@ -64,12 +64,12 @@ export const ChangePasswordPage = () => {
         <header className="auth-card-header">
           <p className="eyebrow">Lần đăng nhập đầu tiên</p>
           <h1 id="change-title">Tạo mật khẩu của bạn</h1>
-          <p>Mật khẩu tạm phải được thay trước khi truy cập bất kỳ dữ liệu nghiệp vụ nào.</p>
+          <p>Hãy tạo mật khẩu mới để bảo vệ tài khoản trước khi bắt đầu sử dụng.</p>
         </header>
         <form className="auth-form" onSubmit={(event) => void onSubmit(event)} noValidate>
           <div className="form-alert form-success">
             <KeyRound size={19} aria-hidden="true" />
-            <span>Phiên hiện tại chỉ có quyền đổi mật khẩu.</span>
+            <span>Sau khi đổi mật khẩu, bạn sẽ được chuyển đến trang làm việc.</span>
           </div>
           {errors.root?.message ? (
             <div className="form-alert" role="alert">

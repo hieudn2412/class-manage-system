@@ -114,7 +114,7 @@ export const PublishedSessionOverrideModal = ({
       confirmLoading={previewMutation.isPending || updateMutation.isPending}
     >
       <p className="modal-description">
-        Ngày, giờ và giáo viên giữ nguyên. Thay đổi thành công sẽ được audit và phát thông báo.
+        Ngày, giờ và giáo viên giữ nguyên. Thay đổi thành công sẽ được lưu vào lịch sử và gửi thông báo.
       </p>
       <div className="modal-form">
         <Select
@@ -126,7 +126,7 @@ export const PublishedSessionOverrideModal = ({
           }}
         >
           <option value="IN_PERSON">Tại lớp</option>
-          <option value="ONLINE">Online</option>
+          <option value="ONLINE">Trực tuyến</option>
         </Select>
         {mode === "IN_PERSON" ? (
           <Select

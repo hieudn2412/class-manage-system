@@ -19,6 +19,8 @@ import com.classops.backend.learningcontent.ContentDtos.ReopenInput;
 import com.classops.backend.learningcontent.ContentDtos.ReviewInput;
 import com.classops.backend.learningcontent.ContentDtos.ReviewView;
 import com.classops.backend.learningcontent.ContentDtos.StoredFileView;
+import com.classops.backend.learningcontent.ContentDtos.StudentHomeworkDetail;
+import com.classops.backend.learningcontent.ContentDtos.StudentHomeworkSummary;
 import com.classops.backend.learningcontent.ContentDtos.SubmissionView;
 import com.classops.backend.learningcontent.ContentDtos.SubmitHomeworkInput;
 import com.classops.backend.learningcontent.ContentDtos.TenantStorageUsage;
@@ -39,6 +41,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -71,42 +74,52 @@ public class LearningContentService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<HomeworkSummary> classHomeworks(UUID classId, String status, int page, int pageSize) {
+    public PageResponse<HomeworkSummary> classHomeworks(UUID classId, UUID sessionId, String status,
+                                                        int page, int pageSize) {
         page(page, pageSize);
         UUID tenantId = actor.tenantId();
-        requireClassContentAccess(tenantId, classId);
+        requireClassContentAccess(tenantId, classId, sessionId);
         String normalized = safe(status).trim().toUpperCase(Locale.ROOT);
+        boolean filterBySession = sessionId != null;
         long total = jdbc.sql("""
                 SELECT count(*) FROM homeworks h
                 WHERE h.tenant_id=:tenantId AND h.class_id=:classId
+                  AND (:filterBySession=false OR h.session_id=:sessionId)
                   AND (:status='' OR h.status=:status)
                 """)
-            .param("tenantId", tenantId).param("classId", classId).param("status", normalized)
+            .param("tenantId", tenantId).param("classId", classId)
+            .param("filterBySession", filterBySession).param("sessionId", sessionId)
+            .param("status", normalized)
             .query(Long.class).single();
         List<HomeworkSummary> items = jdbc.sql(summarySql() + """
                 WHERE h.tenant_id=:tenantId AND h.class_id=:classId
+                  AND (:filterBySession=false OR h.session_id=:sessionId)
                   AND (:status='' OR h.status=:status)
                 GROUP BY h.id, h.class_id, h.session_id, c.code, c.name, s.ordinal,
                          h.title, h.status, h.deadline_at, h.version, h.updated_at, h.created_at
                 ORDER BY h.updated_at DESC, h.created_at DESC
                 LIMIT :limit OFFSET :offset
                 """)
-            .param("tenantId", tenantId).param("classId", classId).param("status", normalized)
+            .param("tenantId", tenantId).param("classId", classId)
+            .param("filterBySession", filterBySession).param("sessionId", sessionId)
+            .param("status", normalized)
             .param("limit", pageSize).param("offset", (page - 1) * pageSize)
             .query((rs, row) -> mapSummary(rs)).list();
         return PageResponse.of(items, page, pageSize, total);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<HomeworkSummary> studentHomeworks(String status, int page, int pageSize) {
+    public PageResponse<StudentHomeworkSummary> studentHomeworks(String status, int page, int pageSize) {
         page(page, pageSize);
         UUID tenantId = actor.tenantId();
         UUID studentId = currentStudent(tenantId);
         String normalized = safe(status).trim().toUpperCase(Locale.ROOT);
         String visible = """
                 h.tenant_id=:tenantId
-                AND r.student_id=:studentId
-                AND r.removed_at IS NULL
+                AND (h.session_id IS NULL OR h.is_session_primary)
+                AND h.status IN ('PUBLISHED', 'CLOSED')
+                AND hr.student_id=:studentId
+                AND hr.removed_at IS NULL
                 AND c.status IN ('SCHEDULED','ACTIVE','AWAITING_CLOSE')
                 AND EXISTS (
                   SELECT 1 FROM class_enrollments e
@@ -118,23 +131,23 @@ public class LearningContentService {
         long total = jdbc.sql("""
                 SELECT count(*) FROM homeworks h
                 JOIN classes c ON c.tenant_id=h.tenant_id AND c.id=h.class_id
-                JOIN homework_recipients r ON r.tenant_id=h.tenant_id AND r.homework_id=h.id
+                JOIN homework_recipients hr ON hr.tenant_id=h.tenant_id AND hr.homework_id=h.id
                 WHERE
                 """ + visible)
             .param("tenantId", tenantId).param("studentId", studentId).param("status", normalized)
             .query(Long.class).single();
-        List<HomeworkSummary> items = jdbc.sql(summarySql() + """
-                JOIN homework_recipients r ON r.tenant_id=h.tenant_id AND r.homework_id=h.id
+        List<StudentHomeworkSummary> items = jdbc.sql(studentSummarySql() + """
                 WHERE
                 """ + visible + """
                 GROUP BY h.id, h.class_id, h.session_id, c.code, c.name, s.ordinal,
-                         h.title, h.status, h.deadline_at, h.version, h.updated_at
+                         h.title, h.status, h.deadline_at, h.version, h.updated_at,
+                         latest.submitted_at, latest.review_status
                 ORDER BY h.deadline_at NULLS LAST, h.updated_at DESC
                 LIMIT :limit OFFSET :offset
                 """)
             .param("tenantId", tenantId).param("studentId", studentId).param("status", normalized)
             .param("limit", pageSize).param("offset", (page - 1) * pageSize)
-            .query((rs, row) -> mapSummary(rs)).list();
+            .query((rs, row) -> mapStudentSummary(rs)).list();
         return PageResponse.of(items, page, pageSize, total);
     }
 
@@ -143,32 +156,56 @@ public class LearningContentService {
         maintenance.requireWritable();
         support.requireIdempotencyKey(idempotencyKey);
         UUID tenantId = actor.tenantId();
-        requireManageHomework(tenantId, classId, input.sessionId());
+        requireCreateHomeworkAccess(tenantId, classId, input.sessionId());
         String operation = "CREATE_HOMEWORK:" + classId;
         String hash = support.requestHash(input);
         HomeworkDetail repeated = support.repeated(tenantId, operation, idempotencyKey, hash, HomeworkDetail.class);
         if (repeated != null) return repeated;
         String audience = normalizeAudience(input.audienceType());
+        if ("SELECTED".equals(audience) && input.studentIds().isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "HOMEWORK_RECIPIENTS_REQUIRED",
+                "Cần chọn ít nhất một học sinh nhận bài.");
+        }
+        if ("SELECTED".equals(audience) && input.sessionId() != null) {
+            requireSessionRosterRecipients(tenantId, classId, input.sessionId(), input.studentIds());
+        }
+        if (input.sessionId() != null) {
+            lockSessionForHomework(tenantId, classId, input.sessionId());
+            UUID existingHomeworkId = primarySessionHomeworkId(tenantId, input.sessionId());
+            if (existingHomeworkId != null) {
+                throw new ApiException(HttpStatus.CONFLICT, "HOMEWORK_ALREADY_EXISTS_FOR_SESSION",
+                    "Buổi này đã có BTVN. Vui lòng mở bài hiện có để sửa.",
+                    Map.of("homeworkId", existingHomeworkId));
+            }
+        }
+        List<UUID> recipientIds = "CLASS".equals(audience)
+            ? activeStudents(tenantId, classId)
+            : input.studentIds();
+        if (recipientIds.isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT, "HOMEWORK_RECIPIENTS_REQUIRED",
+                "Cần ít nhất một học sinh nhận bài trước khi giao.");
+        }
         UUID id = UUID.randomUUID();
         jdbc.sql("""
                 INSERT INTO homeworks (
                   id, tenant_id, class_id, session_id, title, description, deadline_at,
-                  audience_type, status, created_by, updated_by
+                  audience_type, status, published_at, is_session_primary, created_by, updated_by
                 ) VALUES (
                   :id, :tenantId, :classId, :sessionId, :title, :description, :deadlineAt,
-                  :audience, 'DRAFT', :actorId, :actorId
+                  :audience, 'PUBLISHED', now(), :isSessionPrimary, :actorId, :actorId
                 )
                 """)
             .param("id", id).param("tenantId", tenantId).param("classId", classId)
             .param("sessionId", input.sessionId()).param("title", input.title().trim())
             .param("description", clean(input.description())).param("deadlineAt", input.deadlineAt())
-            .param("audience", audience).param("actorId", actor.userId()).update();
+            .param("audience", audience).param("isSessionPrimary", input.sessionId() != null)
+            .param("actorId", actor.userId()).update();
         replaceHomeworkResources(tenantId, id, input.fileTokens(), input.links(), "homework created");
-        if ("SELECTED".equals(audience)) {
-            addRecipientsLocked(tenantId, id, classId, input.studentIds());
-        }
+        addRecipientsLocked(tenantId, id, classId, recipientIds);
+        notifyHomeworkStudents(tenantId, id, "HOMEWORK_PUBLISHED",
+            "Bạn có BTVN mới", input.title().trim());
         support.audit(tenantId, actor.userId(), "USER", "HOMEWORK_CREATED",
-            "HOMEWORK", id, null, Map.of("title", input.title(), "classId", classId));
+            "HOMEWORK", id, null, Map.of("title", input.title(), "classId", classId, "status", "PUBLISHED"));
         HomeworkDetail result = homeworkDetail(tenantId, id);
         support.remember(tenantId, operation, idempotencyKey, hash, 201, result);
         return result;
@@ -181,8 +218,8 @@ public class LearningContentService {
         HomeworkRow row = lockHomework(tenantId, homeworkId);
         requireManageHomework(tenantId, row.classId(), row.sessionId());
         requireVersion(row.version(), input.version());
-        if (!Set.of("DRAFT", "PUBLISHED").contains(row.status())) {
-            throw conflict("Chỉ được sửa bài đang Draft hoặc Published.");
+        if (!Set.of("DRAFT", "PUBLISHED", "CLOSED").contains(row.status())) {
+            throw conflict("Chỉ được sửa bài đang Draft, Published hoặc Closed.");
         }
         HomeworkDetail oldValue = homeworkDetail(tenantId, homeworkId);
         int updated = jdbc.sql("""
@@ -196,7 +233,7 @@ public class LearningContentService {
             .param("tenantId", tenantId).param("id", homeworkId).param("version", input.version())
             .update();
         if (updated == 0) throw stale();
-        replaceHomeworkResources(tenantId, homeworkId, input.fileTokens(), input.links(), "homework resource replaced");
+        replaceHomeworkResources(tenantId, homeworkId, input.fileIds(), input.fileTokens(), input.links(), "homework resource replaced");
         notifyHomeworkStudents(tenantId, homeworkId, "HOMEWORK_UPDATED",
             "BTVN đã được cập nhật", input.title().trim());
         HomeworkDetail result = homeworkDetail(tenantId, homeworkId);
@@ -365,6 +402,28 @@ public class LearningContentService {
         HomeworkRow row = homeworkRow(tenantId, homeworkId);
         requireHomeworkRead(tenantId, row);
         return homeworkDetail(tenantId, homeworkId);
+    }
+
+    @Transactional(readOnly = true)
+    public StudentHomeworkDetail studentHomework(UUID homeworkId) {
+        UUID tenantId = actor.tenantId();
+        UUID studentId = currentStudent(tenantId);
+        HomeworkRow row = homeworkRow(tenantId, homeworkId);
+        requireStudentHomeworkAccess(tenantId, studentId, row.classId(), homeworkId);
+        if (!Set.of("PUBLISHED", "CLOSED").contains(row.status())) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "HOMEWORK_NOT_FOUND", "Không tìm thấy BTVN.");
+        }
+        HomeworkHead head = homeworkHead(tenantId, homeworkId);
+        List<SubmissionView> mine = submissionsForStudent(tenantId, homeworkId, studentId);
+        SubmissionView latest = mine.stream().filter(submission -> submission.reviewStatus() != null)
+            .findFirst().orElse(null);
+        HomeworkRecipientView recipient = recipient(tenantId, homeworkId, studentId);
+        return new StudentHomeworkDetail(head.id(), head.classId(), head.sessionId(), head.classCode(),
+            head.className(), head.sessionOrdinal(), head.title(), head.description(), head.audienceType(),
+            head.status(), head.deadlineAt(), head.publishedAt(), head.closedAt(),
+            homeworkResources(tenantId, homeworkId), recipient, mine,
+            latest == null ? "ASSIGNED" : latest.reviewStatus(), latest == null ? null : latest.submittedAt(),
+            deadlineState(head.status(), head.deadlineAt()), "PUBLISHED".equals(head.status()), head.version());
     }
 
     @Transactional
@@ -762,7 +821,7 @@ public class LearningContentService {
         return platformTenantUsage(tenantId);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ResponseEntity<Resource> fileContent(UUID fileId, String rangeHeader) {
         UUID tenantId = actor.tenantId();
         FileOwner owner = authorizeFile(tenantId, fileId);
@@ -814,6 +873,15 @@ public class LearningContentService {
     }
 
     private HomeworkDetail homeworkDetail(UUID tenantId, UUID homeworkId) {
+        HomeworkHead head = homeworkHead(tenantId, homeworkId);
+        return new HomeworkDetail(head.id(), head.classId(), head.sessionId(), head.classCode(),
+            head.className(), head.sessionOrdinal(), head.title(), head.description(), head.audienceType(),
+            head.status(), head.deadlineAt(), head.publishedAt(), head.closedAt(),
+            homeworkResources(tenantId, homeworkId), recipients(tenantId, homeworkId),
+            submissions(tenantId, homeworkId), head.version());
+    }
+
+    private HomeworkHead homeworkHead(UUID tenantId, UUID homeworkId) {
         HomeworkHead head = jdbc.sql("""
                 SELECT h.id, h.class_id, h.session_id, c.code, c.name, s.ordinal,
                        h.title, h.description, h.audience_type, h.status, h.deadline_at,
@@ -834,11 +902,7 @@ public class LearningContentService {
                 rs.getObject("closed_at", OffsetDateTime.class), rs.getLong("version")))
             .optional().orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                 "HOMEWORK_NOT_FOUND", "Không tìm thấy BTVN."));
-        return new HomeworkDetail(head.id(), head.classId(), head.sessionId(), head.classCode(),
-            head.className(), head.sessionOrdinal(), head.title(), head.description(), head.audienceType(),
-            head.status(), head.deadlineAt(), head.publishedAt(), head.closedAt(),
-            homeworkResources(tenantId, homeworkId), recipients(tenantId, homeworkId),
-            submissions(tenantId, homeworkId), head.version());
+        return head;
     }
 
     private List<HomeworkResourceView> homeworkResources(UUID tenantId, UUID homeworkId) {
@@ -878,6 +942,29 @@ public class LearningContentService {
                 rs.getObject("removed_at", OffsetDateTime.class) != null)).list();
     }
 
+    private HomeworkRecipientView recipient(UUID tenantId, UUID homeworkId, UUID studentId) {
+        return jdbc.sql("""
+                SELECT r.student_id, sp.code, u.display_name, r.added_at, r.removed_at,
+                       EXISTS (
+                         SELECT 1 FROM homework_submissions sub
+                         WHERE sub.tenant_id=r.tenant_id AND sub.homework_id=r.homework_id
+                           AND sub.student_id=r.student_id
+                       ) AS submitted
+                FROM homework_recipients r
+                JOIN student_profiles sp ON sp.tenant_id=r.tenant_id AND sp.id=r.student_id
+                JOIN users u ON u.tenant_id=sp.tenant_id AND u.id=sp.user_id
+                WHERE r.tenant_id=:tenantId AND r.homework_id=:homeworkId
+                  AND r.student_id=:studentId AND r.removed_at IS NULL
+                """)
+            .param("tenantId", tenantId).param("homeworkId", homeworkId).param("studentId", studentId)
+            .query((rs, row) -> new HomeworkRecipientView(rs.getObject("student_id", UUID.class),
+                rs.getString("code"), rs.getString("display_name"),
+                rs.getObject("added_at", OffsetDateTime.class), rs.getBoolean("submitted"),
+                rs.getObject("removed_at", OffsetDateTime.class) != null))
+            .optional().orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN,
+                "FORBIDDEN", "Bạn không có quyền xem BTVN này."));
+    }
+
     private List<SubmissionView> submissions(UUID tenantId, UUID homeworkId) {
         return jdbc.sql("""
                 SELECT sub.id FROM homework_submissions sub
@@ -885,6 +972,17 @@ public class LearningContentService {
                 ORDER BY sub.student_id, sub.attempt_no DESC
                 """)
             .param("tenantId", tenantId).param("homeworkId", homeworkId)
+            .query(UUID.class).list().stream().map(id -> submission(tenantId, id)).toList();
+    }
+
+    private List<SubmissionView> submissionsForStudent(UUID tenantId, UUID homeworkId, UUID studentId) {
+        return jdbc.sql("""
+                SELECT sub.id FROM homework_submissions sub
+                WHERE sub.tenant_id=:tenantId AND sub.homework_id=:homeworkId
+                  AND sub.student_id=:studentId
+                ORDER BY sub.attempt_no DESC
+                """)
+            .param("tenantId", tenantId).param("homeworkId", homeworkId).param("studentId", studentId)
             .query(UUID.class).list().stream().map(id -> submission(tenantId, id)).toList();
     }
 
@@ -993,6 +1091,28 @@ public class LearningContentService {
                 """;
     }
 
+    private String studentSummarySql() {
+        return """
+                SELECT h.id, h.class_id, h.session_id, c.code AS class_code, c.name AS class_name,
+                       s.ordinal, h.title, h.status, h.deadline_at,
+                       count(DISTINCT r.student_id) FILTER (WHERE r.removed_at IS NULL)::int AS recipient_count,
+                       count(DISTINCT sub.student_id) FILTER (WHERE sub.current_attempt)::int AS submitted_count,
+                       count(DISTINCT sub.student_id) FILTER (WHERE sub.current_attempt AND sub.review_status='REVIEWED')::int AS reviewed_count,
+                       latest.submitted_at AS latest_submission_at,
+                       latest.review_status AS my_review_status,
+                       h.version
+                FROM homeworks h
+                JOIN classes c ON c.tenant_id=h.tenant_id AND c.id=h.class_id
+                LEFT JOIN class_sessions s ON s.tenant_id=h.tenant_id AND s.id=h.session_id
+                JOIN homework_recipients hr ON hr.tenant_id=h.tenant_id AND hr.homework_id=h.id
+                LEFT JOIN homework_recipients r ON r.tenant_id=h.tenant_id AND r.homework_id=h.id
+                LEFT JOIN homework_submissions sub ON sub.tenant_id=h.tenant_id AND sub.homework_id=h.id
+                LEFT JOIN homework_submissions latest ON latest.tenant_id=h.tenant_id
+                  AND latest.homework_id=h.id AND latest.student_id=:studentId
+                  AND latest.current_attempt
+                """;
+    }
+
     private HomeworkSummary mapSummary(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new HomeworkSummary(rs.getObject("id", UUID.class), rs.getObject("class_id", UUID.class),
             rs.getObject("session_id", UUID.class), rs.getString("class_code"),
@@ -1002,18 +1122,60 @@ public class LearningContentService {
             rs.getInt("submitted_count"), rs.getInt("reviewed_count"), rs.getLong("version"));
     }
 
+    private StudentHomeworkSummary mapStudentSummary(java.sql.ResultSet rs) throws java.sql.SQLException {
+        OffsetDateTime deadlineAt = rs.getObject("deadline_at", OffsetDateTime.class);
+        String status = rs.getString("status");
+        OffsetDateTime submittedAt = rs.getObject("latest_submission_at", OffsetDateTime.class);
+        String reviewStatus = rs.getString("my_review_status");
+        return new StudentHomeworkSummary(rs.getObject("id", UUID.class),
+            rs.getObject("class_id", UUID.class), rs.getObject("session_id", UUID.class),
+            rs.getString("class_code"), rs.getString("class_name"),
+            rs.getObject("ordinal", Integer.class), rs.getString("title"), status,
+            deadlineAt, rs.getInt("recipient_count"), rs.getInt("submitted_count"),
+            rs.getInt("reviewed_count"), submittedAt == null ? "ASSIGNED" : reviewStatus,
+            submittedAt, deadlineState(status, deadlineAt), "PUBLISHED".equals(status),
+            rs.getLong("version"));
+    }
+
     private void replaceHomeworkResources(UUID tenantId, UUID homeworkId, List<String> tokens,
                                           List<HomeworkLinkInput> links, String deleteReason) {
+        replaceHomeworkResources(tenantId, homeworkId, List.of(), tokens, links, deleteReason);
+    }
+
+    private void replaceHomeworkResources(UUID tenantId, UUID homeworkId, List<UUID> existingFileIds,
+                                          List<String> tokens, List<HomeworkLinkInput> links, String deleteReason) {
         List<UUID> oldFiles = jdbc.sql("""
                 SELECT file_id FROM homework_resources
                 WHERE tenant_id=:tenantId AND homework_id=:homeworkId AND kind='FILE'
+                ORDER BY sort_order, created_at
                 """)
             .param("tenantId", tenantId).param("homeworkId", homeworkId).query(UUID.class).list();
+        Set<UUID> oldFileSet = Set.copyOf(oldFiles);
+        LinkedHashSet<UUID> keptFileIds = new LinkedHashSet<>();
+        for (UUID fileId : existingFileIds) {
+            if (fileId == null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "HOMEWORK_FILE_NOT_ATTACHED",
+                    "File không thuộc BTVN đang sửa.");
+            }
+            if (!oldFileSet.contains(fileId)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "HOMEWORK_FILE_NOT_ATTACHED",
+                    "File không thuộc BTVN đang sửa.", Map.of("fileId", fileId));
+            }
+            keptFileIds.add(fileId);
+        }
         jdbc.sql("""
                 DELETE FROM homework_resources
                 WHERE tenant_id=:tenantId AND homework_id=:homeworkId
                 """).param("tenantId", tenantId).param("homeworkId", homeworkId).update();
         int sort = 0;
+        for (UUID fileId : keptFileIds) {
+            jdbc.sql("""
+                    INSERT INTO homework_resources (id, tenant_id, homework_id, kind, file_id, sort_order)
+                    VALUES (:id, :tenantId, :homeworkId, 'FILE', :fileId, :sortOrder)
+                    """)
+                .param("id", UUID.randomUUID()).param("tenantId", tenantId)
+                .param("homeworkId", homeworkId).param("fileId", fileId).param("sortOrder", sort++).update();
+        }
         for (String token : tokens) {
             UUID fileId = storage.promote(tenantId, token, FilePurpose.HOMEWORK_ATTACHMENT);
             jdbc.sql("""
@@ -1034,7 +1196,9 @@ public class LearningContentService {
                 .param("label", link.label().trim()).param("sortOrder", sort++).update();
         }
         for (UUID fileId : oldFiles) {
-            storage.markDeleted(tenantId, fileId, deleteReason);
+            if (!keptFileIds.contains(fileId)) {
+                storage.markDeleted(tenantId, fileId, deleteReason);
+            }
         }
     }
 
@@ -1248,6 +1412,28 @@ public class LearningContentService {
                 "HOMEWORK_NOT_FOUND", "Không tìm thấy BTVN."));
     }
 
+    private void lockSessionForHomework(UUID tenantId, UUID classId, UUID sessionId) {
+        jdbc.sql("""
+                SELECT id FROM class_sessions
+                WHERE tenant_id=:tenantId AND id=:sessionId AND class_id=:classId
+                FOR UPDATE
+                """)
+            .param("tenantId", tenantId).param("classId", classId).param("sessionId", sessionId)
+            .query(UUID.class).optional().orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST,
+                "HOMEWORK_SESSION_CLASS_MISMATCH", "Buổi học không thuộc lớp đang tạo BTVN."));
+    }
+
+    private UUID primarySessionHomeworkId(UUID tenantId, UUID sessionId) {
+        return jdbc.sql("""
+                SELECT id FROM homeworks
+                WHERE tenant_id=:tenantId AND session_id=:sessionId AND is_session_primary
+                ORDER BY created_at DESC
+                LIMIT 1
+                """)
+            .param("tenantId", tenantId).param("sessionId", sessionId)
+            .query(UUID.class).optional().orElse(null);
+    }
+
     private HomeworkRow mapHomeworkRow(java.sql.ResultSet rs, int row) throws java.sql.SQLException {
         return new HomeworkRow(rs.getObject("id", UUID.class), rs.getObject("class_id", UUID.class),
             rs.getObject("session_id", UUID.class), rs.getString("title"), rs.getString("status"),
@@ -1276,15 +1462,25 @@ public class LearningContentService {
             return;
         }
         UUID studentId = currentStudent(tenantId);
+        if (!Set.of("PUBLISHED", "CLOSED").contains(homework.status())) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "HOMEWORK_NOT_FOUND", "Không tìm thấy BTVN.");
+        }
         requireStudentHomeworkAccess(tenantId, studentId, homework.classId(), homework.id());
     }
 
     private void requireClassContentAccess(UUID tenantId, UUID classId) {
+        requireClassContentAccess(tenantId, classId, null);
+    }
+
+    private void requireClassContentAccess(UUID tenantId, UUID classId, UUID sessionId) {
+        if (sessionId != null) {
+            requireSessionBelongsToClass(tenantId, classId, sessionId);
+        }
         if (actor.hasPermission("VIEW_MATERIALS") || actor.hasPermission("VIEW_HOMEWORK")) {
             if (actor.roles().contains("TEACHER")
                 && !actor.roles().contains("ADMIN") && !actor.roles().contains("ACADEMIC_MANAGER")
                 && !actor.roles().contains("ACCOUNTANT")) {
-                requireTeacherRelated(tenantId, classId, null, false);
+                requireTeacherRelated(tenantId, classId, sessionId, false);
             }
             if (actor.roles().contains("STUDENT")) {
                 requireStudentClassAccess(tenantId, currentStudent(tenantId), classId);
@@ -1292,6 +1488,26 @@ public class LearningContentService {
             return;
         }
         forbidden();
+    }
+
+    private void requireCreateHomeworkAccess(UUID tenantId, UUID classId, UUID sessionId) {
+        if (!actor.hasPermission("MANAGE_HOMEWORK")) forbidden();
+        if (sessionId == null) {
+            if (isTeacherOnly()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "HOMEWORK_SESSION_REQUIRED",
+                    "Giáo viên chỉ được tạo BTVN theo từng buổi.");
+            }
+            requireClassActive(tenantId, classId);
+            return;
+        }
+        SessionHomeworkState state = sessionHomeworkState(tenantId, classId, sessionId);
+        requireSessionManageableForHomework(state);
+        if (actor.roles().contains("ADMIN") || actor.roles().contains("ACADEMIC_MANAGER")) return;
+        UUID teacherId = currentTeacher(tenantId);
+        boolean responsible = "COMPLETED".equals(state.sessionStatus())
+            ? teacherId.equals(state.actualTeacherId())
+            : teacherId.equals(state.plannedTeacherId());
+        if (!responsible) forbidden();
     }
 
     private void requireManageHomework(UUID tenantId, UUID classId, UUID sessionId) {
@@ -1340,12 +1556,91 @@ public class LearningContentService {
                       WHERE a.tenant_id=:tenantId AND a.class_id=:classId AND a.teacher_id=:teacherId
                       AND a.effective_from <= current_date
                       AND (a.effective_to IS NULL OR a.effective_to >= current_date)
+                    ) OR (:responsibleOnly=false AND EXISTS(
+                      SELECT 1 FROM class_sessions s
+                      WHERE s.tenant_id=:tenantId AND s.class_id=:classId
+                        AND (s.planned_teacher_id=:teacherId OR s.actual_teacher_id=:teacherId)
+                    )
                     )
                     """)
                 .param("tenantId", tenantId).param("classId", classId).param("teacherId", teacherId)
+                .param("responsibleOnly", responsibleOnly)
                 .query(Boolean.class).single();
         }
         if (!ok) forbidden();
+    }
+
+    private void requireSessionBelongsToClass(UUID tenantId, UUID classId, UUID sessionId) {
+        sessionHomeworkState(tenantId, classId, sessionId);
+    }
+
+    private SessionHomeworkState sessionHomeworkState(UUID tenantId, UUID classId, UUID sessionId) {
+        SessionHomeworkState state = jdbc.sql("""
+                SELECT s.class_id, s.status AS session_status, c.status AS class_status,
+                       s.planned_teacher_id, s.actual_teacher_id
+                FROM class_sessions s
+                JOIN classes c ON c.tenant_id=s.tenant_id AND c.id=s.class_id
+                WHERE s.tenant_id=:tenantId AND s.id=:sessionId
+                """)
+            .param("tenantId", tenantId).param("sessionId", sessionId)
+            .query((rs, row) -> new SessionHomeworkState(
+                rs.getObject("class_id", UUID.class), rs.getString("session_status"),
+                rs.getString("class_status"), rs.getObject("planned_teacher_id", UUID.class),
+                rs.getObject("actual_teacher_id", UUID.class)))
+            .optional().orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
+                "SESSION_NOT_FOUND", "Không tìm thấy buổi học."));
+        if (!classId.equals(state.classId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "HOMEWORK_SESSION_CLASS_MISMATCH",
+                "Buổi học không thuộc lớp đang tạo BTVN.");
+        }
+        return state;
+    }
+
+    private void requireSessionManageableForHomework(SessionHomeworkState state) {
+        if ("CANCELLED".equals(state.sessionStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "HOMEWORK_SESSION_CANCELLED",
+                "Không thể tạo BTVN cho buổi đã hủy.");
+        }
+        if (!CLASS_ACCESS_STATES.contains(state.classStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "HOMEWORK_SESSION_NOT_MANAGEABLE",
+                "Lớp đã đóng hoặc hủy nên không thể tạo BTVN mới.");
+        }
+    }
+
+    private void requireSessionRosterRecipients(UUID tenantId, UUID classId, UUID sessionId,
+                                                List<UUID> studentIds) {
+        if (studentIds.isEmpty()) return;
+        boolean rosterFrozen = jdbc.sql("""
+                SELECT roster_frozen_at IS NOT NULL
+                FROM class_sessions
+                WHERE tenant_id=:tenantId AND id=:sessionId AND class_id=:classId
+                """)
+            .param("tenantId", tenantId).param("classId", classId).param("sessionId", sessionId)
+            .query(Boolean.class).single();
+        List<UUID> roster = rosterFrozen
+            ? jdbc.sql("""
+                    SELECT student_id FROM session_roster_members
+                    WHERE tenant_id=:tenantId AND session_id=:sessionId
+                    """)
+                .param("tenantId", tenantId).param("sessionId", sessionId).query(UUID.class).list()
+            : jdbc.sql("""
+                    SELECT e.student_id
+                    FROM class_enrollments e
+                    JOIN class_sessions s ON s.tenant_id=e.tenant_id AND s.class_id=e.class_id
+                    WHERE e.tenant_id=:tenantId AND e.class_id=:classId AND s.id=:sessionId
+                      AND e.effective_from <= (s.start_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date
+                      AND (e.effective_to IS NULL OR e.effective_to >
+                        (s.start_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date)
+                    """)
+                .param("tenantId", tenantId).param("classId", classId).param("sessionId", sessionId)
+                .query(UUID.class).list();
+        Set<UUID> allowed = Set.copyOf(roster);
+        for (UUID studentId : studentIds) {
+            if (!allowed.contains(studentId)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "RECIPIENT_NOT_IN_SESSION_ROSTER",
+                    "Có học sinh không thuộc danh sách buổi học.", Map.of("studentId", studentId));
+            }
+        }
     }
 
     private void requireStudentHomeworkAccess(UUID tenantId, UUID studentId, UUID classId, UUID homeworkId) {
@@ -1460,6 +1755,13 @@ public class LearningContentService {
         return new ApiException(HttpStatus.CONFLICT, "CONTENT_STATE_CONFLICT", message);
     }
 
+    private String deadlineState(String status, OffsetDateTime deadlineAt) {
+        if ("CLOSED".equals(status)) return "CLOSED";
+        if (deadlineAt == null) return "NO_DEADLINE";
+        OffsetDateTime now = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        return now.isAfter(deadlineAt) ? "OVERDUE" : "UPCOMING";
+    }
+
     private void forbidden() {
         throw new ApiException(HttpStatus.FORBIDDEN, "FORBIDDEN",
             "Bạn không có quyền thực hiện thao tác này.");
@@ -1471,6 +1773,12 @@ public class LearningContentService {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private boolean isTeacherOnly() {
+        return actor.roles().contains("TEACHER")
+            && !actor.roles().contains("ADMIN")
+            && !actor.roles().contains("ACADEMIC_MANAGER");
     }
 
     private record HomeworkRow(UUID id, UUID classId, UUID sessionId, String title,
@@ -1487,6 +1795,10 @@ public class LearningContentService {
 
     private record MaterialRow(UUID id, UUID classId, UUID sessionId, UUID fileId,
                                String status, long version) {
+    }
+
+    private record SessionHomeworkState(UUID classId, String sessionStatus, String classStatus,
+                                        UUID plannedTeacherId, UUID actualTeacherId) {
     }
 
     private record SubmissionLock(UUID id, UUID studentId, long version, boolean currentAttempt) {

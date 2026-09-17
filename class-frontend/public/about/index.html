@@ -9,6 +9,9 @@
     <meta property="og:site_name" content="EDU OPS" />
     <meta property="og:title" content="EDU OPS" />
     <meta property="og:description" content="EDU OPS is a multi-tenant SaaS platform that helps learning centers manage classes, schedules, homework, documents and notifications." />
+    <meta property="og:image" content="https://quanlydayhoc.site/edu-ops-logo.png" />
+    <link rel="icon" type="image/png" href="/edu-ops-logo.png" />
+    <link rel="apple-touch-icon" href="/edu-ops-logo.png" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -28,14 +31,15 @@
       h2{margin:32px 0 8px;font-size:24px}
       p,li{font-size:18px;color:#475569}
       .brand{display:inline-flex;align-items:center;gap:10px;color:#0f172a}
-      .mark{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#2563eb;color:#fff;font-weight:900}
+      .mark{display:grid;place-items:center;overflow:hidden;width:42px;height:42px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;box-shadow:0 12px 28px rgba(37,99,235,.14)}
+      .mark img{display:block;width:136%;height:136%;object-fit:contain}
       .card{border:1px solid #e2e8f0;border-radius:22px;background:#fff;padding:28px;box-shadow:0 18px 50px rgba(15,23,42,.08)}
     </style>
   </head>
   <body>
     <main>
       <nav>
-        <a class="brand" href="/about/"><span class="mark">▦</span><span>EDU OPS</span></a>
+        <a class="brand" href="/about/"><span class="mark" aria-hidden="true"><img src="/edu-ops-logo.png" alt="" /></span><span>EDU OPS</span></a>
         <span><a href="/privacy/">Privacy Policy</a> · <a href="/terms/">Terms of Service</a></span>
       </nav>
       <section class="card">

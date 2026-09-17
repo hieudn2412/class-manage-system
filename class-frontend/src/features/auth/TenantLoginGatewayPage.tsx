@@ -20,21 +20,21 @@ export const TenantLoginGatewayPage = () => {
       <section className="auth-card" aria-labelledby="tenant-gateway-title">
         <div className="tenant-label">
           <Building2 size={15} aria-hidden="true" />
-          Workspace trung tâm
+          Cổng đăng nhập trung tâm
         </div>
         <header className="auth-card-header">
-          <p className="eyebrow">TENANT ACCESS</p>
+          <p className="eyebrow">CHỌN TRUNG TÂM</p>
           <h1 id="tenant-gateway-title">Đăng nhập trung tâm</h1>
-          <p>Nhập slug do Super Admin cấp để mở đúng không gian đăng nhập của trung tâm.</p>
+          <p>Nhập mã đường dẫn được cấp để mở trang đăng nhập của trung tâm bạn.</p>
         </header>
         <form className="auth-form" onSubmit={submit}>
           <Input
-            label="Slug trung tâm"
+            label="Mã đường dẫn trung tâm"
             value={slug}
             onChange={(event) => setSlug(event.target.value.toLowerCase())}
             placeholder="Ví dụ: anh-duong"
             autoComplete="organization"
-            hint="URL đăng nhập sẽ có dạng /t/slug-trung-tam/login"
+            hint="Bạn có thể hỏi quản trị viên trung tâm nếu chưa biết mã này."
           />
           <Button type="submit" disabled={!slug.trim()}>
             Tiếp tục đăng nhập
@@ -45,7 +45,7 @@ export const TenantLoginGatewayPage = () => {
           <span>Chưa có trung tâm hoặc cần quản trị nền tảng?</span>
           <Link to="/platform/login">
             <ShieldCheck size={16} aria-hidden="true" />
-            Đăng nhập Super Admin
+            Đăng nhập quản trị hệ thống
           </Link>
         </div>
       </section>

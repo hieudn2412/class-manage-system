@@ -48,7 +48,7 @@ export const LifecycleActions = ({ item }: { item: ClassDetail }) => {
         result.status === "Closed"
           ? "Đã đóng lớp và khóa quyền nội dung của học sinh."
           : result.status === "AwaitingClose"
-            ? "Đã mở lại lớp và khôi phục quyền cho enrollment đang hoạt động."
+            ? "Đã mở lại lớp và khôi phục quyền cho học sinh đang tham gia."
             : `Đã hủy lớp và hủy ${result.cancelledFutureSessions} buổi tương lai.`;
       showToast(message);
     },
@@ -106,7 +106,7 @@ export const LifecycleActions = ({ item }: { item: ClassDetail }) => {
           {target === "Closed" ? (
             <>
               <p className="modal-description">
-                Lớp đóng sẽ khóa nội dung với học sinh nhưng giữ nguyên enrollment và tài chính.
+                Khi đóng lớp, học sinh sẽ không còn xem được nội dung. Lịch sử ghi danh và tài chính vẫn được giữ nguyên.
               </p>
               {item.closeReadiness.warnings.length ? (
                 <div className="warning-stack" role="alert">
@@ -119,7 +119,7 @@ export const LifecycleActions = ({ item }: { item: ClassDetail }) => {
                   <small>Tiếp tục đồng nghĩa bạn xác nhận các hồ sơ còn thiếu.</small>
                 </div>
               ) : (
-                <p className="form-success">Điểm danh và record đã đầy đủ.</p>
+                <p className="form-success">Điểm danh và bản ghi buổi học đã đầy đủ.</p>
               )}
             </>
           ) : null}
@@ -131,7 +131,7 @@ export const LifecycleActions = ({ item }: { item: ClassDetail }) => {
           {target === "Cancelled" ? (
             <p className="modal-description">
               {item.futureSessionCount} buổi chưa bắt đầu sẽ bị hủy. Buổi đang diễn ra, đã dạy,
-              enrollment và tài chính vẫn được giữ.
+              lịch sử ghi danh và tài chính vẫn được giữ nguyên.
             </p>
           ) : null}
           {requiresReason ? (

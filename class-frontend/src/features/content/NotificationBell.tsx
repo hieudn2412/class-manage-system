@@ -41,7 +41,7 @@ export const NotificationBell = ({ tenantSlug, base }: { tenantSlug: string; bas
         <section className="notification-popover" aria-label="Thông báo mới">
           <header>
             <strong>Thông báo</strong>
-            <Button variant="ghost" onClick={() => markAll.mutate()}>Đọc hết</Button>
+            <Button variant="ghost" onClick={() => markAll.mutate()}>Đánh dấu tất cả đã đọc</Button>
           </header>
           {!latest.data?.items.length ? <p>Không có thông báo mới.</p> : null}
           {latest.data?.items.map((item) => (

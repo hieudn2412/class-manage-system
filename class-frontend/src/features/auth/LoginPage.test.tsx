@@ -73,9 +73,9 @@ describe("WF-01 đăng nhập", () => {
     expect(await screen.findByText("Login tenant đã chọn")).toBeInTheDocument();
   });
 
-  it("trang login tenant có liên kết đăng nhập Super Admin", async () => {
+  it("trang đăng nhập trung tâm có liên kết đến khu vực quản trị hệ thống", async () => {
     renderWithProviders(<AuthTestRoutes />, ["/t/anh-duong/login"]);
-    expect(await screen.findByRole("link", { name: "Đăng nhập Super Admin" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Đăng nhập quản trị hệ thống" })).toHaveAttribute(
       "href",
       "/platform/login",
     );
@@ -105,6 +105,8 @@ describe("WF-01 đăng nhập", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Tạo mật khẩu của bạn" })).toBeInTheDocument(),
     );
-    expect(screen.getByText("Phiên hiện tại chỉ có quyền đổi mật khẩu.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Sau khi đổi mật khẩu, bạn sẽ được chuyển đến trang làm việc."),
+    ).toBeInTheDocument();
   });
 });

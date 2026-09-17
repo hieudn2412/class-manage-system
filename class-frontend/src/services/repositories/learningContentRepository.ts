@@ -11,6 +11,8 @@ import type {
   Material,
   Page,
   StoredFile,
+  StudentHomeworkDetail,
+  StudentHomeworkSummary,
   TenantStorageUsage,
 } from "../../shared/types/domain";
 import { apiRequest } from "../api/apiClient";
@@ -35,6 +37,23 @@ export interface HomeworkInput {
   studentIds: string[];
   fileTokens: string[];
   links: Array<{ label: string; url: string }>;
+}
+
+export interface HomeworkUpdateInput {
+  title: string;
+  description: string;
+  deadlineAt?: string | null;
+  fileIds: string[];
+  fileTokens: string[];
+  links: Array<{ label: string; url: string }>;
+  version: number;
+}
+
+export interface HomeworkSearchParams {
+  sessionId?: string | null;
+  status?: string;
+  page?: number;
+  pageSize?: number;
 }
 
 export interface MaterialInput {
@@ -73,14 +92,22 @@ export const learningContentRepository = {
     }
     return response.json() as Promise<StoredFile>;
   },
-  classHomeworks: (tenantSlug: string, classId: string, query = {}) =>
-    apiRequest<Page<HomeworkSummary>>(`classes/${classId}/homeworks?${params(query)}`, { tenantSlug }),
+  classHomeworks: (tenantSlug: string, classId: string, query: HomeworkSearchParams = {}) =>
+    apiRequest<Page<HomeworkSummary>>(
+      `classes/${classId}/homeworks?${params({
+        sessionId: query.sessionId,
+        status: query.status,
+        page: query.page,
+        pageSize: query.pageSize,
+      })}`,
+      { tenantSlug },
+    ),
   studentHomeworks: (tenantSlug: string, query = {}) =>
-    apiRequest<Page<HomeworkSummary>>(`students/me/homeworks?${params(query)}`, { tenantSlug }),
+    apiRequest<Page<StudentHomeworkSummary>>(`students/me/homeworks?${params(query)}`, { tenantSlug }),
   homework: (tenantSlug: string, homeworkId: string) =>
     apiRequest<HomeworkDetail>(`homeworks/${homeworkId}`, { tenantSlug }),
   studentHomework: (tenantSlug: string, homeworkId: string) =>
-    apiRequest<HomeworkDetail>(`students/me/homeworks/${homeworkId}`, { tenantSlug }),
+    apiRequest<StudentHomeworkDetail>(`students/me/homeworks/${homeworkId}`, { tenantSlug }),
   createHomework: (tenantSlug: string, classId: string, input: HomeworkInput) =>
     apiRequest<HomeworkDetail>(`classes/${classId}/homeworks`, {
       tenantSlug,
@@ -88,7 +115,7 @@ export const learningContentRepository = {
       headers: { "Idempotency-Key": idempotencyKey() },
       body: JSON.stringify(input),
     }),
-  updateHomework: (tenantSlug: string, homeworkId: string, input: HomeworkInput & { version: number }) =>
+  updateHomework: (tenantSlug: string, homeworkId: string, input: HomeworkUpdateInput) =>
     apiRequest<HomeworkDetail>(`homeworks/${homeworkId}`, {
       tenantSlug,
       method: "PATCH",

@@ -28,7 +28,7 @@ export const RoleLandingPage = () => {
       title={`Xin chào, ${session.user.displayName}`}
       description={`Bạn đang đăng nhập với vai trò ${
         firstRole ? roleLabels[firstRole] : "chưa xác định"
-      }. Các module nghiệp vụ của vai trò này nằm ngoài vertical slice đầu tiên.`}
+      }. Hiện chưa có trang làm việc dành cho vai trò này. Vui lòng liên hệ quản trị viên trung tâm để được hỗ trợ.`}
       action={
         <Link className="button button-secondary" to={`/t/${tenantSlug ?? "anh-duong"}/login`}>
           <Construction size={18} aria-hidden="true" />

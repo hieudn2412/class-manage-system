@@ -12,9 +12,9 @@ import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 
 const checkInLabels: Record<CheckInState, { label: string; tone: BadgeTone }> = {
-  TOO_EARLY: { label: "Chưa đến giờ check-in", tone: "neutral" },
-  OPEN: { label: "Có thể check-in", tone: "success" },
-  CHECKED_IN: { label: "Đã check-in", tone: "info" },
+  TOO_EARLY: { label: "Chưa đến giờ xác nhận", tone: "neutral" },
+  OPEN: { label: "Có thể xác nhận", tone: "success" },
+  CHECKED_IN: { label: "Đã xác nhận", tone: "info" },
   WINDOW_CLOSED: { label: "Chờ quản lý xác nhận", tone: "warning" },
   COMPLETED: { label: "Đã hoàn tất", tone: "success" },
   CANCELLED: { label: "Đã hủy", tone: "danger" },
@@ -34,8 +34,8 @@ export const TeacherDashboardPage = () => {
     return (
       <StatePanel
         kind="error"
-        title="Không thể tải dashboard giáo viên"
-        description="Lịch hôm nay và trạng thái check-in chưa thể tải."
+        title="Không thể tải trang tổng quan giảng dạy"
+        description="Lịch hôm nay và trạng thái xác nhận buổi dạy chưa thể tải."
         actionLabel="Thử lại"
         onAction={() => void query.refetch()}
       />
@@ -45,7 +45,7 @@ export const TeacherDashboardPage = () => {
   const data = query.data;
   const metrics = [
     { label: "Buổi hôm nay", value: data.metrics.todaySessions, icon: CalendarDays },
-    { label: "Đang mở check-in", value: data.metrics.checkInAvailable, icon: CheckCircle2 },
+    { label: "Có thể xác nhận", value: data.metrics.checkInAvailable, icon: CheckCircle2 },
     { label: "Thiếu hồ sơ", value: data.metrics.missingDocumentation, icon: BookOpen },
     { label: "Giờ dạy tháng", value: data.metrics.monthTeachingHours, icon: Clock3 },
   ];
@@ -53,9 +53,9 @@ export const TeacherDashboardPage = () => {
   return (
     <>
       <PageHeader
-        eyebrow={`WF-17 · ${formatDate(data.date)}`}
+        eyebrow={formatDate(data.date)}
         title={`Chào ${data.teacherName}`}
-        subtitle="Theo dõi buổi dạy hôm nay, check-in đúng giờ và hoàn thiện hồ sơ sau buổi."
+        subtitle="Theo dõi lịch hôm nay, xác nhận buổi dạy đúng giờ và hoàn thiện hồ sơ sau buổi."
         actions={
           <Button onClick={() => void navigate(`/t/${tenant.slug}/app/my-classes`)}>
             Lớp của tôi
@@ -92,7 +92,7 @@ export const TeacherDashboardPage = () => {
             <h2 className="section-title" id="today-sessions-title">
               Buổi dạy hôm nay
             </h2>
-            <p>Trạng thái check-in do hệ thống máy chủ tính theo giờ Việt Nam.</p>
+            <p>Thời gian xác nhận buổi dạy được tính theo giờ Việt Nam.</p>
           </span>
         </div>
         {data.sessions.length === 0 ? (
@@ -124,7 +124,7 @@ export const TeacherDashboardPage = () => {
                     </h3>
                     <p>
                       {session.mode === "ONLINE"
-                        ? "Online"
+                        ? "Trực tuyến"
                         : (session.roomName ?? "Chưa xếp phòng")}
                       {session.substitution ? " · Dạy thay" : ""}
                     </p>
@@ -135,7 +135,7 @@ export const TeacherDashboardPage = () => {
                     onClick={() => void navigate(`/t/${tenant.slug}/app/sessions/${session.id}`)}
                   >
                     {session.checkInState === "OPEN"
-                      ? "Vào check-in"
+                      ? "Xác nhận buổi dạy"
                       : session.checkInState === "CHECKED_IN"
                         ? "Tiếp tục hồ sơ"
                         : "Xem chi tiết"}

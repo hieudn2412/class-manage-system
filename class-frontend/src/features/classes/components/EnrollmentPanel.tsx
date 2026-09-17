@@ -79,7 +79,7 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
       setSelectedIds([]);
       setWarnings([]);
       setError("");
-      showToast("Đã thêm học sinh và tạo học phí gốc cho enrollment mới.");
+      showToast("Đã thêm học sinh vào lớp và ghi nhận học phí ban đầu.");
     },
     onError: (caught) => {
       if (caught instanceof ApiError) {
@@ -117,7 +117,7 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
       showToast(endStatus === "Left" ? "Đã ghi nhận rời lớp." : "Đã ghi nhận chuyển lớp.");
     },
     onError: (caught) =>
-      setError(caught instanceof ApiError ? caught.message : "Không thể kết thúc enrollment."),
+      setError(caught instanceof ApiError ? caught.message : "Không thể kết thúc lượt ghi danh."),
   });
 
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -134,9 +134,9 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
       <div className="enrollment-toolbar">
         <div>
           <h2 className="section-title" id="enrollment-heading">
-            Roster lớp
+            Danh sách học sinh
           </h2>
-          <p className="text-muted">Mỗi lần vào lại là một enrollment và khoản học phí gốc mới.</p>
+          <p className="text-muted">Mỗi lần học sinh tham gia lại sẽ tạo một lượt ghi danh và khoản học phí ban đầu mới.</p>
         </div>
         {canManage ? (
           <Button onClick={() => setAddOpen(true)}>
@@ -148,7 +148,7 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
         )}
       </div>
       <div className="enrollment-filters">
-        <div className="tabs compact-tabs" role="tablist" aria-label="Phạm vi roster">
+        <div className="tabs compact-tabs" role="tablist" aria-label="Phạm vi danh sách học sinh">
           {(["Active", "History"] as const).map((value) => (
             <button
               type="button"
@@ -182,20 +182,24 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
 
       {roster.isPending ? <PageSkeleton /> : null}
       {roster.isError ? (
-        <StatePanel kind="error" title="Không tải được roster" description="Vui lòng thử lại." />
+        <StatePanel
+          kind="error"
+          title="Không tải được danh sách học sinh"
+          description="Vui lòng kiểm tra kết nối và thử lại."
+        />
       ) : null}
       {roster.data && roster.data.items.length === 0 ? (
         <StatePanel
           kind="empty"
           title={scope === "Active" ? "Chưa có học sinh hiện tại" : "Chưa có lịch sử rời lớp"}
-          description="Đổi bộ lọc hoặc thêm học sinh để cập nhật roster."
+          description="Đổi bộ lọc hoặc thêm học sinh để cập nhật danh sách lớp."
         />
       ) : null}
       {roster.data?.items.length ? (
         <>
           <div className="table-shell">
             <table className="data-table enrollment-table">
-              <caption className="sr-only">Danh sách enrollment của lớp</caption>
+              <caption className="sr-only">Danh sách ghi danh của lớp</caption>
               <thead>
                 <tr>
                   <th scope="col">Học sinh</th>
@@ -250,7 +254,7 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
             page={roster.data.page}
             totalPages={roster.data.totalPages}
             totalItems={roster.data.totalItems}
-            itemLabel="enrollment"
+            itemLabel="lượt ghi danh"
             onPageChange={setPage}
           />
         </>
@@ -266,8 +270,8 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
         confirmLoading={addMutation.isPending}
       >
         <p className="modal-description">
-          Lô được xử lý nguyên tử: nếu một học sinh lỗi, không enrollment, học phí hay audit nào
-          được tạo.
+          Tất cả học sinh sẽ được thêm cùng lúc. Nếu có một trường hợp chưa hợp lệ, hệ thống sẽ
+          không thay đổi danh sách lớp hoặc học phí.
         </p>
         <label className="student-search">
           <span className="field-label">Tìm ứng viên</span>
@@ -328,7 +332,7 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
 
       <Modal
         open={Boolean(ending)}
-        title="Kết thúc enrollment"
+        title="Kết thúc lượt ghi danh"
         onClose={() => {
           if (endMutation.isPending) return;
           setEnding(null);
@@ -342,8 +346,8 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
       >
         <div className="modal-form">
           <p className="modal-description">
-            {ending?.student.name} sẽ mất quyền học ngay hôm nay. Enrollment và học phí cũ được giữ
-            nguyên.
+            {ending?.student.name} sẽ mất quyền truy cập lớp từ hôm nay. Lịch sử tham gia và học phí
+            trước đó vẫn được giữ nguyên.
           </p>
           <label className="field">
             <span className="field-label">Kết quả</span>

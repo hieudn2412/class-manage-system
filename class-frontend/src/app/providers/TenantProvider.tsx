@@ -41,16 +41,16 @@ export const TenantProvider = ({ children }: PropsWithChildren) => {
             title={isLocked ? "Trung tâm đang bị khóa" : "Không tìm thấy trung tâm"}
             description={
               isLocked
-                ? "Tài khoản trong trung tâm này tạm thời không thể đăng nhập. Vui lòng liên hệ quản trị nền tảng."
+                ? "Tài khoản của trung tâm đang tạm ngừng đăng nhập. Vui lòng liên hệ quản trị viên hệ thống."
                 : "Đường dẫn trung tâm không hợp lệ hoặc trung tâm không còn hoạt động."
             }
             action={
               <div className="state-actions">
                 <Link className="button button-secondary" to="/">
-                  Nhập slug khác
+                  Chọn trung tâm khác
                 </Link>
                 <Link className="button" to="/platform/login">
-                  Đăng nhập Super Admin
+                  Đăng nhập quản trị hệ thống
                 </Link>
               </div>
             }

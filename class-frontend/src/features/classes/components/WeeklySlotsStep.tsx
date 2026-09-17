@@ -132,7 +132,7 @@ export const WeeklySlotsStep = ({ options }: WeeklySlotsStepProps) => {
                     {...register(`patterns.${index}.mode`)}
                   >
                     <option value="IN_PERSON">Tại lớp</option>
-                    <option value="ONLINE">Online</option>
+                    <option value="ONLINE">Trực tuyến</option>
                   </Select>
                   {mode === "IN_PERSON" ? (
                     <Select

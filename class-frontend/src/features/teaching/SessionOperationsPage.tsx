@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useTenant } from "../../app/providers/TenantProvider";
@@ -46,6 +46,8 @@ import { Modal } from "../../shared/ui/Modal";
 import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { useToast } from "../../shared/ui/Toast";
+import { HomeworkCreateModal } from "../content/HomeworkCreateModal";
+import { SessionHomeworksPanel } from "../content/SessionHomeworksPanel";
 import { SessionMutationModal } from "../schedules/components/SessionMutationModal";
 import { CompletionCorrectionModal } from "./CompletionCorrectionModal";
 
@@ -54,7 +56,7 @@ const optionalUrl = z
   .trim()
   .refine(
     (value) => !value || /^https?:\/\/\S+$/i.test(value),
-    "URL phải bắt đầu bằng http/https.",
+    "Đường dẫn chưa hợp lệ. Vui lòng kiểm tra và nhập lại.",
   );
 
 const recordSchema = z.object({
@@ -88,7 +90,7 @@ const checkInSchema = z.object({
     .trim()
     .refine(
       (value) => !value || /^https?:\/\/\S+$/i.test(value),
-      "Link Online phải là URL http/https hợp lệ.",
+      "Đường dẫn học trực tuyến chưa hợp lệ.",
     ),
 });
 type CheckInForm = z.infer<typeof checkInSchema>;
@@ -175,10 +177,10 @@ const toTestDefaults = (detail: SessionOperationsDetail): SessionTestForm => ({
 });
 
 const stateLabel: Record<string, string> = {
-  TOO_EARLY: "Chưa đến giờ check-in",
-  OPEN: "Có thể check-in",
-  CHECKED_IN: "Đã check-in",
-  WINDOW_CLOSED: "Đã hết cửa sổ check-in",
+  TOO_EARLY: "Chưa đến giờ xác nhận",
+  OPEN: "Có thể xác nhận",
+  CHECKED_IN: "Đã xác nhận",
+  WINDOW_CLOSED: "Đã hết thời gian xác nhận",
   COMPLETED: "Đã hoàn tất",
   CANCELLED: "Đã hủy",
 };
@@ -196,9 +198,11 @@ export const SessionOperationsPage = () => {
   const tenant = useTenant();
   const { session } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const { showToast } = useToast();
   const [checkInOpen, setCheckInOpen] = useState(false);
+  const [homeworkOpen, setHomeworkOpen] = useState(false);
   const [testEditorOpen, setTestEditorOpen] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [correctionOpen, setCorrectionOpen] = useState(false);
@@ -364,7 +368,7 @@ export const SessionOperationsPage = () => {
       </Link>
       <section className="panel session-hero" aria-labelledby="session-title">
         <div className="session-hero-copy">
-          <p className="eyebrow">{detail.classCode} · WF-20/WF-27</p>
+          <p className="eyebrow">{detail.classCode}</p>
           <h1 className="page-title" id="session-title">
             {detail.className} <span>· Buổi {detail.ordinal}</span>
           </h1>
@@ -386,6 +390,12 @@ export const SessionOperationsPage = () => {
         </div>
         <div className="session-hero-actions">
           <div className="session-hero-state">
+            {detail.homework ? (
+              <Badge tone="info">
+                <ClipboardCheck size={15} aria-hidden="true" />
+                Bài tập về nhà
+              </Badge>
+            ) : null}
             <Badge
               tone={
                 detail.status === "COMPLETED"
@@ -401,7 +411,21 @@ export const SessionOperationsPage = () => {
           {detail.checkInState === "OPEN" && detail.canEdit ? (
             <Button onClick={() => setCheckInOpen(true)}>
               <UserCheck size={18} aria-hidden="true" />
-              Check-in dạy
+              Xác nhận buổi dạy
+            </Button>
+          ) : null}
+          {detail.homework ? (
+            <Button
+              variant="secondary"
+              onClick={() => void navigate(`/t/${tenant.slug}/app/homeworks/${detail.homework?.id}`)}
+            >
+              <ClipboardCheck size={18} aria-hidden="true" />
+              Xem và sửa bài tập
+            </Button>
+          ) : detail.canCreateHomework ? (
+            <Button variant="secondary" onClick={() => setHomeworkOpen(true)}>
+              <ClipboardPlus size={18} aria-hidden="true" />
+              Giao bài tập
             </Button>
           ) : null}
           {detail.canVerify && detail.status === "PENDING_CONFIRMATION" ? (
@@ -457,7 +481,7 @@ export const SessionOperationsPage = () => {
           </span>
           <div>
             <small>Hình thức</small>
-            <strong>{isOnline ? "Online" : (detail.roomName ?? "Tại lớp · chưa có phòng")}</strong>
+            <strong>{isOnline ? "Trực tuyến" : (detail.roomName ?? "Tại lớp · chưa có phòng")}</strong>
             {detail.checkIn?.onlineLink ? (
               <a href={detail.checkIn.onlineLink} target="_blank" rel="noreferrer">
                 <Link2 size={16} aria-hidden="true" />
@@ -487,8 +511,8 @@ export const SessionOperationsPage = () => {
             <strong>{detail.missingDocumentation ? "Còn thiếu" : "Đã đầy đủ"}</strong>
             <span>
               {detail.checkIn
-                ? `Check-in ${formatDateTime(detail.checkIn.checkedInAt)}`
-                : "Chưa có check-in"}
+                ? `Đã xác nhận lúc ${formatDateTime(detail.checkIn.checkedInAt)}`
+                : "Chưa xác nhận buổi dạy"}
             </span>
           </div>
         </article>
@@ -507,7 +531,7 @@ export const SessionOperationsPage = () => {
         <div className="session-warning" role="status">
           <FileWarning size={20} aria-hidden="true" />
           <span>
-            <strong>Buổi đã hoàn tất nhưng còn thiếu điểm danh hoặc record</strong>
+            <strong>Buổi đã hoàn tất nhưng còn thiếu điểm danh hoặc bản ghi buổi học</strong>
             <small>Bạn vẫn có thể bổ sung để xóa cờ theo dõi.</small>
           </span>
         </div>
@@ -523,6 +547,13 @@ export const SessionOperationsPage = () => {
         </div>
       ) : null}
 
+      <SessionHomeworksPanel
+        tenantSlug={tenant.slug}
+        canCreate={detail.canCreateHomework}
+        homework={detail.homework}
+        onCreate={() => setHomeworkOpen(true)}
+      />
+
       <div className="session-record-form">
         <section className="panel-flat section-panel" aria-labelledby="lesson-report-title">
           <div className="section-heading-row">
@@ -534,7 +565,7 @@ export const SessionOperationsPage = () => {
                 <h2 className="section-title" id="lesson-report-title">
                   Nội dung đã dạy
                 </h2>
-                <p>Record có thể bổ sung sau khi buổi đã tự hoàn tất.</p>
+                <p>Bạn vẫn có thể bổ sung bản ghi sau khi buổi học đã hoàn tất.</p>
               </span>
             </span>
           </div>
@@ -545,7 +576,7 @@ export const SessionOperationsPage = () => {
               {...recordForm.register("lessonName")}
             />
             <Input
-              label="Link record"
+              label="Đường dẫn bản ghi buổi học"
               placeholder="https://youtube.com/..."
               disabled={!detail.canEdit}
               error={recordForm.formState.errors.recordUrl?.message}
@@ -735,7 +766,33 @@ export const SessionOperationsPage = () => {
           queryClient.setQueryData(["session-operations", tenant.id, sessionId], updated);
           setCheckInOpen(false);
           await invalidateRelated();
-          showToast("Check-in thành công.");
+          showToast("Đã xác nhận buổi dạy.");
+        }}
+      />
+      <HomeworkCreateModal
+        tenantSlug={tenant.slug}
+        classId={detail.classId}
+        className={detail.className}
+        sessionId={detail.id}
+        sessionOrdinal={detail.ordinal}
+        students={detail.students.map((student) => ({
+          studentId: student.studentId,
+          code: student.code,
+          name: student.name,
+        }))}
+        open={homeworkOpen}
+        onClose={() => setHomeworkOpen(false)}
+        onCreated={async (homework) => {
+          await queryClient.invalidateQueries({
+            queryKey: ["class-homeworks", tenant.slug, detail.classId],
+          });
+          await queryClient.invalidateQueries({
+            queryKey: ["session-operations", tenant.id, sessionId],
+          });
+          void navigate(`/t/${tenant.slug}/app/homeworks/${homework.id}`);
+        }}
+        onExisting={(homeworkId) => {
+          void navigate(`/t/${tenant.slug}/app/homeworks/${homeworkId}`);
         }}
       />
       <SessionTestEditorModal
@@ -841,7 +898,7 @@ const CheckInModal = ({
   });
   const submit = form.handleSubmit((values) => {
     if (detail.mode === "ONLINE" && !values.onlineLink) {
-      form.setError("onlineLink", { message: "Buổi Online bắt buộc nhập link dạy." });
+      form.setError("onlineLink", { message: "Vui lòng nhập đường dẫn học trực tuyến." });
       return;
     }
     mutation.mutate(values);
@@ -849,17 +906,17 @@ const CheckInModal = ({
   return (
     <Modal
       open={open}
-      title="Check-in buổi dạy"
+      title="Xác nhận buổi dạy"
       onClose={onClose}
-      confirmLabel="Xác nhận check-in"
+      confirmLabel="Xác nhận buổi dạy"
       onConfirm={() => void submit()}
       confirmLoading={mutation.isPending}
     >
       <div className="modal-form-stack">
-        <p>Check-in ghi nhận thời điểm, IP và thiết bị. Buổi sẽ tự hoàn tất sau giờ kết thúc.</p>
+        <p>Hệ thống sẽ ghi nhận thời điểm và thiết bị xác nhận. Buổi học tự hoàn tất sau giờ kết thúc.</p>
         {detail.mode === "ONLINE" ? (
           <Input
-            label="Link dạy Online"
+            label="Đường dẫn học trực tuyến"
             placeholder="https://meet.example.com/..."
             error={form.formState.errors.onlineLink?.message}
             {...form.register("onlineLink")}
@@ -869,7 +926,7 @@ const CheckInModal = ({
             <CheckCircle2 size={20} aria-hidden="true" />
             <span>
               <strong>Buổi học tại lớp</strong>
-              <small>Không yêu cầu và không lưu link Online.</small>
+              <small>Buổi học tại lớp không cần đường dẫn trực tuyến.</small>
             </span>
           </div>
         )}
@@ -989,7 +1046,7 @@ const VerificationModal = ({
   return (
     <Modal
       open={open}
-      title="Xử lý buổi thiếu check-in"
+      title="Xử lý buổi chưa được xác nhận"
       onClose={onClose}
       confirmLabel={decision === "CONFIRM_TAUGHT" ? "Xác nhận đã dạy" : "Xác nhận hủy buổi"}
       onConfirm={() => void submit()}
@@ -1018,7 +1075,7 @@ const VerificationModal = ({
                 ? "Hủy sẽ không tạo lương"
                 : "Xác nhận sẽ hoàn tất buổi và tạo lương"}
             </strong>
-            <small>Quyết định được ghi audit cùng lý do.</small>
+            <small>Quyết định và lý do sẽ được lưu trong lịch sử thay đổi.</small>
           </span>
         </div>
         {mutation.isError ? (

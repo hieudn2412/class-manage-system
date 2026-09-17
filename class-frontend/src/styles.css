@@ -126,12 +126,18 @@ body {
   width: 44px;
   height: 44px;
   place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: var(--blue-600);
-  color: var(--white);
-  font-size: 1.15rem;
-  font-weight: 800;
+  background: var(--white);
   box-shadow: 0 16px 34px rgba(37, 99, 235, 0.22);
+}
+
+.public-trust-logo img {
+  display: block;
+  width: 136%;
+  height: 136%;
+  object-fit: contain;
 }
 
 .public-trust-brand strong,
@@ -960,11 +966,18 @@ a {
   height: 42px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 10px;
-  background: var(--blue-600);
-  color: var(--white);
-  font-size: 1.2rem;
-  font-weight: 700;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.12);
+}
+
+.brand-mark img {
+  display: block;
+  width: 136%;
+  height: 136%;
+  object-fit: contain;
 }
 
 .brand-name {
@@ -1592,8 +1605,9 @@ a {
 }
 
 .auth-aside .brand-mark {
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: var(--white);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.2);
 }
 
 .auth-aside .brand-name {
@@ -3397,6 +3411,39 @@ textarea.control {
   width: 100%;
 }
 
+.teacher-class-card-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.homework-teacher-guide {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+  border-color: var(--blue-200);
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    var(--surface);
+  padding: 16px;
+  box-shadow: var(--shadow-xs);
+}
+
+.homework-teacher-guide strong {
+  display: block;
+  color: var(--text-primary);
+}
+
+.homework-teacher-guide p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+}
+
+.homework-teacher-guide .button {
+  white-space: nowrap;
+}
+
 .teacher-class-hero,
 .session-hero {
   position: relative;
@@ -3544,6 +3591,27 @@ textarea.control {
   white-space: nowrap;
 }
 
+.teacher-session-homework-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(255, 255, 255, 0));
+  padding: 9px 10px;
+}
+
+.teacher-session-homework-strip strong,
+.teacher-session-homework-strip small {
+  display: block;
+}
+
+.teacher-session-homework-strip small {
+  color: var(--text-secondary);
+}
+
 .history-meta,
 .test-result-list,
 .session-detail-actions {
@@ -3573,6 +3641,17 @@ textarea.control {
   color: var(--warning);
   font-size: 11px;
   font-weight: 600;
+}
+
+.teacher-history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.teacher-history-actions .button {
+  min-width: 118px;
 }
 
 .text-warning {
@@ -3965,7 +4044,7 @@ textarea.control {
     justify-self: end;
   }
 
-  .teacher-history-card > .button {
+  .teacher-history-actions {
     grid-column: 2 / -1;
     justify-self: end;
   }
@@ -4016,6 +4095,15 @@ textarea.control {
   }
 
   .teaching-filter-summary .button {
+    width: 100%;
+  }
+
+  .homework-teacher-guide {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .homework-teacher-guide .button {
+    grid-column: 1 / -1;
     width: 100%;
   }
 
@@ -4085,10 +4173,14 @@ textarea.control {
     justify-self: start;
   }
 
-  .teacher-history-card > .button {
+  .teacher-history-actions {
     grid-column: 1 / -1;
     width: 100%;
     justify-self: stretch;
+  }
+
+  .teacher-history-actions .button {
+    flex: 1 1 150px;
   }
 
   .session-hero-actions {
@@ -4158,6 +4250,11 @@ textarea.control {
   .teacher-class-card-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .homework-teacher-guide {
+    align-items: flex-start;
+    padding: 14px;
   }
 
   .teacher-class-facts,
@@ -5099,9 +5196,505 @@ textarea.control {
   gap: 10px;
 }
 
+.homework-create-modal {
+  width: min(680px, 100%);
+}
+
+.homework-create-form {
+  width: 100%;
+}
+
+.homework-create-context,
+.homework-audience-box {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.homework-create-context {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  color: var(--blue-700);
+}
+
+.homework-create-context strong,
+.homework-create-context small,
+.homework-audience-head strong,
+.homework-audience-head small {
+  display: block;
+}
+
+.homework-create-context small,
+.homework-audience-head small {
+  color: var(--text-secondary);
+}
+
+.homework-audience-box {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.homework-audience-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.homework-roster-loading {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.homework-audience-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.homework-audience-switch .button {
+  min-width: 128px;
+}
+
+.homework-student-picklist {
+  display: grid;
+  max-height: 240px;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.homework-student-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 9px 10px;
+  cursor: pointer;
+}
+
+.homework-student-option input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--blue-600);
+}
+
+.homework-student-option strong,
+.homework-student-option small {
+  display: block;
+}
+
+.homework-student-option small {
+  color: var(--text-muted);
+}
+
+.session-homework-panel {
+  margin-bottom: 16px;
+}
+
+.session-homework-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.session-homework-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(180px, auto) auto auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 12px;
+  background: linear-gradient(100deg, rgba(37, 99, 235, 0.08), var(--surface) 48%);
+  padding: 14px;
+}
+
+.session-homework-ribbon,
+.student-homework-ribbon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  border-radius: 999px;
+  background: var(--blue-50);
+  padding: 7px 10px;
+  color: var(--blue-700);
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.session-homework-card h3,
+.session-homework-card p {
+  margin: 0;
+}
+
+.session-homework-card p {
+  color: var(--text-secondary);
+}
+
+.session-homework-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(72px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--border);
+}
+
+.session-homework-card dl div {
+  background: rgba(255, 255, 255, 0.72);
+  padding: 8px 10px;
+}
+
+.session-homework-card dt {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.session-homework-card dd {
+  margin: 2px 0 0;
+  font-weight: 850;
+}
+
+.homework-resource-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.homework-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.homework-brief-panel {
+  min-height: 320px;
+}
+
+.homework-side-panel {
+  position: sticky;
+  top: 18px;
+}
+
+.student-homework-personal-state {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  padding: 12px;
+}
+
+.student-homework-personal-state span {
+  color: var(--blue-700);
+  font-weight: 850;
+}
+
+.homework-image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.homework-image-gallery:has(.homework-image-tile:nth-child(3)) {
+  grid-template-columns: 1.25fr 1fr 1fr;
+}
+
+.homework-image-gallery:has(.homework-image-tile:nth-child(3)) .homework-image-tile:first-child {
+  grid-row: span 2;
+}
+
+.homework-image-gallery.single {
+  grid-template-columns: minmax(0, 520px);
+}
+
+.homework-image-tile {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  min-height: 190px;
+  margin: 0;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 45%),
+    var(--surface-muted);
+  box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
+  color: inherit;
+  text-decoration: none;
+  cursor: zoom-in;
+}
+
+button.homework-image-tile {
+  width: 100%;
+  padding: 0;
+  appearance: none;
+}
+
+.homework-image-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 190px;
+  max-height: 340px;
+  object-fit: cover;
+  transition: transform 180ms ease;
+}
+
+.private-image-placeholder {
+  display: grid;
+  width: 100%;
+  place-items: center;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 45%),
+    var(--surface-muted);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.homework-image-tile .private-image-placeholder {
+  min-height: 190px;
+  height: 100%;
+}
+
+.file-image-preview-card .private-image-placeholder {
+  aspect-ratio: 4 / 3;
+}
+
+.homework-image-tile:hover img {
+  transform: scale(1.025);
+}
+
+.homework-image-caption {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  padding: 7px 10px;
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+}
+
+.homework-resource-links {
+  padding-top: 2px;
+}
+
+.record-link-button {
+  width: fit-content;
+  border: 0;
+  background: transparent;
+  color: var(--blue-700);
+  cursor: pointer;
+  font: inherit;
+}
+
+.record-link-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.homework-lightbox {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.homework-lightbox-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.76);
+}
+
+.homework-lightbox-frame {
+  position: relative;
+  display: grid;
+  width: min(1120px, 100%);
+  max-height: calc(100vh - 48px);
+  gap: 12px;
+  border-radius: 14px;
+}
+
+.homework-lightbox-frame img,
+.homework-lightbox-frame .private-image-placeholder {
+  width: 100%;
+  max-height: calc(100vh - 126px);
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.homework-lightbox-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 10px;
+}
+
+.homework-lightbox-toolbar span {
+  min-width: 54px;
+  text-align: center;
+  font-weight: 850;
+}
+
+.student-homework-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.student-homework-group {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.student-homework-group > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.student-homework-group > header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.student-homework-list {
+  display: grid;
+  gap: 10px;
+}
+
+.student-homework-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  padding: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.student-homework-card:hover {
+  border-color: var(--blue-300);
+  background: var(--surface);
+}
+
+.student-homework-card strong,
+.student-homework-card small {
+  display: block;
+}
+
+.student-homework-card small,
+.student-homework-meta {
+  color: var(--text-secondary);
+}
+
+.student-homework-meta {
+  font-size: 0.86rem;
+}
+
 .file-token-picker {
   display: grid;
   gap: 10px;
+}
+
+.file-image-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.file-image-preview-card {
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.file-image-preview-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: var(--surface-muted);
+  object-fit: cover;
+}
+
+.file-image-preview-card figcaption {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+}
+
+.file-image-preview-card figcaption span {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-image-preview-card .button {
+  width: 34px;
+  min-height: 34px;
+  padding: 0;
 }
 
 .upload-drop {
@@ -5151,6 +5744,108 @@ textarea.control {
 .submit-panel {
   display: grid;
   gap: 12px;
+}
+
+.submission-table-shell {
+  border-radius: 16px;
+}
+
+.submission-table {
+  min-width: 1040px;
+}
+
+.submission-table th:nth-child(4),
+.submission-table td:nth-child(4),
+.submission-table th:nth-child(6),
+.submission-table td:nth-child(6) {
+  text-align: left;
+}
+
+.submission-table td {
+  vertical-align: top;
+}
+
+.submission-table td:nth-child(1) {
+  width: 190px;
+}
+
+.submission-table td:nth-child(2) {
+  width: 190px;
+}
+
+.submission-table td:nth-child(3) {
+  width: 310px;
+}
+
+.submission-table td:nth-child(5) {
+  width: 190px;
+}
+
+.submission-note-cell {
+  display: -webkit-box;
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-height: 1.45;
+}
+
+.submission-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.submission-file-list .record-link-button,
+.submission-file-chip {
+  min-height: 34px;
+  max-width: 260px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 7px 10px;
+  box-shadow: var(--shadow-xs);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.submission-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--blue-700);
+  cursor: zoom-in;
+}
+
+.submission-file-chip:hover,
+.submission-file-list .record-link-button:hover {
+  border-color: var(--blue-300);
+  background: var(--blue-50);
+}
+
+.submission-file-chip span,
+.submission-file-list .record-link-button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submission-review-inline {
+  display: flex;
+  max-width: 190px;
+  gap: 6px;
+  align-items: flex-start;
+  margin-top: 8px;
+  color: var(--success);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.submission-row-actions {
+  align-items: flex-start;
 }
 
 .review-note {
@@ -5461,6 +6156,16 @@ textarea.control {
     grid-template-columns: 1fr;
   }
 
+  .homework-detail-layout,
+  .student-homework-board,
+  .session-homework-card {
+    grid-template-columns: 1fr;
+  }
+
+  .homework-side-panel {
+    position: static;
+  }
+
   .content-card-grid {
     grid-template-columns: 1fr;
   }
@@ -5496,5 +6201,21 @@ textarea.control {
   .tenant-email-actions .button {
     width: 100%;
     justify-content: center;
+  }
+
+  .homework-image-gallery,
+  .homework-image-gallery.single,
+  .homework-image-gallery:has(.homework-image-tile:nth-child(3)),
+  .file-image-preview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .homework-image-gallery:has(.homework-image-tile:nth-child(3)) .homework-image-tile:first-child {
+    grid-row: auto;
+  }
+
+  .homework-image-tile,
+  .homework-image-tile img {
+    min-height: 170px;
   }
 }

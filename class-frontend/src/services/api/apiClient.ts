@@ -1,5 +1,6 @@
 import { env } from "../../shared/config/env";
 import { loadSession } from "../../shared/lib/sessionStorage";
+import { getApiErrorMessage } from "../../shared/lib/errorMessages";
 import { ApiError, type ApiErrorPayload } from "../../shared/types/api";
 
 interface RequestOptions extends RequestInit {
@@ -27,7 +28,7 @@ export const apiRequest = async <T>(path: string, options: RequestOptions = {}):
     const retryAfterHeader = Number(response.headers.get("Retry-After"));
     const payload: ApiErrorPayload = {
       code: problem.code ?? fallback.code,
-      message: problem.message ?? problem.detail ?? fallback.message,
+      message: getApiErrorMessage(problem, fallback.message),
       fieldErrors: problem.fieldErrors,
       retryAfterSeconds:
         problem.retryAfterSeconds ??
@@ -58,7 +59,7 @@ export const apiDownload = async (path: string, options: RequestOptions = {}): P
     const problem = (await response.json().catch(() => fallback)) as Partial<ApiErrorPayload>;
     throw new ApiError(response.status, {
       code: problem.code ?? fallback.code,
-      message: problem.message ?? problem.detail ?? fallback.message,
+      message: getApiErrorMessage(problem, fallback.message),
       fieldErrors: problem.fieldErrors,
       details: problem.details,
     });

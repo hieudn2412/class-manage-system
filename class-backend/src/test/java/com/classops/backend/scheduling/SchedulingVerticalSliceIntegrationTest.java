@@ -734,6 +734,192 @@ class SchedulingVerticalSliceIntegrationTest {
     }
 
     @Test
+    void teacherCreatesHomeworkOnlyForManageableOwnedSessions() throws Exception {
+        String teacherToken = login("gv.lan");
+        String substituteToken = login("gv.ha");
+        String adminToken = login("admin.anhduong");
+        OffsetDateTime now = OffsetDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))
+            .withNano(0);
+        UUID classId = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        insertTeacherClass(classId, sessionId, "ONLINE", null,
+            now.plusDays(7), now.plusDays(7).plusMinutes(90), "SCHEDULED");
+
+        mvc.perform(get("/api/v1/teachers/me/classes/{classId}/sessions", classId)
+                .header("Authorization", "Bearer " + teacherToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.sessions.items[0].canCreateHomework").value(true));
+
+        JsonNode teacherHomework = json(mvc.perform(post("/api/v1/classes/{classId}/homeworks", classId)
+                .header("Authorization", "Bearer " + teacherToken)
+                .header("Idempotency-Key", "teacher-homework-session-" + sessionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "sessionId", sessionId,
+                    "title", "BTVN theo buổi",
+                    "audienceType", "SELECTED",
+                    "studentIds", List.of(STUDENT)))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("PUBLISHED"))
+            .andExpect(jsonPath("$.sessionId").value(sessionId.toString()))
+            .andExpect(jsonPath("$.recipients[0].studentId").value(STUDENT.toString()))
+            .andReturn().getResponse().getContentAsString());
+        mvc.perform(get("/api/v1/classes/{classId}/homeworks", classId)
+                .header("Authorization", "Bearer " + teacherToken)
+                .param("sessionId", sessionId.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(teacherHomework.get("id").asText()));
+        mvc.perform(get("/api/v1/teachers/me/classes/{classId}/sessions", classId)
+                .header("Authorization", "Bearer " + teacherToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.sessions.items[0].canCreateHomework").value(false))
+            .andExpect(jsonPath("$.sessions.items[0].homework.id").value(teacherHomework.get("id").asText()))
+            .andExpect(jsonPath("$.sessions.items[0].homework.title").value("BTVN theo buổi"));
+        mvc.perform(get("/api/v1/sessions/{sessionId}", sessionId)
+                .header("Authorization", "Bearer " + teacherToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.canCreateHomework").value(false))
+            .andExpect(jsonPath("$.homework.id").value(teacherHomework.get("id").asText()));
+        mvc.perform(post("/api/v1/classes/{classId}/homeworks", classId)
+                .header("Authorization", "Bearer " + teacherToken)
+                .header("Idempotency-Key", "teacher-homework-session-duplicate-" + sessionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "sessionId", sessionId,
+                    "title", "Không được tạo bài thứ hai",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("HOMEWORK_ALREADY_EXISTS_FOR_SESSION"))
+            .andExpect(jsonPath("$.details.homeworkId").value(teacherHomework.get("id").asText()));
+
+        mvc.perform(post("/api/v1/classes/{classId}/homeworks", classId)
+                .header("Authorization", "Bearer " + teacherToken)
+                .header("Idempotency-Key", "teacher-homework-class-" + classId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "title", "Teacher không được tạo cấp lớp",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("HOMEWORK_SESSION_REQUIRED"));
+        mvc.perform(post("/api/v1/classes/{classId}/homeworks", classId)
+                .header("Authorization", "Bearer " + substituteToken)
+                .header("Idempotency-Key", "other-teacher-homework-" + sessionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "sessionId", sessionId,
+                    "title", "Sai giáo viên",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isForbidden());
+
+        JsonNode adminHomework = json(mvc.perform(post("/api/v1/classes/{classId}/homeworks", classId)
+                .header("Authorization", "Bearer " + adminToken)
+                .header("Idempotency-Key", "admin-homework-class-" + classId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "title", "Admin tạo cấp lớp",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString());
+        mvc.perform(get("/api/v1/classes/{classId}/homeworks", classId)
+                .header("Authorization", "Bearer " + adminToken)
+                .param("sessionId", sessionId.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(teacherHomework.get("id").asText()));
+        assertThat(adminHomework.get("id").asText()).isNotEqualTo(teacherHomework.get("id").asText());
+
+        UUID otherClassId = UUID.randomUUID();
+        UUID otherSessionId = UUID.randomUUID();
+        insertTeacherClass(otherClassId, otherSessionId, "ONLINE", null,
+            now.plusDays(8), now.plusDays(8).plusMinutes(90), "SCHEDULED");
+        mvc.perform(post("/api/v1/classes/{classId}/homeworks", classId)
+                .header("Authorization", "Bearer " + adminToken)
+                .header("Idempotency-Key", "homework-session-mismatch-" + otherSessionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "sessionId", otherSessionId,
+                    "title", "Sai quan hệ lớp buổi",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("HOMEWORK_SESSION_CLASS_MISMATCH"));
+
+        UUID cancelledClassId = UUID.randomUUID();
+        UUID cancelledSessionId = UUID.randomUUID();
+        insertTeacherClass(cancelledClassId, cancelledSessionId, "ONLINE", null,
+            now.plusDays(9), now.plusDays(9).plusMinutes(90), "SCHEDULED");
+        jdbc.sql("""
+                UPDATE class_sessions
+                SET status='CANCELLED', cancelled_at=now(), cancellation_reason='Hủy trong test'
+                WHERE tenant_id=:tenant AND id=:sessionId
+                """)
+            .param("tenant", TENANT_A).param("sessionId", cancelledSessionId).update();
+        mvc.perform(post("/api/v1/classes/{classId}/homeworks", cancelledClassId)
+                .header("Authorization", "Bearer " + teacherToken)
+                .header("Idempotency-Key", "homework-cancelled-session-" + cancelledSessionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "sessionId", cancelledSessionId,
+                    "title", "Buổi hủy",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("HOMEWORK_SESSION_CANCELLED"));
+
+        UUID closedClassId = UUID.randomUUID();
+        UUID closedSessionId = UUID.randomUUID();
+        insertTeacherClass(closedClassId, closedSessionId, "ONLINE", null,
+            now.plusDays(10), now.plusDays(10).plusMinutes(90), "SCHEDULED");
+        jdbc.sql("UPDATE classes SET status='CLOSED' WHERE tenant_id=:tenant AND id=:classId")
+            .param("tenant", TENANT_A).param("classId", closedClassId).update();
+        mvc.perform(post("/api/v1/classes/{classId}/homeworks", closedClassId)
+                .header("Authorization", "Bearer " + teacherToken)
+                .header("Idempotency-Key", "homework-closed-class-" + closedClassId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "sessionId", closedSessionId,
+                    "title", "Lớp đóng",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("HOMEWORK_SESSION_NOT_MANAGEABLE"));
+
+        UUID completedClassId = UUID.randomUUID();
+        UUID completedSessionId = UUID.randomUUID();
+        insertTeacherClass(completedClassId, completedSessionId, "ONLINE", null,
+            now.minusDays(1), now.minusDays(1).plusMinutes(90), "COMPLETED");
+        jdbc.sql("""
+                UPDATE class_sessions SET actual_teacher_id=:actualTeacher
+                WHERE tenant_id=:tenant AND id=:sessionId
+                """)
+            .param("actualTeacher", SUBSTITUTE_TEACHER).param("tenant", TENANT_A)
+            .param("sessionId", completedSessionId).update();
+        mvc.perform(post("/api/v1/classes/{classId}/homeworks", completedClassId)
+                .header("Authorization", "Bearer " + teacherToken)
+                .header("Idempotency-Key", "planned-teacher-after-completed-" + completedSessionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "sessionId", completedSessionId,
+                    "title", "Giáo viên dự kiến sau hoàn tất",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isForbidden());
+        JsonNode substituteHomework = json(mvc.perform(post("/api/v1/classes/{classId}/homeworks", completedClassId)
+                .header("Authorization", "Bearer " + substituteToken)
+                .header("Idempotency-Key", "actual-teacher-after-completed-" + completedSessionId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(Map.of(
+                    "sessionId", completedSessionId,
+                    "title", "Giáo viên thực tế sau hoàn tất",
+                    "audienceType", "CLASS"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.sessionId").value(completedSessionId.toString()))
+            .andReturn().getResponse().getContentAsString());
+        mvc.perform(get("/api/v1/classes/{classId}/homeworks", completedClassId)
+                .header("Authorization", "Bearer " + substituteToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(substituteHomework.get("id").asText()));
+    }
+
+    @Test
     void enrollmentHistoryLifecycleAndStudentAccessAreAtomicAndIdempotent() throws Exception {
         UUID learnerUser = UUID.randomUUID();
         UUID learner = UUID.randomUUID();

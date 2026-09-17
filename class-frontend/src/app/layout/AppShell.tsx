@@ -4,6 +4,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   ClipboardList,
+  ClipboardPlus,
   GraduationCap,
   LayoutDashboard,
   LogOut,
@@ -52,25 +53,29 @@ export const AppShell = () => {
   const canAccounts = hasPermission(session.user.roles, PERMISSIONS.MANAGE_TENANT_ACCOUNTS) || hasPermission(session.user.roles, PERMISSIONS.MANAGE_LEARNING_ACCOUNTS);
   const canManageTenantEmail = hasPermission(session.user.roles, PERMISSIONS.MANAGE_TENANT_EMAIL);
   const isPlatform = hasPermission(session.user.roles, PERMISSIONS.VIEW_PLATFORM_TENANTS);
+  const isTeacherOnly =
+    session.user.roles.includes("TEACHER") &&
+    !session.user.roles.includes("ADMIN") &&
+    !session.user.roles.includes("ACADEMIC_MANAGER");
 
   const navItems: NavItem[] = [
     ...(canDashboard
-      ? [{ label: "Dashboard trung tâm", icon: LayoutDashboard, to: `${base}/dashboard` }]
+      ? [{ label: "Tổng quan", icon: LayoutDashboard, to: `${base}/dashboard` }]
       : []),
     ...(canClasses ? [{ label: "Danh sách lớp", icon: BookOpen, to: `${base}/classes` }] : []),
     ...(canManageSchedule
       ? [{ label: "Thời khóa biểu", icon: School, to: `${base}/schedule` }]
       : []),
     ...(canViewHomework
-      ? [{ label: "BTVN", icon: ClipboardList, to: `${base}/homeworks` }]
+      ? [{ label: "Bài tập về nhà", icon: ClipboardList, to: `${base}/homeworks` }]
       : []),
-    ...(isPlatform ? [{ label: "Quản trị tenant", icon: ShieldCheck, planned: true }] : []),
+    ...(isPlatform ? [{ label: "Quản trị hệ thống", icon: ShieldCheck, planned: true }] : []),
     ...(canViewOwnSchedule
       ? [
           ...(canViewOwnTeaching
             ? [
                 {
-                  label: "Dashboard giáo viên",
+                  label: "Tổng quan giảng dạy",
                   icon: LayoutDashboard,
                   to: `${base}/teacher-dashboard`,
                 },
@@ -78,6 +83,9 @@ export const AppShell = () => {
             : []),
           { label: "Lịch dạy", icon: School, to: `${base}/teaching-schedule` },
           { label: "Lớp của tôi", icon: BookOpen, to: `${base}/my-classes` },
+          ...(isTeacherOnly
+            ? [{ label: "Giao bài tập", icon: ClipboardPlus, to: `${base}/my-classes?intent=homework` }]
+            : []),
           ...(canViewOwnSalary
             ? [{ label: "Lương của tôi", icon: CircleDollarSign, to: `${base}/my-salary` }]
             : []),
@@ -87,7 +95,7 @@ export const AppShell = () => {
       ? [
           { label: "Lớp của tôi", icon: GraduationCap, to: `${base}/learning-classes` },
           ...(canSubmitHomework
-            ? [{ label: "BTVN của tôi", icon: ClipboardList, to: `${base}/student-homeworks` }]
+            ? [{ label: "Bài tập của tôi", icon: ClipboardList, to: `${base}/student-homeworks` }]
             : []),
         ]
       : []),
@@ -132,11 +140,11 @@ export const AppShell = () => {
       <aside className={cn("app-sidebar", menuOpen && "open")} aria-label="Điều hướng chính">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
-            ▦
+            <img src="/edu-ops-logo.png" alt="" />
           </span>
           <span>
             <span className="brand-name">EDU OPS</span>
-            <span className="brand-version">OPERATIONS / V1</span>
+            <span className="brand-version">QUẢN LÝ GIẢNG DẠY</span>
           </span>
           <button
             className="icon-button mobile-menu-button ml-auto"
@@ -147,7 +155,7 @@ export const AppShell = () => {
           </button>
         </div>
         <div className="tenant-chip">
-          <span>Tenant đang làm việc</span>
+          <span>Trung tâm đang làm việc</span>
           <strong>{tenant.name}</strong>
         </div>
         <nav className="sidebar-nav">
@@ -204,7 +212,7 @@ export const AppShell = () => {
           >
             <Menu size={20} aria-hidden="true" />
           </button>
-          <nav className="breadcrumbs" aria-label="Breadcrumb">
+          <nav className="breadcrumbs" aria-label="Vị trí hiện tại">
             <span>EDU OPS</span>
             <ChevronRight size={14} aria-hidden="true" />
             <span>{currentLabel}</span>

@@ -23,9 +23,9 @@ export const NotificationsPage = () => {
   return (
     <section className="content-page">
       <PageHeader
-        eyebrow="FL-10 / NOTIFICATIONS"
+        eyebrow="THÔNG BÁO"
         title="Thông báo"
-        subtitle="Lịch sử các cập nhật BTVN, tài liệu và nhận xét."
+        subtitle="Xem các cập nhật về bài tập, tài liệu và nhận xét."
         actions={<Button variant="secondary" onClick={() => markAll.mutate()}><CheckCheck size={16} /> Đánh dấu tất cả</Button>}
       />
       {query.isPending ? <PageSkeleton /> : null}

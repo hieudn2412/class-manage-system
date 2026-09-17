@@ -87,7 +87,7 @@ export const ClassInformationStep = ({ options }: ClassInformationStepProps) => 
         />
         <Select label="Hình thức mặc định *" {...register("defaultMode")}>
           <option value="IN_PERSON">Tại lớp</option>
-          <option value="ONLINE">Online</option>
+          <option value="ONLINE">Trực tuyến</option>
         </Select>
         <div className="form-span-2">
           <Textarea

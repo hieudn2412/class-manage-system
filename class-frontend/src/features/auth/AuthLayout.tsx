@@ -5,11 +5,11 @@ export const AuthLayout = ({ children }: PropsWithChildren) => (
     <aside className="auth-aside">
       <div className="brand">
         <span className="brand-mark" aria-hidden="true">
-          ▦
+          <img src="/edu-ops-logo.png" alt="" />
         </span>
         <span>
           <span className="brand-name">EDU OPS</span>
-          <span className="brand-version">CONTROL THE DAY</span>
+          <span className="brand-version">QUẢN LÝ GIẢNG DẠY</span>
         </span>
       </div>
       <div className="auth-statement">

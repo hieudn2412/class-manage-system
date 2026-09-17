@@ -5,6 +5,7 @@ interface ModalProps {
   open: boolean;
   title: string;
   onClose: () => void;
+  className?: string;
   confirmLabel?: string;
   closeLabel?: string;
   onConfirm?: () => void;
@@ -16,6 +17,7 @@ export const Modal = ({
   open,
   title,
   onClose,
+  className,
   confirmLabel,
   closeLabel = "Hủy",
   onConfirm,
@@ -74,7 +76,7 @@ export const Modal = ({
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
         ref={dialogRef}
-        className="modal"
+        className={["modal", className].filter(Boolean).join(" ")}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"

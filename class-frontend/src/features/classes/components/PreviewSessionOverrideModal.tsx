@@ -55,7 +55,7 @@ export const PreviewSessionOverrideModal = ({
           onChange={(event) => setMode(event.target.value as DeliveryMode)}
         >
           <option value="IN_PERSON">Tại lớp</option>
-          <option value="ONLINE">Online</option>
+          <option value="ONLINE">Trực tuyến</option>
         </Select>
         {mode === "IN_PERSON" ? (
           <Select

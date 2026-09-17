@@ -17,7 +17,9 @@ const PublicShell = ({
   <main className="public-trust-page">
     <nav className="public-trust-nav" aria-label="Public navigation">
       <Link className="public-trust-brand" to="/about">
-        <span className="public-trust-logo">▦</span>
+        <span className="public-trust-logo" aria-hidden="true">
+          <img src="/edu-ops-logo.png" alt="" />
+        </span>
         <span>
           <strong>EDU OPS</strong>
           <small>Education operations platform</small>

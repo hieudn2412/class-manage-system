@@ -149,14 +149,21 @@ paths:
     get:
       operationId: listClassHomeworks
       tags: [Homework and materials]
-      parameters: [{$ref: "#/components/parameters/ClassId"}, {$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}]
+      parameters:
+        - {$ref: "#/components/parameters/ClassId"}
+        - {name: sessionId, in: query, schema: {type: string, format: uuid}, description: Lọc BTVN gắn với một buổi cụ thể}
+        - {name: status, in: query, schema: {type: string, enum: [DRAFT, PUBLISHED, CLOSED]}, description: Lọc theo trạng thái BTVN}
+        - {$ref: "#/components/parameters/Page"}
+        - {$ref: "#/components/parameters/PageSize"}
       responses: {"200": {description: Trang BTVN, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkPage"}}}}}
     post:
       operationId: createHomework
       tags: [Homework and materials]
       parameters: [{$ref: "#/components/parameters/ClassId"}, {$ref: "#/components/parameters/IdempotencyKey"}]
       requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkInput"}}}}
-      responses: {"200": {description: BTVN Draft, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkDetail"}}}}}
+      responses:
+        "200": {description: BTVN đã được giao ngay, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkDetail"}}}}
+        "409": {$ref: "#/components/responses/Conflict"}
   /homeworks/{id}:
     get:
       operationId: getHomework
@@ -195,7 +202,16 @@ paths:
       operationId: listMyHomeworks
       tags: [Homework and materials]
       parameters: [{$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}]
-      responses: {"200": {description: BTVN của học sinh, content: {application/json: {schema: {$ref: "#/components/schemas/HomeworkPage"}}}}}
+      responses: {"200": {description: BTVN của học sinh, content: {application/json: {schema: {$ref: "#/components/schemas/StudentHomeworkPage"}}}}}
+  /students/me/homeworks/{id}:
+    get:
+      operationId: getMyHomework
+      tags: [Homework and materials]
+      parameters: [{$ref: "#/components/parameters/Id"}]
+      responses:
+        "200": {description: Chi tiết BTVN của học sinh, content: {application/json: {schema: {$ref: "#/components/schemas/StudentHomeworkDetail"}}}}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
   /students/me/homeworks/{id}/submissions:
     post:
       operationId: submitHomework
@@ -1274,11 +1290,27 @@ components:
             required: [label, url]
             properties: {label: {type: string}, url: {type: string, format: uri}}
     HomeworkUpdate:
-      allOf:
-        - {$ref: "#/components/schemas/HomeworkInput"}
-        - type: object
-          required: [version]
-          properties: {version: {type: integer, minimum: 0}}
+      type: object
+      required: [title, version]
+      properties:
+        title: {type: string}
+        description: {type: string}
+        deadlineAt: {type: [string, "null"], format: date-time}
+        fileIds:
+          type: array
+          description: File hiện hành của BTVN muốn giữ lại khi sửa.
+          items: {type: string, format: uuid}
+        fileTokens:
+          type: array
+          description: File staging mới cần promote vào BTVN.
+          items: {type: string}
+        links:
+          type: array
+          items:
+            type: object
+            required: [label, url]
+            properties: {label: {type: string}, url: {type: string, format: uri}}
+        version: {type: integer, minimum: 0}
     HomeworkSummary:
       type: object
       required: [id, classId, classCode, className, title, status, recipientCount, submittedCount, reviewedCount, version]
@@ -1296,6 +1328,16 @@ components:
         submittedCount: {type: integer}
         reviewedCount: {type: integer}
         version: {type: integer}
+    StudentHomeworkSummary:
+      allOf:
+        - {$ref: "#/components/schemas/HomeworkSummary"}
+        - type: object
+          required: [mySubmissionStatus, deadlineState, canSubmit]
+          properties:
+            mySubmissionStatus: {type: string, enum: [ASSIGNED, WAITING_REVIEW, REVIEWED, REVISION_REQUESTED]}
+            latestSubmissionAt: {type: [string, "null"], format: date-time}
+            deadlineState: {type: string, enum: [NO_DEADLINE, UPCOMING, OVERDUE, CLOSED]}
+            canSubmit: {type: boolean}
     HomeworkDetail:
       allOf:
         - {$ref: "#/components/schemas/HomeworkSummary"}
@@ -1306,11 +1348,28 @@ components:
             resources: {type: array, items: {type: object}}
             recipients: {type: array, items: {type: object}}
             submissions: {type: array, items: {$ref: "#/components/schemas/Submission"}}
+    StudentHomeworkDetail:
+      allOf:
+        - {$ref: "#/components/schemas/StudentHomeworkSummary"}
+        - type: object
+          properties:
+            description: {type: string}
+            audienceType: {type: string, enum: [CLASS, SELECTED]}
+            publishedAt: {type: [string, "null"], format: date-time}
+            closedAt: {type: [string, "null"], format: date-time}
+            resources: {type: array, items: {type: object}}
+            myRecipient: {type: object}
+            mySubmissions: {type: array, items: {$ref: "#/components/schemas/Submission"}}
     HomeworkPage:
       allOf:
         - {$ref: "#/components/schemas/Page"}
         - type: object
           properties: {items: {type: array, items: {$ref: "#/components/schemas/HomeworkSummary"}}}
+    StudentHomeworkPage:
+      allOf:
+        - {$ref: "#/components/schemas/Page"}
+        - type: object
+          properties: {items: {type: array, items: {$ref: "#/components/schemas/StudentHomeworkSummary"}}}
     SubmissionInput:
       type: object
       required: [fileTokens]
@@ -1821,7 +1880,7 @@ components:
       type: object
       required:
         [id, ordinal, startAt, endAt, status, actualTeacherName, actualTeacher, readOnly,
-         lessonName, participatedStudents, rosterStudents, missingDocumentation, hasTest,
+         canCreateHomework, homework, lessonName, participatedStudents, rosterStudents, missingDocumentation, hasTest,
          testResultCount]
       properties:
         id: {type: string, format: uuid}
@@ -1832,12 +1891,27 @@ components:
         actualTeacherName: {type: string}
         actualTeacher: {type: boolean}
         readOnly: {type: boolean}
+        canCreateHomework: {type: boolean}
+        homework:
+          oneOf:
+            - {$ref: "#/components/schemas/SessionHomeworkBadge"}
+            - type: "null"
         lessonName: {type: string}
         participatedStudents: {type: integer}
         rosterStudents: {type: integer}
         missingDocumentation: {type: boolean}
         hasTest: {type: boolean}
         testResultCount: {type: integer}
+    SessionHomeworkBadge:
+      type: object
+      required: [id, title, status, submittedCount, recipientCount]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        status: {type: string, enum: [DRAFT, PUBLISHED, CLOSED]}
+        deadlineAt: {type: [string, "null"], format: date-time}
+        submittedCount: {type: integer}
+        recipientCount: {type: integer}
     SessionStatus:
       type: string
       enum: [SCHEDULED, IN_PROGRESS, COMPLETED, PENDING_CONFIRMATION, CANCELLED]
@@ -1891,7 +1965,7 @@ components:
       required:
         [id, classId, classCode, className, ordinal, startAt, endAt, mode, status,
          plannedTeacherId, actualTeacherId, actualTeacherName, substitution, makeup,
-         allowedActions, actualTeacher, canEdit, canVerify, checkInState, checkInOpensAt,
+         allowedActions, actualTeacher, canEdit, canCreateHomework, homework, canVerify, checkInState, checkInOpensAt,
          rosterFrozen, rosterRevision, missingDocumentation, version, lessonReport, sessionTest, students,
          participatedStudents]
       properties:
@@ -1919,6 +1993,11 @@ components:
         allowedActions: {type: array, items: {$ref: "#/components/schemas/SessionAction"}}
         actualTeacher: {type: boolean}
         canEdit: {type: boolean}
+        canCreateHomework: {type: boolean}
+        homework:
+          oneOf:
+            - {$ref: "#/components/schemas/SessionHomeworkBadge"}
+            - type: "null"
         canVerify: {type: boolean}
         checkInState: {$ref: "#/components/schemas/CheckInState"}
         checkInOpensAt: {type: string, format: date-time}

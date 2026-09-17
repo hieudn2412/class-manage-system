@@ -39,7 +39,7 @@ export const ClassMaterialsPanel = ({
     <section className="content-panel">
       <header className="content-section-head">
         <div>
-          <p className="eyebrow">FL-10 / TÀI LIỆU</p>
+          <p className="eyebrow">TÀI LIỆU HỌC TẬP</p>
           <h2>Tài liệu lớp</h2>
         </div>
         {canManage ? (
@@ -59,7 +59,7 @@ export const ClassMaterialsPanel = ({
                   <strong>{item.title}</strong>
                   <small>{item.sessionOrdinal ? `Buổi ${item.sessionOrdinal}` : "Cấp lớp"}</small>
                 </span>
-                <Badge tone="success">Active</Badge>
+                <Badge tone="success">Đang sử dụng</Badge>
               </header>
               <p>{item.description || "Không có mô tả."}</p>
               <a className="record-link" href={fileHref(item.file)} target="_blank" rel="noreferrer">

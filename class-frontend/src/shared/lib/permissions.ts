@@ -116,8 +116,8 @@ export const hasPermission = (roles: Role[], permission: Permission): boolean =>
   getPermissions(roles).has(permission);
 
 export const roleLabels: Record<Role, string> = {
-  SUPER_ADMIN: "Super Admin",
-  ADMIN: "Admin trung tâm",
+  SUPER_ADMIN: "Quản trị viên hệ thống",
+  ADMIN: "Quản trị viên trung tâm",
   ACADEMIC_MANAGER: "Quản lý học vụ",
   ACCOUNTANT: "Kế toán",
   TEACHER: "Giáo viên",

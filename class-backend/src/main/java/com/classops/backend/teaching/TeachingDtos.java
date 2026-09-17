@@ -97,12 +97,24 @@ public final class TeachingDtos {
         String actualTeacherName,
         boolean actualTeacher,
         boolean readOnly,
+        boolean canCreateHomework,
+        SessionHomeworkBadge homework,
         String lessonName,
         int participatedStudents,
         int rosterStudents,
         boolean missingDocumentation,
         boolean hasTest,
         int testResultCount
+    ) {
+    }
+
+    public record SessionHomeworkBadge(
+        UUID id,
+        String title,
+        String status,
+        OffsetDateTime deadlineAt,
+        int submittedCount,
+        int recipientCount
     ) {
     }
 
@@ -182,6 +194,8 @@ public final class TeachingDtos {
         List<SessionAction> allowedActions,
         boolean actualTeacher,
         boolean canEdit,
+        boolean canCreateHomework,
+        SessionHomeworkBadge homework,
         boolean canVerify,
         CheckInState checkInState,
         OffsetDateTime checkInOpensAt,
