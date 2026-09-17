@@ -111,7 +111,14 @@ export const HomeworkDetailPage = () => {
   });
   return (
     <section className="content-page">
-      <Link className="back-link" to={canSubmit ? `/t/${tenant.slug}/app/student-homeworks` : `/t/${tenant.slug}/app/homeworks`}>
+      <Link
+        className="back-link"
+        to={
+          canSubmit
+            ? `/t/${tenant.slug}/app/student-homeworks`
+            : `/t/${tenant.slug}/app/homeworks/classes/${item.classId}`
+        }
+      >
         <ArrowLeft size={17} /> Quay lại
       </Link>
       <PageHeader
@@ -174,9 +181,9 @@ export const HomeworkDetailPage = () => {
       ) : null}
       {canReview || canManage ? (
         <section className="content-panel">
-          <header className="content-section-head"><div><p className="eyebrow">BÀI ĐÃ NỘP</p><h2>Lượt nộp hiện tại</h2></div></header>
+          <header className="content-section-head"><div><p className="eyebrow">BÀI ĐÃ NỘP</p><h2>Học sinh đã nộp bài</h2></div></header>
           {!currentSubmissions.length ? (
-            <StatePanel kind="empty" title="Chưa có lượt nộp" description="Khi học sinh nộp bài, danh sách chờ nhận xét sẽ hiện ở đây." />
+            <StatePanel kind="empty" title="Chưa có học sinh nộp bài" description="Khi học sinh nộp bài, danh sách chờ nhận xét sẽ hiện ở đây." />
           ) : (
             <SubmissionTable
               tenantSlug={tenant.slug}

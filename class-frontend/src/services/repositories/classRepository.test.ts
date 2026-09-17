@@ -27,7 +27,7 @@ describe("classRepository dùng hợp đồng API thật", () => {
     await expect(classRepository.getClass("anh-duong", "missing-class")).rejects.toMatchObject({
       code: "NOT_FOUND",
       status: 404,
-      message: "Không tìm thấy lớp.",
+      message: "Không tìm thấy nội dung bạn cần. Nội dung có thể đã được chuyển hoặc xóa.",
     });
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://localhost:8080/api/v1/classes/missing-class");
   });

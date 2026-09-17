@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useTenant } from "../../app/providers/TenantProvider";
@@ -129,10 +129,20 @@ const sessionTestSchema = testDefinitionSchema
   });
 type SessionTestForm = z.infer<typeof sessionTestSchema>;
 
-const verificationSchema = z.object({
-  decision: z.enum(["CONFIRM_TAUGHT", "CANCEL"]),
-  reason: z.string().trim().min(1, "Quản lý phải nhập lý do."),
-});
+const verificationSchema = z
+  .object({
+    decision: z.enum(["CONFIRM_TAUGHT", "CANCEL"]),
+    reason: z.string().trim(),
+  })
+  .superRefine((value, context) => {
+    if (value.decision === "CANCEL" && !value.reason) {
+      context.addIssue({
+        code: "custom",
+        path: ["reason"],
+        message: "Vui lòng nhập lý do hủy buổi.",
+      });
+    }
+  });
 type VerificationForm = z.infer<typeof verificationSchema>;
 
 const attendanceOptions: Array<{ value: AttendanceStatus; label: string }> = [
@@ -199,6 +209,8 @@ export const SessionOperationsPage = () => {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const verificationRequested = searchParams.get("action") === "verify";
   const { sessionId = "" } = useParams<{ sessionId: string }>();
   const { showToast } = useToast();
   const [checkInOpen, setCheckInOpen] = useState(false);
@@ -353,6 +365,14 @@ export const SessionOperationsPage = () => {
   const canCorrectCompletion = Boolean(
     session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_SESSION_SCHEDULE),
   );
+  const closeVerification = () => {
+    setVerificationOpen(false);
+    if (verificationRequested) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("action");
+      setSearchParams(next, { replace: true });
+    }
+  };
   return (
     <div className="teaching-page session-operations-page">
       <Link
@@ -417,7 +437,9 @@ export const SessionOperationsPage = () => {
           {detail.homework ? (
             <Button
               variant="secondary"
-              onClick={() => void navigate(`/t/${tenant.slug}/app/homeworks/${detail.homework?.id}`)}
+              onClick={() =>
+                void navigate(`/t/${tenant.slug}/app/homeworks/${detail.homework?.id}`)
+              }
             >
               <ClipboardCheck size={18} aria-hidden="true" />
               Xem và sửa bài tập
@@ -468,9 +490,7 @@ export const SessionOperationsPage = () => {
         <div className="session-chain-status" role="status">
           {detail.substitution ? <Badge tone="info">Dạy thay</Badge> : null}
           {detail.makeup ? <Badge tone="warning">Buổi bù</Badge> : null}
-          {detail.cancellationReason ? (
-            <span>Lý do hủy: {detail.cancellationReason}</span>
-          ) : null}
+          {detail.cancellationReason ? <span>Lý do hủy: {detail.cancellationReason}</span> : null}
         </div>
       ) : null}
 
@@ -481,7 +501,9 @@ export const SessionOperationsPage = () => {
           </span>
           <div>
             <small>Hình thức</small>
-            <strong>{isOnline ? "Trực tuyến" : (detail.roomName ?? "Tại lớp · chưa có phòng")}</strong>
+            <strong>
+              {isOnline ? "Trực tuyến" : (detail.roomName ?? "Tại lớp · chưa có phòng")}
+            </strong>
             {detail.checkIn?.onlineLink ? (
               <a href={detail.checkIn.onlineLink} target="_blank" rel="noreferrer">
                 <Link2 size={16} aria-hidden="true" />
@@ -816,13 +838,16 @@ export const SessionOperationsPage = () => {
         }}
       />
       <VerificationModal
-        open={verificationOpen}
+        open={
+          verificationOpen ||
+          (verificationRequested && detail.canVerify && detail.status === "PENDING_CONFIRMATION")
+        }
         detail={detail}
         tenantSlug={tenant.slug}
-        onClose={() => setVerificationOpen(false)}
+        onClose={closeVerification}
         onSuccess={async (updated) => {
           queryClient.setQueryData(["session-operations", tenant.id, sessionId], updated);
-          setVerificationOpen(false);
+          closeVerification();
           await invalidateRelated();
           showToast("Đã xử lý buổi chờ xác nhận.");
         }}
@@ -913,7 +938,10 @@ const CheckInModal = ({
       confirmLoading={mutation.isPending}
     >
       <div className="modal-form-stack">
-        <p>Hệ thống sẽ ghi nhận thời điểm và thiết bị xác nhận. Buổi học tự hoàn tất sau giờ kết thúc.</p>
+        <p>
+          Hệ thống sẽ ghi nhận thời điểm và thiết bị xác nhận. Buổi học tự hoàn tất sau giờ kết
+          thúc.
+        </p>
         {detail.mode === "ONLINE" ? (
           <Input
             label="Đường dẫn học trực tuyến"
@@ -1057,12 +1085,14 @@ const VerificationModal = ({
           <option value="CONFIRM_TAUGHT">Xác nhận giáo viên đã dạy</option>
           <option value="CANCEL">Hủy buổi học</option>
         </Select>
-        <Textarea
-          label="Lý do"
-          rows={4}
-          error={form.formState.errors.reason?.message}
-          {...form.register("reason")}
-        />
+        {decision === "CANCEL" ? (
+          <Textarea
+            label="Lý do hủy buổi"
+            rows={4}
+            error={form.formState.errors.reason?.message}
+            {...form.register("reason")}
+          />
+        ) : null}
         <div className={decision === "CANCEL" ? "session-error" : "schedule-notice"}>
           {decision === "CANCEL" ? (
             <AlertTriangle size={20} aria-hidden="true" />
@@ -1075,7 +1105,11 @@ const VerificationModal = ({
                 ? "Hủy sẽ không tạo lương"
                 : "Xác nhận sẽ hoàn tất buổi và tạo lương"}
             </strong>
-            <small>Quyết định và lý do sẽ được lưu trong lịch sử thay đổi.</small>
+            <small>
+              {decision === "CANCEL"
+                ? "Quyết định và lý do hủy sẽ được lưu trong lịch sử thay đổi."
+                : "Buổi học sẽ được hoàn tất và ghi nhận vào lịch sử thay đổi."}
+            </small>
           </span>
         </div>
         {mutation.isError ? (

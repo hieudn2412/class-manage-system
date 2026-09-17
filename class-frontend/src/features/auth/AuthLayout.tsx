@@ -1,3 +1,4 @@
+import { CalendarDays, CircleCheckBig, HandCoins } from "lucide-react";
 import type { PropsWithChildren } from "react";
 
 export const AuthLayout = ({ children }: PropsWithChildren) => (
@@ -13,11 +14,26 @@ export const AuthLayout = ({ children }: PropsWithChildren) => (
         </span>
       </div>
       <div className="auth-statement">
-        <p className="eyebrow auth-eyebrow">Vận hành dạy học liền mạch</p>
-        <p className="display-title">Mỗi buổi học đều có dấu vết.</p>
-        <p>Từ lớp học, hồ sơ buổi đến đối soát — đúng người, đúng tenant, đúng thời điểm.</p>
+        <p className="display-title">Quản lý lớp học dễ dàng hơn.</p>
+        <p className="auth-description">
+          Theo dõi lịch học, xác nhận buổi dạy và đối soát trên cùng một hệ thống.
+        </p>
+        <ul className="auth-benefits" aria-label="Các tiện ích nổi bật">
+          <li>
+            <CalendarDays size={19} aria-hidden="true" />
+            Lịch học rõ ràng
+          </li>
+          <li>
+            <CircleCheckBig size={19} aria-hidden="true" />
+            Xác nhận buổi dạy nhanh
+          </li>
+          <li>
+            <HandCoins size={19} aria-hidden="true" />
+            Đối soát thuận tiện
+          </li>
+        </ul>
       </div>
-      <p className="auth-meta">Tiếng Việt · VND · Asia/Ho_Chi_Minh</p>
+      <p className="auth-meta">Dành cho trung tâm đào tạo tại Việt Nam</p>
     </aside>
     <main className="auth-main">{children}</main>
   </div>

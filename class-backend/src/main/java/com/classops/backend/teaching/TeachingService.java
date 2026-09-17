@@ -676,8 +676,13 @@ public class TeachingService {
         requireVersion(session, input.version());
         OffsetDateTime now = now();
         if (input.decision() == VerificationDecision.CONFIRM_TAUGHT) {
-            completion.managerConfirm(tenantId, sessionId, actor.userId(), input.reason(), now);
+            completion.managerConfirm(tenantId, sessionId, actor.userId(),
+                "Quản trị viên xác nhận buổi đã dạy.", now);
         } else {
+            if (input.reason().isBlank()) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "CANCELLATION_REASON_REQUIRED",
+                    "Vui lòng nhập lý do hủy buổi.");
+            }
             sessionMutations.cancelFromVerification(
                 tenantId, sessionId, actor.userId(), input.reason(), now);
         }

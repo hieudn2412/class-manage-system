@@ -2,6 +2,7 @@ package com.classops.backend.scheduling;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.classops.backend.learningcontent.FileStorageService;
 import com.classops.backend.teaching.SessionCompletionService;
 import com.classops.backend.classlifecycle.ClassLifecycleAutomationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,6 +82,7 @@ class SchedulingVerticalSliceIntegrationTest {
     @Autowired ObjectMapper mapper;
     @Autowired SessionCompletionService completionService;
     @Autowired ClassLifecycleAutomationService lifecycleAutomation;
+    @Autowired FileStorageService fileStorage;
 
     @BeforeEach
     void seed() {
@@ -671,7 +673,6 @@ class SchedulingVerticalSliceIntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(mapper.writeValueAsBytes(Map.of(
                         "decision", "CONFIRM_TAUGHT",
-                        "reason", "Đã đối chiếu với camera lớp học",
                         "version", pendingVersion))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
@@ -1179,6 +1180,55 @@ class SchedulingVerticalSliceIntegrationTest {
             .andExpect(jsonPath("$.status").value("Closed"));
     }
 
+    @Test
+    void pendingConfirmationListSupportsFilteringSortingAndPagination() throws Exception {
+        String adminToken = login("admin.anhduong");
+        OffsetDateTime now = OffsetDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh")).withNano(0);
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        UUID classAlpha = UUID.randomUUID();
+        UUID sessionAlpha = UUID.randomUUID();
+        UUID classBeta = UUID.randomUUID();
+        UUID sessionBeta = UUID.randomUUID();
+        insertTeacherClass(classAlpha, sessionAlpha, "IN_PERSON", ROOM,
+            now.minusHours(4), now.minusHours(3), "PENDING_CONFIRMATION");
+        insertTeacherClass(classBeta, sessionBeta, "ONLINE", null,
+            now.minusHours(2), now.minusHours(1), "PENDING_CONFIRMATION");
+        jdbc.sql("UPDATE classes SET name=:name WHERE tenant_id=:tenant AND id=:id")
+            .param("name", "Alpha " + suffix).param("tenant", TENANT_A)
+            .param("id", classAlpha).update();
+        jdbc.sql("UPDATE classes SET name=:name WHERE tenant_id=:tenant AND id=:id")
+            .param("name", "Beta " + suffix).param("tenant", TENANT_A)
+            .param("id", classBeta).update();
+
+        mvc.perform(get("/api/v1/dashboard/pending-confirmations")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("search", suffix)
+                .param("sort", "className")
+                .param("direction", "desc")
+                .param("page", "1")
+                .param("pageSize", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(2))
+            .andExpect(jsonPath("$.totalPages").value(2))
+            .andExpect(jsonPath("$.items[0].id").value(sessionBeta.toString()))
+            .andExpect(jsonPath("$.items[0].className").value("Beta " + suffix));
+
+        mvc.perform(get("/api/v1/dashboard/pending-confirmations")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("search", suffix)
+                .param("mode", "IN_PERSON"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalItems").value(1))
+            .andExpect(jsonPath("$.items[0].id").value(sessionAlpha.toString()))
+            .andExpect(jsonPath("$.items[0].roomName").value("Phòng 101"));
+
+        mvc.perform(get("/api/v1/dashboard/pending-confirmations")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("sort", "unknown"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
     private JsonNode json(String value) throws Exception {
         return mapper.readTree(value);
     }
@@ -1391,6 +1441,36 @@ class SchedulingVerticalSliceIntegrationTest {
                 .param("month", salaryMonth.toString())
                 .header("Authorization", "Bearer " + teacherToken))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void expiredStagingFilesAreMarkedDeletedWithoutViolatingStateConstraint() {
+        UUID fileId = UUID.randomUUID();
+        jdbc.sql("""
+                INSERT INTO stored_files (
+                  id, tenant_id, owner_user_id, status, purpose, original_filename,
+                  content_type, storage_key, checksum_sha256, size_bytes, token, expires_at
+                ) VALUES (
+                  :id, :tenant, :owner, 'STAGING', 'SUBMISSION_IMAGE', 'expired.jpg',
+                  'image/jpeg', :storageKey, :checksum, 128, :token, now() - interval '1 minute'
+                )
+                """)
+            .param("id", fileId).param("tenant", TENANT_A).param("owner", STUDENT_USER)
+            .param("storageKey", "var/staging-files/" + fileId + ".jpg")
+            .param("checksum", "0".repeat(64)).param("token", "expired-" + fileId)
+            .update();
+
+        fileStorage.cleanupExpiredStaging();
+
+        assertThat(jdbc.sql("SELECT status FROM stored_files WHERE id=:id")
+            .param("id", fileId).query(String.class).single()).isEqualTo("DELETED");
+        assertThat(jdbc.sql("SELECT token FROM stored_files WHERE id=:id")
+            .param("id", fileId).query(String.class).optional()).isEmpty();
+        assertThat(jdbc.sql("SELECT expires_at FROM stored_files WHERE id=:id")
+            .param("id", fileId).query(OffsetDateTime.class).optional()).isEmpty();
+        assertThat(jdbc.sql("SELECT deleted_reason FROM stored_files WHERE id=:id")
+            .param("id", fileId).query(String.class).single())
+            .isEqualTo("expired staging cleanup");
     }
 
     private long count(String table, UUID classId) {

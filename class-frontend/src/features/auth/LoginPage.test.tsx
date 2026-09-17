@@ -68,7 +68,7 @@ describe("WF-01 đăng nhập", () => {
       </Routes>,
       ["/"],
     );
-    await user.type(screen.getByLabelText("Slug trung tâm"), "Anh-Duong");
+    await user.type(screen.getByLabelText("Mã đường dẫn trung tâm"), "Anh-Duong");
     await user.click(screen.getByRole("button", { name: "Tiếp tục đăng nhập" }));
     expect(await screen.findByText("Login tenant đã chọn")).toBeInTheDocument();
   });

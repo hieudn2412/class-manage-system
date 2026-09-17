@@ -31,6 +31,11 @@ const DashboardPage = lazy(() =>
     default: module.DashboardPage,
   })),
 );
+const PendingConfirmationsPage = lazy(() =>
+  import("../features/dashboard/PendingConfirmationsPage").then((module) => ({
+    default: module.PendingConfirmationsPage,
+  })),
+);
 const ClassListPage = lazy(() =>
   import("../features/classes/ClassListPage").then((module) => ({
     default: module.ClassListPage,
@@ -106,6 +111,7 @@ const SalaryPayrollPage = lazy(() => import("../features/salary/SalaryPayrollPag
 const SalaryTeacherDetailPage = lazy(() => import("../features/salary/SalaryTeacherDetailPage").then(m=>({default:m.SalaryTeacherDetailPage})));
 const MySalaryPage = lazy(() => import("../features/salary/MySalaryPage").then(m=>({default:m.MySalaryPage})));
 const HomeworkWorkspacePage = lazy(() => import("../features/content/HomeworkWorkspacePage").then(m=>({default:m.HomeworkWorkspacePage})));
+const HomeworkClassDetailPage = lazy(() => import("../features/content/HomeworkClassDetailPage").then(m=>({default:m.HomeworkClassDetailPage})));
 const HomeworkDetailPage = lazy(() => import("../features/content/HomeworkDetailPage").then(m=>({default:m.HomeworkDetailPage})));
 const StudentHomeworksPage = lazy(() => import("../features/content/StudentHomeworksPage").then(m=>({default:m.StudentHomeworksPage})));
 const NotificationsPage = lazy(() => import("../features/content/NotificationsPage").then(m=>({default:m.NotificationsPage})));
@@ -163,6 +169,16 @@ export const router = createBrowserRouter([
               <RequireTenantScope>
                 <RequirePermission permission={PERMISSIONS.VIEW_MANAGEMENT_DASHBOARD}>
                   {withSuspense(<DashboardPage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "dashboard/pending-confirmations",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_MANAGEMENT_DASHBOARD}>
+                  {withSuspense(<PendingConfirmationsPage />)}
                 </RequirePermission>
               </RequireTenantScope>
             ),
@@ -273,6 +289,16 @@ export const router = createBrowserRouter([
               <RequireTenantScope>
                 <RequirePermission permission={PERMISSIONS.VIEW_HOMEWORK}>
                   {withSuspense(<HomeworkWorkspacePage />)}
+                </RequirePermission>
+              </RequireTenantScope>
+            ),
+          },
+          {
+            path: "homeworks/classes/:classId",
+            element: (
+              <RequireTenantScope>
+                <RequirePermission permission={PERMISSIONS.VIEW_HOMEWORK}>
+                  {withSuspense(<HomeworkClassDetailPage />)}
                 </RequirePermission>
               </RequireTenantScope>
             ),

@@ -74,6 +74,68 @@ const detail: SessionOperationsDetail = {
 };
 
 describe("WF-20 workspace buổi dạy", () => {
+  it("xác nhận giáo viên đã dạy mà không yêu cầu nhập lý do", async () => {
+    saveSession(createTestSession(), false);
+    vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
+    vi.spyOn(learningContentRepository, "classHomeworks").mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 50,
+      totalItems: 0,
+      totalPages: 0,
+    });
+    const pendingDetail: SessionOperationsDetail = {
+      ...detail,
+      status: "PENDING_CONFIRMATION",
+      canEdit: false,
+      canCreateHomework: false,
+      canVerify: true,
+      checkInState: "WINDOW_CLOSED",
+      checkIn: null,
+    };
+    vi.spyOn(teachingRepository, "getSession").mockResolvedValue(pendingDetail);
+    const decideVerification = vi
+      .spyOn(teachingRepository, "decideVerification")
+      .mockResolvedValue({
+        ...pendingDetail,
+        status: "COMPLETED",
+        canVerify: false,
+      });
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/t/:tenantSlug/app"
+          element={
+            <TenantProvider>
+              <Outlet />
+            </TenantProvider>
+          }
+        >
+          <Route path="sessions/:sessionId" element={<SessionOperationsPage />} />
+        </Route>
+      </Routes>,
+      ["/t/anh-duong/app/sessions/session-1?action=verify"],
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Xử lý buổi chưa được xác nhận",
+    });
+    expect(within(dialog).queryByLabelText("Lý do hủy buổi")).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Xác nhận đã dạy" }));
+
+    await waitFor(() =>
+      expect(decideVerification).toHaveBeenCalledWith(
+        "anh-duong",
+        "session-1",
+        "CONFIRM_TAUGHT",
+        "",
+        1,
+      ),
+    );
+  });
+
   it("không mặc định có mặt, lưu explicit và kiểm tra điểm tối đa", async () => {
     saveSession(createTestSession(), false);
     vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
@@ -173,9 +235,7 @@ describe("WF-20 workspace buổi dạy", () => {
         ],
       }),
     );
-    expect(save.mock.calls[0]?.[2].lessonReport.lessonContent).toBe(
-      "Nội dung đã lưu trước đó",
-    );
+    expect(save.mock.calls[0]?.[2].lessonReport.lessonContent).toBe("Nội dung đã lưu trước đó");
 
     expect(screen.queryByLabelText(/Điểm \/ 10/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Tạo bài kiểm tra" }));

@@ -520,6 +520,22 @@ export interface DashboardData {
   classStates: ClassStateMetric[];
 }
 
+export type PendingConfirmationSort = "startAt" | "className" | "teacherName" | "mode";
+
+export interface PendingConfirmationItem {
+  id: string;
+  classId: string;
+  classCode: string;
+  className: string;
+  ordinal: number;
+  startAt: string;
+  endAt: string;
+  teacherId: string;
+  teacherName: string;
+  mode: DeliveryMode;
+  roomName: string | null;
+}
+
 export type AttendanceStatus =
   "PRESENT" | "LATE" | "LEFT_EARLY" | "ABSENT_EXCUSED" | "ABSENT_UNEXCUSED";
 
