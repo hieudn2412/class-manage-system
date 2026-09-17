@@ -68,10 +68,10 @@ export const LoginPage = () => {
       <section className="auth-card" aria-labelledby="login-title">
         <div className="tenant-label">
           <Building2 size={15} aria-hidden="true" />
-          Tenant: {tenant.name}
+          Trung tâm: {tenant.name}
         </div>
         <header className="auth-card-header">
-          <p className="eyebrow">WF-01 · Truy cập hệ thống</p>
+          <p className="eyebrow">TRUY CẬP HỆ THỐNG</p>
           <h1 id="login-title">Đăng nhập an toàn</h1>
           <p>Dùng tài khoản được trung tâm cấp để tiếp tục công việc.</p>
         </header>
@@ -112,12 +112,12 @@ export const LoginPage = () => {
           <span>Bạn là quản trị viên nền tảng?</span>
           <Link to="/platform/login">
             <ShieldCheck size={16} aria-hidden="true" />
-            Đăng nhập Super Admin
+            Đăng nhập quản trị hệ thống
           </Link>
         </div>
         <footer className="auth-footer">
-          <span>Phiên bản trình diễn frontend</span>
-          <span>FR-IAM-003–005 · FL-04</span>
+          <span>Đăng nhập bảo mật</span>
+          <span>EDU OPS</span>
         </footer>
       </section>
     </AuthLayout>

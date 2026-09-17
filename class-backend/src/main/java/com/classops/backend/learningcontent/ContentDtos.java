@@ -62,11 +62,13 @@ public final class ContentDtos {
         @NotBlank String title,
         String description,
         OffsetDateTime deadlineAt,
+        List<UUID> fileIds,
         List<String> fileTokens,
         List<HomeworkLinkInput> links,
         @PositiveOrZero long version
     ) {
         public UpdateHomeworkInput {
+            fileIds = fileIds == null ? List.of() : List.copyOf(fileIds);
             fileTokens = fileTokens == null ? List.of() : List.copyOf(fileTokens);
             links = links == null ? List.of() : List.copyOf(links);
         }
@@ -172,6 +174,27 @@ public final class ContentDtos {
     ) {
     }
 
+    public record StudentHomeworkSummary(
+        UUID id,
+        UUID classId,
+        UUID sessionId,
+        String classCode,
+        String className,
+        Integer sessionOrdinal,
+        String title,
+        String status,
+        OffsetDateTime deadlineAt,
+        int recipientCount,
+        int submittedCount,
+        int reviewedCount,
+        String mySubmissionStatus,
+        OffsetDateTime latestSubmissionAt,
+        String deadlineState,
+        boolean canSubmit,
+        long version
+    ) {
+    }
+
     public record HomeworkDetail(
         UUID id,
         UUID classId,
@@ -195,6 +218,35 @@ public final class ContentDtos {
             resources = List.copyOf(resources);
             recipients = List.copyOf(recipients);
             submissions = List.copyOf(submissions);
+        }
+    }
+
+    public record StudentHomeworkDetail(
+        UUID id,
+        UUID classId,
+        UUID sessionId,
+        String classCode,
+        String className,
+        Integer sessionOrdinal,
+        String title,
+        String description,
+        String audienceType,
+        String status,
+        OffsetDateTime deadlineAt,
+        OffsetDateTime publishedAt,
+        OffsetDateTime closedAt,
+        List<HomeworkResourceView> resources,
+        HomeworkRecipientView myRecipient,
+        List<SubmissionView> mySubmissions,
+        String mySubmissionStatus,
+        OffsetDateTime latestSubmissionAt,
+        String deadlineState,
+        boolean canSubmit,
+        long version
+    ) {
+        public StudentHomeworkDetail {
+            resources = List.copyOf(resources);
+            mySubmissions = List.copyOf(mySubmissions);
         }
     }
 

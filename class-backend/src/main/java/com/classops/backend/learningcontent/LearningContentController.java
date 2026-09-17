@@ -14,6 +14,8 @@ import com.classops.backend.learningcontent.ContentDtos.RecipientInput;
 import com.classops.backend.learningcontent.ContentDtos.ReopenInput;
 import com.classops.backend.learningcontent.ContentDtos.ReviewInput;
 import com.classops.backend.learningcontent.ContentDtos.StoredFileView;
+import com.classops.backend.learningcontent.ContentDtos.StudentHomeworkDetail;
+import com.classops.backend.learningcontent.ContentDtos.StudentHomeworkSummary;
 import com.classops.backend.learningcontent.ContentDtos.SubmissionView;
 import com.classops.backend.learningcontent.ContentDtos.SubmitHomeworkInput;
 import com.classops.backend.learningcontent.ContentDtos.TenantStorageUsage;
@@ -73,11 +75,12 @@ public class LearningContentController {
     @PreAuthorize("hasAnyAuthority('VIEW_HOMEWORK','VIEW_OWN_LEARNING')")
     PageResponse<HomeworkSummary> classHomeworks(
         @PathVariable UUID classId,
+        @RequestParam(required = false) UUID sessionId,
         @RequestParam(defaultValue = "") String status,
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "20") int pageSize
     ) {
-        return content.classHomeworks(classId, status, page, pageSize);
+        return content.classHomeworks(classId, sessionId, status, page, pageSize);
     }
 
     @PostMapping("/classes/{classId}/homeworks")
@@ -143,7 +146,7 @@ public class LearningContentController {
 
     @GetMapping("/students/me/homeworks")
     @PreAuthorize("hasAuthority('VIEW_OWN_LEARNING')")
-    PageResponse<HomeworkSummary> studentHomeworks(
+    PageResponse<StudentHomeworkSummary> studentHomeworks(
         @RequestParam(defaultValue = "") String status,
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "20") int pageSize
@@ -153,8 +156,8 @@ public class LearningContentController {
 
     @GetMapping("/students/me/homeworks/{homeworkId}")
     @PreAuthorize("hasAuthority('VIEW_OWN_LEARNING')")
-    HomeworkDetail studentHomework(@PathVariable UUID homeworkId) {
-        return content.homework(homeworkId);
+    StudentHomeworkDetail studentHomework(@PathVariable UUID homeworkId) {
+        return content.studentHomework(homeworkId);
     }
 
     @PostMapping("/students/me/homeworks/{homeworkId}/submissions")

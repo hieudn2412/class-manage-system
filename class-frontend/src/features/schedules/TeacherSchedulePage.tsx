@@ -38,7 +38,7 @@ export const TeacherSchedulePage = () => {
   return (
     <>
       <PageHeader
-        eyebrow="WF-18 · Lịch cá nhân"
+        eyebrow="LỊCH CÁ NHÂN"
         title="Lịch dạy của tôi"
         subtitle={`Tuần ${formatDate(weekStart)}–${formatDate(
           query.data?.weekEnd ?? weekStart,

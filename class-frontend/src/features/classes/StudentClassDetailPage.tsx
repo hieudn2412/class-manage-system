@@ -157,7 +157,7 @@ export const StudentClassDetailPage = () => {
           <StatePanel
             kind="empty"
             title="Chưa có buổi trong thời gian tham gia"
-            description="Buổi học sẽ xuất hiện theo enrollment của bạn."
+            description="Các buổi thuộc thời gian bạn tham gia lớp sẽ xuất hiện tại đây."
           />
         ) : (
           <div className="student-session-list">
@@ -202,10 +202,10 @@ export const StudentClassDetailPage = () => {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Mở record buổi học <ExternalLink size={15} aria-hidden="true" />
+                        Mở bản ghi buổi học <ExternalLink size={15} aria-hidden="true" />
                       </a>
                     ) : (
-                      <small>Chưa có record.</small>
+                      <small>Chưa có bản ghi buổi học.</small>
                     )}
                   </div>
                 </div>

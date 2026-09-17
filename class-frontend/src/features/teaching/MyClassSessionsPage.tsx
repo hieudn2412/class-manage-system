@@ -4,10 +4,13 @@ import {
   ArrowRight,
   CalendarDays,
   ClipboardCheck,
+  ClipboardList,
+  ClipboardPlus,
   FileWarning,
   FilterX,
   LockKeyhole,
 } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useTenant } from "../../app/providers/TenantProvider";
 import { teachingRepository } from "../../services/repositories/teachingRepository";
@@ -18,6 +21,8 @@ import { Select } from "../../shared/ui/FormField";
 import { Pagination } from "../../shared/ui/Pagination";
 import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
+import { HomeworkCreateModal } from "../content/HomeworkCreateModal";
+import { homeworkStatusLabel, homeworkStatusTone, rate } from "../content/contentUtils";
 
 const statusLabel = (value: string) =>
   ({
@@ -42,7 +47,9 @@ export const MyClassSessionsPage = () => {
   const navigate = useNavigate();
   const { classId = "" } = useParams<{ classId: string }>();
   const [params, setParams] = useSearchParams();
+  const [homeworkSession, setHomeworkSession] = useState<{ id: string; ordinal: number } | null>(null);
   const status = params.get("status") ?? "";
+  const homeworkIntent = params.get("intent") === "homework";
   const page = Math.max(Number(params.get("page") ?? "1"), 1);
   const setFilter = (key: "status" | "page", value: string) => {
     const next = new URLSearchParams(params);
@@ -92,12 +99,14 @@ export const MyClassSessionsPage = () => {
       <section className="panel teacher-class-hero" aria-labelledby="teacher-class-title">
         <div className="teacher-class-hero-main">
           <div>
-            <p className="eyebrow">{learningClass.code} · WF-26</p>
+            <p className="eyebrow">{learningClass.code}</p>
             <h1 className="page-title" id="teacher-class-title">
               {learningClass.name}
             </h1>
             <p className="subtitle">
-              Mở từng buổi để xem danh sách học sinh, nhận xét và kết quả kiểm tra.
+              {homeworkIntent
+                ? "Chọn một buổi bạn phụ trách để giao bài tập. Bài sẽ được gắn với buổi học đó."
+                : "Mở từng buổi để xem danh sách học sinh, nhận xét và kết quả kiểm tra."}
             </p>
           </div>
           <Badge
@@ -125,6 +134,20 @@ export const MyClassSessionsPage = () => {
           <strong>{progress}%</strong>
         </div>
       </section>
+
+      {homeworkIntent ? (
+        <section className="panel-flat homework-teacher-guide" aria-label="Hướng dẫn giao bài tập theo buổi">
+          <span className="section-title-icon">
+            <ClipboardPlus size={20} aria-hidden="true" />
+          </span>
+          <div>
+            <strong>Chọn buổi để giao bài tập</strong>
+            <p>
+              Nút <b>Giao bài tập</b> chỉ xuất hiện ở buổi bạn đang phụ trách. Bạn không thể tạo bài mới cho buổi đã hủy hoặc lớp đã kết thúc.
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel-flat teacher-session-toolbar" aria-label="Lọc lịch sử buổi">
         <Select
@@ -188,6 +211,11 @@ export const MyClassSessionsPage = () => {
                     <span>
                       Tham gia: {item.participatedStudents}/{item.rosterStudents}
                     </span>
+                    {item.homework ? (
+                      <Badge tone="info">
+                        <ClipboardList size={14} aria-hidden="true" /> Bài tập về nhà
+                      </Badge>
+                    ) : null}
                     {item.hasTest ? (
                       <Badge tone="warning">
                         <ClipboardCheck size={14} aria-hidden="true" /> Kiểm tra
@@ -199,6 +227,22 @@ export const MyClassSessionsPage = () => {
                       </span>
                     ) : null}
                   </div>
+                  {item.homework ? (
+                    <div className="teacher-session-homework-strip">
+                      <span>
+                        <strong>{item.homework.title}</strong>
+                        <small>
+                          {item.homework.deadlineAt
+                            ? `Hạn nộp ${formatDateTime(item.homework.deadlineAt)}`
+                            : "Không có hạn nộp"}{" "}
+                          · Đã nộp {rate(item.homework.submittedCount, item.homework.recipientCount)}
+                        </small>
+                      </span>
+                      <Badge tone={homeworkStatusTone[item.homework.status]}>
+                        {homeworkStatusLabel[item.homework.status]}
+                      </Badge>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="teacher-history-status">
                   <Badge
@@ -220,13 +264,34 @@ export const MyClassSessionsPage = () => {
                     </small>
                   ) : null}
                 </div>
-                <Button
-                  variant="secondary"
-                  onClick={() => void navigate(`/t/${tenant.slug}/app/sessions/${item.id}`)}
-                >
-                  Xem buổi
-                  <ArrowRight size={16} aria-hidden="true" />
-                </Button>
+                <div className="teacher-history-actions">
+                  {item.homework ? (
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        void navigate(`/t/${tenant.slug}/app/homeworks/${item.homework?.id}`)
+                      }
+                    >
+                      <ClipboardList size={16} aria-hidden="true" />
+                      Xem và sửa bài tập
+                    </Button>
+                  ) : item.canCreateHomework ? (
+                    <Button
+                      type="button"
+                      onClick={() => setHomeworkSession({ id: item.id, ordinal: item.ordinal })}
+                    >
+                      <ClipboardPlus size={16} aria-hidden="true" />
+                      Giao bài tập
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="secondary"
+                    onClick={() => void navigate(`/t/${tenant.slug}/app/sessions/${item.id}`)}
+                  >
+                    Xem buổi
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Button>
+                </div>
               </article>
             ))}
           </div>
@@ -239,6 +304,21 @@ export const MyClassSessionsPage = () => {
           />
         </>
       )}
+      <HomeworkCreateModal
+        tenantSlug={tenant.slug}
+        classId={learningClass.id}
+        className={learningClass.name}
+        sessionId={homeworkSession?.id ?? null}
+        sessionOrdinal={homeworkSession?.ordinal ?? null}
+        open={Boolean(homeworkSession)}
+        onClose={() => setHomeworkSession(null)}
+        onCreated={(homework) => {
+          void navigate(`/t/${tenant.slug}/app/homeworks/${homework.id}`);
+        }}
+        onExisting={(homeworkId) => {
+          void navigate(`/t/${tenant.slug}/app/homeworks/${homeworkId}`);
+        }}
+      />
     </div>
   );
 };

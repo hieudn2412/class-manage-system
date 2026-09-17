@@ -9,10 +9,10 @@ export const ForbiddenPage = () => {
         <StatePanel
           kind="forbidden"
           title="Bạn không có quyền truy cập"
-          description="Trang này thuộc một vai trò khác hoặc nằm ngoài phạm vi tenant của phiên hiện tại."
+          description="Tài khoản của bạn chưa được cấp quyền xem trang này. Hãy quay lại trang chính hoặc liên hệ quản trị viên trung tâm."
           action={
             <Link className="button" to={`/t/${tenantSlug ?? "anh-duong"}/app`}>
-              Về trang phù hợp với vai trò
+              Về trang chính
             </Link>
           }
         />

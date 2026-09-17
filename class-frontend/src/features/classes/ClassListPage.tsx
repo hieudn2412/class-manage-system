@@ -80,7 +80,7 @@ export const ClassListPage = () => {
   return (
     <>
       <PageHeader
-        eyebrow="WF-04 · Quản lý lớp"
+        eyebrow="QUẢN LÝ LỚP"
         title={`Các lớp có buổi trong ${formatMonth(params.month).toLowerCase()}`}
         subtitle="Mặc định theo buổi phát sinh trong tháng; dùng bộ lọc để thu hẹp kết quả."
         actions={

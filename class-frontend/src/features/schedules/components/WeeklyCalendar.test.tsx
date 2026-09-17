@@ -53,7 +53,7 @@ describe("WeeklyCalendar", () => {
     expect(screen.getByText("2 lớp cùng ca")).toBeInTheDocument();
     expect(screen.getByText("1 sắp tới")).toBeInTheDocument();
     expect(screen.getByText("1 đã dạy")).toBeInTheDocument();
-    expect(screen.getAllByText("Chưa check-in")).toHaveLength(2);
+    expect(screen.getAllByText("Chưa xác nhận buổi dạy")).toHaveLength(2);
 
     fireEvent.click(screen.getByRole("button", { name: /Mở 2 lớp cùng ca/ }));
     expect(onSelectSessions).toHaveBeenCalledWith(sessions.slice(0, 2));

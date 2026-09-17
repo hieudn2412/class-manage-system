@@ -144,7 +144,7 @@ export const WeeklyCalendar = ({ schedule, onSelectSessions }: WeeklyCalendarPro
                                 ) : (
                                   <MapPin size={12} aria-hidden="true" />
                                 )}
-                                {session.roomName ?? "Online"}
+                                {session.roomName ?? "Trực tuyến"}
                               </small>
                               <small>{session.teacherName}</small>
                             </>

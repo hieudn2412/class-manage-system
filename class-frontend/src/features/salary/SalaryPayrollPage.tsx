@@ -59,8 +59,8 @@ export const SalaryPayrollPage = () => {
     <section className="salary-page management-page">
       <header className="salary-header">
         <div>
-          <p className="eyebrow">WF-15 · FL-12 / PAYROLL LEDGER</p>
-          <h1>Lương phát sinh & đã trả</h1>
+          <p className="eyebrow">QUẢN LÝ BẢNG LƯƠNG</p>
+          <h1>Lương phát sinh và đã trả</h1>
           <p>Kỳ lương luôn mở; mọi thay đổi buổi cũ được phản ánh trực tiếp vào số dư.</p>
         </div>
         <Button variant="secondary" loading={exportMutation.isPending} onClick={() => exportMutation.mutate()}>
@@ -75,7 +75,7 @@ export const SalaryPayrollPage = () => {
       </div>
 
       {data ? <div className="salary-metric-grid" aria-label="Tổng quan bảng lương">
-        <article><span>Tổng giờ</span><strong>{hours(data.metrics.totalMinutes)}</strong><small>{data.metrics.sessionCount} buổi Completed</small></article>
+        <article><span>Tổng giờ</span><strong>{hours(data.metrics.totalMinutes)}</strong><small>{data.metrics.sessionCount} buổi đã hoàn tất</small></article>
         <article><span>Lương phát sinh</span><strong>{formatCurrency(data.metrics.accrued)}</strong><small>{data.metrics.teacherCount} giáo viên</small></article>
         <article><span>Đã trả</span><strong>{formatCurrency(data.metrics.paid)}</strong><small>Theo kỳ lương được chọn</small></article>
         <article className={data.metrics.outstanding < 0 ? "metric-negative" : "metric-accent"}><span>Số dư</span><strong>{formatCurrency(data.metrics.outstanding)}</strong><small>{data.metrics.overpaidTeachers} trường hợp trả thừa</small></article>
@@ -88,7 +88,7 @@ export const SalaryPayrollPage = () => {
       </div>
 
       {query.isError ? <StatePanel kind="error" title="Không tải được bảng lương" description="Kiểm tra kết nối rồi thử lại." actionLabel="Thử lại" onAction={() => void query.refetch()} /> : !data?.teachers.items.length ? <StatePanel kind="empty" title="Không có dữ liệu lương phù hợp" description="Thay đổi kỳ hoặc bộ lọc để tiếp tục." /> : <>
-        <div className="data-table-wrap salary-table-wrap"><table className="data-table salary-table"><thead><tr><th>Giáo viên</th><th>Giờ / buổi</th><th>Tiền dạy</th><th>Cộng / trừ</th><th>Đã trả</th><th>Còn lại</th><th>Trạng thái</th><th></th></tr></thead><tbody>{data.teachers.items.map((row) => {
+        <div className="data-table-wrap salary-table-wrap"><table className="data-table salary-table"><thead><tr><th>Giáo viên</th><th>Giờ / buổi</th><th>Tiền dạy</th><th>Cộng hoặc trừ</th><th>Đã trả</th><th>Còn lại</th><th>Trạng thái</th><th></th></tr></thead><tbody>{data.teachers.items.map((row) => {
           const meta = statusMeta[row.status];
           return <tr key={row.teacherId}><td><strong>{row.teacherName}</strong><small>Mã sổ {row.teacherId.slice(0, 8).toUpperCase()}</small></td><td><strong>{hours(row.totalMinutes)} giờ</strong><small>{row.sessionCount} buổi</small></td><td className="money-cell">{formatCurrency(row.accrued)}</td><td className={row.adjustments < 0 ? "money-cell amount-negative" : "money-cell"}>{formatCurrency(row.adjustments)}</td><td className="money-cell">{formatCurrency(row.paid)}</td><td className={row.outstanding < 0 ? "money-cell amount-negative" : "money-cell amount-positive"}>{formatCurrency(row.outstanding)}</td><td><Badge tone={meta.tone}>{meta.label}</Badge></td><td><Link className="table-action" to={`/t/${tenantSlug}/app/finance/salaries/${row.teacherId}?month=${month}`}>Chi tiết <ArrowUpRight size={14} /></Link></td></tr>;
         })}</tbody></table></div>

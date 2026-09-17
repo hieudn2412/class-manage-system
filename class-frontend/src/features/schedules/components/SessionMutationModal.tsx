@@ -382,7 +382,7 @@ const MakeupFields = ({
       }}
     >
       <option value="IN_PERSON">Tại lớp</option>
-      <option value="ONLINE">Online</option>
+      <option value="ONLINE">Trực tuyến</option>
     </Select>
     {makeup.mode === "IN_PERSON" ? (
       <Select

@@ -87,6 +87,11 @@ const tenantRoutes = (element: React.ReactNode) => (
   </Routes>
 );
 
+const textEqualsIgnoringCurrencySpaces = (expected: string) => (
+  _content: string,
+  element: Element | null,
+) => element?.textContent?.replace(/[\s\u00a0\u202f]+/g, " ").trim() === expected;
+
 describe("FL-12 salary pages", () => {
   it("WF-15 hiển thị trả thừa và giữ kỳ trên URL", async () => {
     saveSession(createTestSession(), false);
@@ -96,9 +101,9 @@ describe("FL-12 salary pages", () => {
       "/t/anh-duong/app/salary-test?month=2026-08",
     ]);
 
-    expect(await screen.findByRole("heading", { name: "Lương phát sinh & đã trả" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Lương phát sinh và đã trả" })).toBeVisible();
     expect(screen.getAllByText("Trả thừa").length).toBeGreaterThan(0);
-    expect(screen.getByText("-100.000 ₫")).toBeVisible();
+    expect(screen.getAllByText(textEqualsIgnoringCurrencySpaces("-100.000 ₫")).length).toBeGreaterThan(0);
     await userEvent.setup().selectOptions(screen.getByLabelText("Lọc trạng thái"), "OVERPAID");
     await waitFor(() => expect(list).toHaveBeenLastCalledWith(
       "anh-duong",
@@ -118,9 +123,9 @@ describe("FL-12 salary pages", () => {
     const own = vi.spyOn(salaryRepository, "ownPayroll").mockResolvedValue(ownSalary);
     renderWithProviders(tenantRoutes(<MySalaryPage />), ["/t/anh-duong/app/salary-test"]);
 
-    expect(await screen.findByRole("heading", { name: "Giờ dạy & lương của tôi" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Giờ dạy và lương của tôi" })).toBeVisible();
     expect(screen.getByText("Toán tư duy 4A")).toBeVisible();
-    expect(screen.getByText(/revision 1/i)).toBeVisible();
+    expect(screen.getByText(/lần cập nhật 1/i)).toBeVisible();
     expect(own).toHaveBeenCalledWith("anh-duong", expect.stringMatching(/^\d{4}-\d{2}$/));
   });
 });

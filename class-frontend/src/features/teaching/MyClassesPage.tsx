@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BookOpen, FilterX } from "lucide-react";
+import { ArrowRight, BookOpen, ClipboardPlus, FilterX } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "../../app/providers/TenantProvider";
@@ -29,6 +29,7 @@ export const MyClassesPage = () => {
   const search = params.get("search") ?? "";
   const status = params.get("status") ?? "";
   const role = params.get("role") ?? "";
+  const homeworkIntent = params.get("intent") === "homework";
   const page = Math.max(Number(params.get("page") ?? "1"), 1);
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -48,10 +49,27 @@ export const MyClassesPage = () => {
   return (
     <div className="teaching-page teacher-classes-page">
       <PageHeader
-        eyebrow="WF-19 · WF-26"
-        title="Lớp của tôi"
-        subtitle="Danh sách lớp bạn là giáo viên chính hoặc từng trực tiếp tham gia giảng dạy."
+        eyebrow="GIẢNG DẠY"
+        title={homeworkIntent ? "Giao bài tập theo buổi" : "Lớp của tôi"}
+        subtitle={
+          homeworkIntent
+            ? "Chọn lớp rồi chọn buổi học để giao bài tập cho học sinh."
+            : "Danh sách lớp bạn là giáo viên chính hoặc từng trực tiếp tham gia giảng dạy."
+        }
       />
+      {homeworkIntent ? (
+        <section className="panel-flat homework-teacher-guide" aria-label="Hướng dẫn giao bài tập">
+          <span className="section-title-icon">
+            <ClipboardPlus size={20} aria-hidden="true" />
+          </span>
+          <div>
+            <strong>Giao bài tập từ từng buổi học</strong>
+            <p>
+              Nút <b>Giao bài tập</b> chỉ xuất hiện ở các buổi bạn được phân công giảng dạy.
+            </p>
+          </div>
+        </section>
+      ) : null}
       <section className="panel-flat teaching-filter-panel" aria-label="Tìm và lọc lớp">
         <div className="teacher-class-filters">
           <Input
@@ -202,15 +220,29 @@ export const MyClassesPage = () => {
                     />
                   </div>
                 </div>
-                <Button
-                  className="teacher-class-action"
-                  variant="secondary"
-                  onClick={() => void navigate(`/t/${tenant.slug}/app/my-classes/${item.id}`)}
-                >
-                  <BookOpen size={17} aria-hidden="true" />
-                  Xem lịch sử buổi
-                  <ArrowRight size={16} aria-hidden="true" />
-                </Button>
+                <div className="teacher-class-card-actions">
+                  {homeworkIntent ? (
+                    <Button
+                      className="teacher-class-action"
+                      onClick={() =>
+                        void navigate(`/t/${tenant.slug}/app/my-classes/${item.id}?intent=homework`)
+                      }
+                    >
+                      <ClipboardPlus size={17} aria-hidden="true" />
+                      Chọn buổi để giao
+                      <ArrowRight size={16} aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                  <Button
+                    className="teacher-class-action"
+                    variant="secondary"
+                    onClick={() => void navigate(`/t/${tenant.slug}/app/my-classes/${item.id}`)}
+                  >
+                    <BookOpen size={17} aria-hidden="true" />
+                    Xem lịch sử buổi
+                    <ArrowRight size={16} aria-hidden="true" />
+                  </Button>
+                </div>
               </article>
             ))}
           </div>

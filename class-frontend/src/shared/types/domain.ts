@@ -760,6 +760,13 @@ export interface HomeworkSummary {
   version: number;
 }
 
+export interface StudentHomeworkSummary extends HomeworkSummary {
+  mySubmissionStatus: "ASSIGNED" | "WAITING_REVIEW" | "REVIEWED" | "REVISION_REQUESTED";
+  latestSubmissionAt: string | null;
+  deadlineState: "NO_DEADLINE" | "UPCOMING" | "OVERDUE" | "CLOSED";
+  canSubmit: boolean;
+}
+
 export interface HomeworkDetail extends HomeworkSummary {
   description: string;
   audienceType: "CLASS" | "SELECTED";
@@ -768,6 +775,13 @@ export interface HomeworkDetail extends HomeworkSummary {
   resources: HomeworkResource[];
   recipients: HomeworkRecipient[];
   submissions: HomeworkSubmission[];
+}
+
+export interface StudentHomeworkDetail
+  extends Omit<HomeworkDetail, "recipients" | "submissions">,
+    StudentHomeworkSummary {
+  myRecipient: HomeworkRecipient;
+  mySubmissions: HomeworkSubmission[];
 }
 
 export interface Material {
@@ -888,12 +902,23 @@ export interface TeacherSessionSummary {
   actualTeacherName: string;
   actualTeacher: boolean;
   readOnly: boolean;
+  canCreateHomework: boolean;
+  homework: SessionHomeworkBadge | null;
   lessonName: string;
   participatedStudents: number;
   rosterStudents: number;
   missingDocumentation: boolean;
   hasTest: boolean;
   testResultCount: number;
+}
+
+export interface SessionHomeworkBadge {
+  id: string;
+  title: string;
+  status: "DRAFT" | "PUBLISHED" | "CLOSED";
+  deadlineAt: string | null;
+  submittedCount: number;
+  recipientCount: number;
 }
 
 export interface TeacherClassSessions {
@@ -966,6 +991,8 @@ export interface SessionOperationsDetail {
   allowedActions: SessionAction[];
   actualTeacher: boolean;
   canEdit: boolean;
+  canCreateHomework: boolean;
+  homework: SessionHomeworkBadge | null;
   canVerify: boolean;
   checkInState: CheckInState;
   checkInOpensAt: string;

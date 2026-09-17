@@ -118,7 +118,7 @@ export const SchedulePreviewStep = ({
               <thead>
                 <tr>
                   <th scope="col">Buổi</th>
-                  <th scope="col">Ngày & giờ</th>
+                  <th scope="col">Ngày và giờ</th>
                   <th scope="col">Giáo viên</th>
                   <th scope="col">Hình thức</th>
                   <th scope="col">Trạng thái</th>
@@ -139,10 +139,10 @@ export const SchedulePreviewStep = ({
                       <td data-label="Buổi">
                         <strong>#{session.ordinal}</strong>
                       </td>
-                      <td data-label="Ngày & giờ">{formatDateTime(session.startAt)}</td>
+                      <td data-label="Ngày và giờ">{formatDateTime(session.startAt)}</td>
                       <td data-label="Giáo viên">{session.teacherName}</td>
                       <td data-label="Hình thức">
-                        {session.mode === "IN_PERSON" ? session.roomName : "Online"}
+                        {session.mode === "IN_PERSON" ? session.roomName : "Trực tuyến"}
                       </td>
                       <td data-label="Trạng thái">
                         <Badge tone={hasBlocker ? "danger" : hasWarning ? "warning" : "success"}>
@@ -169,7 +169,7 @@ export const SchedulePreviewStep = ({
             <div>
               <strong>Sẵn sàng công bố?</strong>
               <p>
-                Lịch sẽ xuất hiện ngay với giáo viên; enrollment và khoản học phí được tạo cùng giao
+                Lịch sẽ xuất hiện ngay với giáo viên; lượt ghi danh và khoản học phí được tạo cùng giao
                 dịch.
               </p>
             </div>

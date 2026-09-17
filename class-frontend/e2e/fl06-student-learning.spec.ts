@@ -160,7 +160,7 @@ test("Lớp của tôi tách lớp mở/khóa và không lộ link nội dung", 
   await expect(page.getByRole("heading", { name: "Kiểm tra phân số" })).toBeVisible();
   await expect(page.getByText("8,5")).toBeVisible();
   await expect(page.getByText("Nắm bài tốt")).toBeVisible();
-  await expect(page.getByRole("link", { name: /Mở record buổi học/ })).toHaveAttribute(
+  await expect(page.getByRole("link", { name: /Mở bản ghi buổi học/ })).toHaveAttribute(
     "href",
     "https://record.example/session-1",
   );

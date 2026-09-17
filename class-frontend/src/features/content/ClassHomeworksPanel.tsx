@@ -1,18 +1,14 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Link } from "react-router-dom";
 import { learningContentRepository } from "../../services/repositories/learningContentRepository";
-import type { StoredFile } from "../../shared/types/domain";
 import { Badge } from "../../shared/ui/Badge";
 import { Button } from "../../shared/ui/Button";
-import { Input, Textarea } from "../../shared/ui/FormField";
-import { Modal } from "../../shared/ui/Modal";
 import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
-import { useToast } from "../../shared/ui/Toast";
 import { homeworkStatusLabel, homeworkStatusTone, rate } from "./contentUtils";
-import { FileTokenPicker } from "./FileTokenPicker";
+import { HomeworkCreateModal } from "./HomeworkCreateModal";
 
 export const ClassHomeworksPanel = ({
   tenantSlug,
@@ -33,13 +29,13 @@ export const ClassHomeworksPanel = ({
     client.invalidateQueries({ queryKey: ["class-homeworks", tenantSlug, classId] });
   if (query.isPending) return <PageSkeleton />;
   if (query.isError) {
-    return <StatePanel kind="error" title="Không tải được BTVN" description="Vui lòng thử lại sau." />;
+    return <StatePanel kind="error" title="Không tải được bài tập về nhà" description="Vui lòng kiểm tra kết nối và thử lại." />;
   }
   return (
     <section className="content-panel">
       <header className="content-section-head">
         <div>
-          <p className="eyebrow">FL-10 / BTVN</p>
+          <p className="eyebrow">BÀI TẬP VỀ NHÀ</p>
           <h2>Bài tập về nhà</h2>
         </div>
         {canManage ? (
@@ -49,7 +45,7 @@ export const ClassHomeworksPanel = ({
         ) : null}
       </header>
       {!query.data?.items.length ? (
-        <StatePanel kind="empty" title="Chưa có BTVN" description="Giáo viên hoặc học vụ có thể tạo bài mới từ đây." />
+        <StatePanel kind="empty" title="Chưa có bài tập về nhà" description="Giáo viên hoặc quản lý học vụ có thể tạo bài mới từ đây." />
       ) : (
         <div className="table-shell">
           <table className="data-table content-table">
@@ -58,7 +54,7 @@ export const ClassHomeworksPanel = ({
                 <th>Bài</th>
                 <th>Trạng thái</th>
                 <th>Nộp</th>
-                <th>Chữa</th>
+                <th>Đã nhận xét</th>
                 <th>Thao tác</th>
               </tr>
             </thead>
@@ -90,66 +86,8 @@ export const ClassHomeworksPanel = ({
         classId={classId}
         open={open}
         onClose={() => setOpen(false)}
-        onDone={invalidate}
+        onCreated={invalidate}
       />
     </section>
-  );
-};
-
-const HomeworkCreateModal = ({
-  tenantSlug,
-  classId,
-  open,
-  onClose,
-  onDone,
-}: {
-  tenantSlug: string;
-  classId: string;
-  open: boolean;
-  onClose: () => void;
-  onDone: () => Promise<unknown>;
-}) => {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [deadlineAt, setDeadlineAt] = useState("");
-  const [files, setFiles] = useState<StoredFile[]>([]);
-  const [link, setLink] = useState("");
-  const { showToast } = useToast();
-  const mutation = useMutation({
-    mutationFn: () =>
-      learningContentRepository.createHomework(tenantSlug, classId, {
-        title,
-        description,
-        deadlineAt: deadlineAt ? new Date(deadlineAt).toISOString() : null,
-        audienceType: "CLASS",
-        studentIds: [],
-        fileTokens: files.map((file) => file.token).filter((token): token is string => Boolean(token)),
-        links: link.trim() ? [{ label: "Link học tập", url: link.trim() }] : [],
-      }),
-    onSuccess: async () => {
-      await onDone();
-      onClose();
-      showToast("Đã tạo BTVN nháp.");
-    },
-    onError: (error) => showToast(error instanceof Error ? error.message : "Không thể tạo BTVN."),
-  });
-  return (
-    <Modal
-      open={open}
-      title="Tạo BTVN"
-      onClose={onClose}
-      confirmLabel="Tạo nháp"
-      confirmDisabled={!title.trim()}
-      confirmLoading={mutation.isPending}
-      onConfirm={() => mutation.mutate()}
-    >
-      <div className="content-form">
-        <Input label="Tiêu đề" value={title} onChange={(event) => setTitle(event.target.value)} />
-        <Input label="Deadline" type="datetime-local" value={deadlineAt} onChange={(event) => setDeadlineAt(event.target.value)} />
-        <Textarea label="Mô tả" value={description} onChange={(event) => setDescription(event.target.value)} />
-        <Input label="Link http/https" value={link} onChange={(event) => setLink(event.target.value)} />
-        <FileTokenPicker tenantSlug={tenantSlug} purpose="HOMEWORK_ATTACHMENT" files={files} onChange={setFiles} />
-      </div>
-    </Modal>
   );
 };

@@ -307,9 +307,9 @@ export const ClassWizardPage = () => {
         Danh sách lớp
       </Link>
       <PageHeader
-        eyebrow="WF-05 · FR-CLS-001–006"
+        eyebrow="THIẾT LẬP LỚP HỌC"
         title={classId ? "Tiếp tục thiết lập lớp nháp" : "Tạo lớp học mới"}
-        subtitle="Khóa dữ liệu nền, học sinh, lịch lặp và bản xem trước trước khi công bố."
+        subtitle="Nhập thông tin lớp, chọn học sinh, xếp lịch và kiểm tra trước khi công bố."
         actions={
           <Button
             type="button"
@@ -385,7 +385,7 @@ export const ClassWizardPage = () => {
         <div className="confirmation-summary">
           <p>
             Hệ thống sẽ tạo <strong>{currentPreview?.sessions.length ?? 0} buổi học</strong>,{" "}
-            <strong>{getValues("studentIds").length} enrollment</strong> và cùng số khoản học phí
+            <strong>{getValues("studentIds").length} lượt ghi danh</strong> và cùng số khoản học phí
             chưa nộp.
           </p>
           {warningCount > 0 ? (

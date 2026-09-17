@@ -4,6 +4,7 @@ import { Outlet, Route, Routes } from "react-router-dom";
 import { vi } from "vitest";
 import { TenantProvider } from "../../app/providers/TenantProvider";
 import { authRepository } from "../../services/repositories/authRepository";
+import { learningContentRepository } from "../../services/repositories/learningContentRepository";
 import { teachingRepository } from "../../services/repositories/teachingRepository";
 import type { SessionOperationsDetail } from "../../shared/types/domain";
 import { saveSession } from "../../shared/lib/sessionStorage";
@@ -36,6 +37,8 @@ const detail: SessionOperationsDetail = {
   allowedActions: [],
   actualTeacher: true,
   canEdit: true,
+  canCreateHomework: true,
+  homework: null,
   canVerify: false,
   checkInState: "CHECKED_IN",
   checkInOpensAt: "2026-07-25T18:30:00+07:00",
@@ -74,6 +77,13 @@ describe("WF-20 workspace buổi dạy", () => {
   it("không mặc định có mặt, lưu explicit và kiểm tra điểm tối đa", async () => {
     saveSession(createTestSession(), false);
     vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
+    vi.spyOn(learningContentRepository, "classHomeworks").mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 50,
+      totalItems: 0,
+      totalPages: 0,
+    });
     const getSession = vi.spyOn(teachingRepository, "getSession").mockResolvedValue(detail);
     const save = vi.spyOn(teachingRepository, "savePedagogicalRecord").mockResolvedValue({
       ...detail,

@@ -46,6 +46,8 @@ const classSessions: TeacherClassSessions = {
         actualTeacherName: "Nguyễn Ngọc Linh Đan",
         actualTeacher: true,
         readOnly: false,
+        canCreateHomework: true,
+        homework: null,
         lessonName: "Phân số",
         participatedStudents: 4,
         rosterStudents: 4,

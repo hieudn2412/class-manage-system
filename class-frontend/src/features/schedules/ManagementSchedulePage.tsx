@@ -63,7 +63,7 @@ export const ManagementSchedulePage = () => {
   return (
     <>
       <PageHeader
-        eyebrow="WF-07 · FL-05 · FL-07"
+        eyebrow="LỊCH TOÀN TRUNG TÂM"
         title="Thời khóa biểu toàn trung tâm"
         subtitle={`Tuần ${formatDate(weekStart)}–${formatDate(
           scheduleQuery.data?.weekEnd ?? weekStart,

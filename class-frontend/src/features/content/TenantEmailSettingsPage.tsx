@@ -13,17 +13,17 @@ import { StatePanel } from "../../shared/ui/StatePanel";
 import { useToast } from "../../shared/ui/Toast";
 
 const callbackMessages: Record<string, string> = {
-  success: "Đã kết nối Gmail thông báo cho tenant.",
-  GMAIL_SCOPE_MISSING: "Gmail chưa cấp quyền gửi email. Vui lòng kết nối lại và chấp nhận quyền gmail.send.",
-  GMAIL_EMAIL_UNVERIFIED: "Gmail này chưa xác minh email, hãy chọn tài khoản khác.",
+  success: "Đã kết nối Gmail để gửi thông báo cho trung tâm.",
+  GMAIL_SCOPE_MISSING: "Gmail chưa cấp quyền gửi email. Vui lòng kết nối lại và chấp nhận quyền gửi thư.",
+  GMAIL_EMAIL_UNVERIFIED: "Địa chỉ Gmail này chưa được xác minh. Vui lòng chọn tài khoản khác.",
   GMAIL_OAUTH_STATE_EXPIRED: "Phiên kết nối đã hết hạn. Vui lòng bắt đầu lại.",
   GMAIL_OAUTH_STATE_USED: "Phiên kết nối này đã được dùng.",
-  GMAIL_VERSION_CONFLICT: "Kết nối Gmail đã thay đổi bởi Admin khác. Trang đã được tải lại.",
-  GMAIL_REAUTH_REQUIRED: "Google chưa cấp refresh token. Vui lòng kết nối lại.",
-  GMAIL_SEND_FAILED: "Google từ chối hoặc máy chủ không hoàn tất được bước trao đổi OAuth. Hãy kiểm tra client secret, redirect URI và log backend.",
-  GMAIL_SEND_TIMEOUT: "Máy chủ không kết nối được Google OAuth/Gmail API trong thời gian cho phép.",
+  GMAIL_VERSION_CONFLICT: "Kết nối Gmail vừa được quản trị viên khác thay đổi. Trang đã được tải lại.",
+  GMAIL_REAUTH_REQUIRED: "Kết nối Gmail chưa hoàn tất. Vui lòng kết nối lại.",
+  GMAIL_SEND_FAILED: "Không thể hoàn tất kết nối với Google. Vui lòng kiểm tra cấu hình hoặc thử lại.",
+  GMAIL_SEND_TIMEOUT: "Google chưa phản hồi kịp thời. Vui lòng thử lại sau.",
   GMAIL_RATE_LIMITED: "Google đang giới hạn tạm thời. Vui lòng thử lại sau.",
-  FORBIDDEN: "Tài khoản Admin khởi tạo không còn quyền quản lý Gmail tenant.",
+  FORBIDDEN: "Tài khoản của bạn không còn quyền quản lý Gmail của trung tâm.",
 };
 
 export const TenantEmailSettingsPage = () => {
@@ -45,7 +45,7 @@ export const TenantEmailSettingsPage = () => {
     const result = params.get("gmailResult");
     if (!result) return;
     const code = params.get("code");
-    showToast(result === "success" ? "Đã kết nối Gmail thông báo cho tenant." : callbackMessages[code ?? ""] ?? `Không thể hoàn tất kết nối Gmail${code ? ` (${code})` : ""}.`);
+    showToast(result === "success" ? "Đã kết nối Gmail để gửi thông báo cho trung tâm." : callbackMessages[code ?? ""] ?? "Không thể hoàn tất kết nối Gmail. Vui lòng thử lại.");
     void client.invalidateQueries({ queryKey: ["tenant-email-connection", tenantSlug] });
     void navigate(`/t/${tenantSlug}/app/settings/email`, { replace: true });
   }, [client, navigate, params, showToast, tenantSlug]);
@@ -79,7 +79,7 @@ export const TenantEmailSettingsPage = () => {
     mutationFn: () => tenantEmailRepository.disconnect(tenantSlug, query.data?.version ?? 0),
     onSuccess: async () => {
       setDisconnectOpen(false);
-      showToast("Đã ngắt Gmail thông báo cho tenant này.");
+      showToast("Đã ngắt kết nối Gmail của trung tâm.");
       await client.invalidateQueries({ queryKey: ["tenant-email-connection", tenantSlug] });
     },
     onError: (error) => showToast(error instanceof Error ? error.message : "Không thể ngắt kết nối Gmail."),
@@ -107,9 +107,9 @@ export const TenantEmailSettingsPage = () => {
     <section className="tenant-email-page">
       <header className="tenant-email-header">
         <div>
-          <p className="eyebrow">FL-10.1 / TENANT GMAIL</p>
+          <p className="eyebrow">CÀI ĐẶT THÔNG BÁO</p>
           <h1>Gmail thông báo</h1>
-          <p>Mỗi trung tâm dùng một Gmail riêng để gửi email BTVN, tài liệu và phản hồi chữa bài.</p>
+          <p>Kết nối Gmail của trung tâm để gửi bài tập, tài liệu và kết quả nhận xét qua email.</p>
         </div>
         <StatusPill connection={connection} />
       </header>
@@ -117,8 +117,8 @@ export const TenantEmailSettingsPage = () => {
       {!connection.oauthConfigured ? (
         <StatePanel
           kind="error"
-          title="Server chưa cấu hình OAuth Gmail"
-          description="Super Admin cần cấu hình Google OAuth client, redirect URI HTTPS và khóa mã hóa token trước khi tenant có thể kết nối."
+        title="Gmail chưa được thiết lập"
+          description="Quản trị viên hệ thống cần hoàn tất cấu hình Google trước khi trung tâm có thể kết nối Gmail."
         />
       ) : (
         <div className="tenant-email-grid">
@@ -133,7 +133,7 @@ export const TenantEmailSettingsPage = () => {
             </div>
             <dl className="tenant-email-facts">
               <div>
-                <dt>Gmail sender</dt>
+                <dt>Tài khoản gửi</dt>
                 <dd>{connection.gmailAddressMasked ?? "Chưa có"}</dd>
               </div>
               <div>
@@ -174,7 +174,7 @@ export const TenantEmailSettingsPage = () => {
                 disabled={connection.status === "NOT_CONNECTED" || connection.status === "DISCONNECTED"}
               >
                 <Unplug size={17} />
-                Ngắt
+                Ngắt kết nối
               </Button>
             </div>
           </section>
@@ -188,15 +188,15 @@ export const TenantEmailSettingsPage = () => {
               </li>
               <li>
                 <Mail size={18} />
-                <span>Một Gmail có thể dùng lại cho nhiều tenant.</span>
+                <span>Một tài khoản Gmail có thể được dùng cho nhiều trung tâm.</span>
               </li>
               <li>
                 <Unplug size={18} />
-                <span>Ngắt kết nối chỉ xóa token của tenant hiện tại.</span>
+                <span>Ngắt kết nối chỉ gỡ Gmail khỏi trung tâm hiện tại.</span>
               </li>
               <li>
                 <Clock3 size={18} />
-                <span>Email lỗi được giữ tối đa 72 giờ; in-app notification vẫn hiện ngay.</span>
+                <span>Email chưa gửi được sẽ được thử lại trong tối đa 72 giờ; thông báo trong ứng dụng vẫn xuất hiện ngay.</span>
               </li>
             </ul>
           </section>
@@ -218,7 +218,7 @@ export const TenantEmailSettingsPage = () => {
             type="email"
             value={recipientEmail}
             onChange={(event) => setRecipientEmail(event.target.value)}
-            hint="Nên dùng email Admin đang thao tác hoặc một hộp thư test nội bộ."
+            hint="Nên dùng email của bạn hoặc một hộp thư nội bộ để kiểm tra."
           />
         </div>
       </Modal>
@@ -232,8 +232,8 @@ export const TenantEmailSettingsPage = () => {
         onConfirm={() => disconnectMutation.mutate()}
       >
         <p>
-          Thao tác này chỉ ngắt Gmail khỏi tenant hiện tại và xóa token cục bộ. Quyền Google của cùng Gmail
-          ở tenant khác không bị thu hồi.
+          Thao tác này chỉ ngắt Gmail khỏi trung tâm hiện tại. Các trung tâm khác đang dùng cùng tài khoản Gmail
+          sẽ không bị ảnh hưởng.
         </p>
       </Modal>
     </section>
@@ -251,7 +251,7 @@ const statusMeta = (connection?: TenantEmailConnection) => {
   if (!connection) {
     return {
       label: "Đang tải",
-      eyebrow: "LOADING",
+      eyebrow: "ĐANG TẢI",
       title: "Đang kiểm tra",
       description: "",
       className: "neutral",
@@ -261,8 +261,8 @@ const statusMeta = (connection?: TenantEmailConnection) => {
   if (connection.status === "CONNECTED") {
     return {
       label: "Đã kết nối",
-      eyebrow: "READY",
-      title: "Email tenant đang sẵn sàng",
+      eyebrow: "SẴN SÀNG",
+      title: "Email của trung tâm đã sẵn sàng",
       description: "Các email thông báo mới và email đang chờ sẽ được gửi qua Gmail này.",
       className: "ready",
       icon: <CheckCircle2 size={22} />,
@@ -271,18 +271,18 @@ const statusMeta = (connection?: TenantEmailConnection) => {
   if (connection.status === "REAUTH_REQUIRED") {
     return {
       label: "Cần xác thực lại",
-      eyebrow: "ACTION REQUIRED",
+      eyebrow: "CẦN XỬ LÝ",
       title: "Google cần cấp quyền lại",
-      description: "Email vẫn được giữ trong outbox cho tới khi hết hạn 72 giờ.",
+      description: "Email chưa gửi được sẽ tiếp tục chờ trong tối đa 72 giờ.",
       className: "warning",
       icon: <AlertTriangle size={22} />,
     };
   }
   return {
     label: "Chưa kết nối",
-    eyebrow: "NOT CONNECTED",
-    title: "Tenant chưa có Gmail gửi thông báo",
-    description: "Kết nối một Gmail để gửi email riêng cho trung tâm này qua quyền gmail.send.",
+    eyebrow: "CHƯA KẾT NỐI",
+    title: "Trung tâm chưa kết nối Gmail",
+    description: "Kết nối một tài khoản Gmail để gửi thông báo qua email cho trung tâm.",
     className: "neutral",
     icon: <Mail size={22} />,
   };

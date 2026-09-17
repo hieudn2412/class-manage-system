@@ -82,7 +82,7 @@ export const SessionDetailsModal = ({
                 )}
                 Hình thức
               </dt>
-              <dd>{session.mode === "ONLINE" ? "Online" : session.roomName}</dd>
+              <dd>{session.mode === "ONLINE" ? "Trực tuyến" : session.roomName}</dd>
             </div>
           </dl>
           {session.cancellationReason ? (

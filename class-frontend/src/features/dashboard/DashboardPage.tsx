@@ -24,7 +24,7 @@ export const DashboardPage = () => {
     return (
       <StatePanel
         kind="error"
-        title="Không thể tải dashboard"
+        title="Không thể tải trang tổng quan"
         description="Dữ liệu vận hành chưa thể tải. Vui lòng kiểm tra kết nối rồi thử lại."
         actionLabel="Thử lại"
         onAction={() => void query.refetch()}
@@ -38,12 +38,12 @@ export const DashboardPage = () => {
       <PageHeader
         eyebrow={`${formatDate(dashboard.date)} · ${tenant.name}`}
         title={`Chào buổi sáng, ${dashboard.greetingName}`}
-        subtitle="Bản đồ vận hành hôm nay: việc cần xử lý trước, số liệu sau."
+        subtitle="Xem nhanh tình hình hôm nay và những việc cần ưu tiên xử lý."
         actions={
           <>
             <Button
               variant="secondary"
-              onClick={() => showToast("Xuất báo cáo nằm ngoài vertical slice đầu tiên.")}
+              onClick={() => showToast("Tính năng in báo cáo đang được hoàn thiện.")}
             >
               <FileText size={18} aria-hidden="true" />
               In báo cáo
@@ -73,7 +73,7 @@ export const DashboardPage = () => {
         <StatePanel
           kind="empty"
           title="Chưa có số liệu hôm nay"
-          description="KPI sẽ xuất hiện khi trung tâm có lớp hoặc buổi học trong ngày."
+          description="Số liệu sẽ xuất hiện khi trung tâm có lớp hoặc buổi học trong ngày."
         />
       )}
 

@@ -72,7 +72,7 @@ export const CompletionCorrectionModal = ({
       <div className="form-stack completion-correction-form">
         <p className="form-note">
           Thao tác này sẽ tính lại lương, có thể chuyển kỳ hoặc chuyển người hưởng lương.
-          Lịch sử cũ được giữ trong audit.
+          Thông tin trước khi sửa vẫn được giữ trong lịch sử thay đổi.
         </p>
         <div className="form-grid two-columns">
           <Input label="Bắt đầu" type="datetime-local" value={startAt} onChange={(event) => setStartAt(event.target.value)} />

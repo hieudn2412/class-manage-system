@@ -116,7 +116,7 @@ export const MyLearningClassesPage = () => {
         <StatePanel
           kind="empty"
           title="Chưa có lớp trong phạm vi này"
-          description="Lớp được công bố và enrollment của bạn sẽ xuất hiện tại đây."
+          description="Các lớp bạn đang tham gia sẽ xuất hiện tại đây sau khi được công bố."
         />
       ) : null}
       {accessible.length ? (

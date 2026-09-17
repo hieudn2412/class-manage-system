@@ -37,7 +37,7 @@ export const ClassDetailPage = () => {
       <StatePanel
         kind="error"
         title="Không tìm thấy hoặc không thể tải lớp"
-        description="Lớp có thể không tồn tại, thuộc tenant khác hoặc dữ liệu đang tạm gián đoạn."
+        description="Lớp có thể không tồn tại, không thuộc trung tâm này hoặc dữ liệu đang tạm gián đoạn."
         action={
           <Link className="button" to={`/t/${tenant.slug}/app/classes`}>
             <ArrowLeft size={18} aria-hidden="true" />
@@ -59,8 +59,16 @@ export const ClassDetailPage = () => {
     hasPermission(session.user.roles, PERMISSIONS.MANAGE_CLASSES) &&
     ["Scheduled", "Active", "AwaitingClose"].includes(item.status),
   );
+  const isTeacherWithoutClassHomeworkScope = Boolean(
+    session &&
+    session.user.roles.includes("TEACHER") &&
+    !session.user.roles.includes("ADMIN") &&
+    !session.user.roles.includes("ACADEMIC_MANAGER"),
+  );
   const canManageHomeworks = Boolean(
-    session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_HOMEWORK),
+    session &&
+    hasPermission(session.user.roles, PERMISSIONS.MANAGE_HOMEWORK) &&
+    !isTeacherWithoutClassHomeworkScope,
   );
   const canManageMaterials = Boolean(
     session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_MATERIALS),
@@ -70,7 +78,7 @@ export const ClassDetailPage = () => {
     { id: "overview", label: "Tổng quan" },
     { id: "sessions", label: "Buổi học" },
     { id: "students", label: "Học sinh" },
-    { id: "homeworks", label: "BTVN" },
+    { id: "homeworks", label: "Bài tập về nhà" },
     { id: "materials", label: "Tài liệu" },
   ];
 
@@ -81,9 +89,9 @@ export const ClassDetailPage = () => {
         Danh sách lớp
       </Link>
       <PageHeader
-        eyebrow={`WF-06 · ${item.code}`}
+        eyebrow={item.code}
         title={item.name}
-        subtitle="Quản lý vòng đời, lịch, roster và hồ sơ buổi học trong một nơi."
+        subtitle="Theo dõi trạng thái lớp, lịch học, danh sách học sinh và hồ sơ từng buổi."
         actions={
           <>
             <Badge tone={classStatusTones[item.status]}>{classStatusLabels[item.status]}</Badge>
@@ -164,7 +172,7 @@ export const ClassDetailPage = () => {
                 <div className="definition-item">
                   <dt>Phòng / hình thức</dt>
                   <dd>
-                    {item.room} · {item.deliveryMode}
+                    {item.room} · {item.deliveryMode === "Online" ? "Trực tuyến" : item.deliveryMode}
                   </dd>
                 </div>
                 <div className="definition-item">
@@ -189,7 +197,7 @@ export const ClassDetailPage = () => {
                       </span>
                       <span className="record-actions">
                         <Badge tone={session.recordStatus === "COMPLETE" ? "success" : "warning"}>
-                          {session.recordStatus === "COMPLETE" ? "Đủ hồ sơ" : "Thiếu record"}
+                          {session.recordStatus === "COMPLETE" ? "Đủ hồ sơ" : "Thiếu bản ghi buổi học"}
                         </Badge>
                         {session.recordUrl ? (
                           <a
@@ -227,7 +235,7 @@ export const ClassDetailPage = () => {
                   <th scope="col">Bài học</th>
                   <th scope="col">Giáo viên</th>
                   <th scope="col">Chuyên cần</th>
-                  <th scope="col">Record</th>
+                  <th scope="col">Bản ghi buổi học</th>
                 </tr>
               </thead>
               <tbody>

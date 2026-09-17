@@ -1,4 +1,5 @@
 import { env } from "../../shared/config/env";
+import { loadSession } from "../../shared/lib/sessionStorage";
 import type { HomeworkSummary, StoredFile } from "../../shared/types/domain";
 
 export const homeworkStatusLabel: Record<HomeworkSummary["status"], string> = {
@@ -16,10 +17,48 @@ export const homeworkStatusTone: Record<
   CLOSED: "warning",
 };
 
-export const fileHref = (file: StoredFile): string => {
-  if (file.url.startsWith("http")) return file.url;
+const absoluteFileUrl = (value: string): string => {
+  if (value.startsWith("http") || value.startsWith("blob:")) return value;
   const base = env.apiBaseUrl.replace(/\/api\/v1\/?$/, "").replace(/\/$/, "");
-  return `${base}${file.url}`;
+  return `${base}${value}`;
+};
+
+export const fileHref = (file: StoredFile): string => absoluteFileUrl(file.url);
+
+export const filePreviewHref = (file: StoredFile): string =>
+  absoluteFileUrl(file.previewUrl || file.url);
+
+export const downloadPrivateFile = async (file: StoredFile, tenantSlug: string): Promise<void> => {
+  const token = loadSession()?.token;
+  if (!token) throw new Error("Phiên đăng nhập không hợp lệ.");
+  const response = await fetch(fileHref(file), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "X-Tenant-Slug": tenantSlug,
+      Accept: file.contentType || "application/octet-stream",
+    },
+  });
+  if (!response.ok) throw new Error("Không tải được file.");
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = file.originalFilename || "download";
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(objectUrl);
+};
+
+export const isPreviewableImageFile = (file: StoredFile): boolean => {
+  const contentType = file.contentType.toLowerCase();
+  const filename = file.originalFilename.toLowerCase();
+  const hasGeneratedPreview = Boolean(file.previewUrl && file.previewUrl !== file.url);
+  return (
+    /^image\/(png|jpe?g|gif|webp|bmp)$/.test(contentType) ||
+    /\.(png|jpe?g|gif|webp|bmp)$/.test(filename) ||
+    (contentType.startsWith("image/") && hasGeneratedPreview)
+  );
 };
 
 export const formatBytes = (value: number): string => {
