@@ -37,6 +37,7 @@ export const Modal = ({
     if (!open) return;
 
     const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -63,10 +64,12 @@ export const Modal = ({
       }
     };
 
+    document.body.style.overflow = "hidden";
     closeRef.current?.focus();
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
       previouslyFocused?.focus();
     };
   }, [open]);
@@ -82,8 +85,10 @@ export const Modal = ({
         aria-labelledby="modal-title"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <h2 id="modal-title">{title}</h2>
-        <div>{children}</div>
+        <header className="modal-header">
+          <h2 id="modal-title">{title}</h2>
+        </header>
+        <div className="modal-body">{children}</div>
         <div className="modal-actions">
           <Button ref={closeRef} variant="secondary" onClick={onClose}>
             {closeLabel}

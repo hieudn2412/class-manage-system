@@ -43,6 +43,12 @@ export const WeeklyCalendar = ({ schedule, onSelectSessions }: WeeklyCalendarPro
     groups.set(key, current);
   });
   const times = [...new Set([...groups.values()].map((group) => group.time))].sort();
+  const groupsByDate = dates.map((date) => ({
+    date,
+    groups: [...groups.values()]
+      .filter((group) => group.date === date)
+      .sort((left, right) => left.time.localeCompare(right.time)),
+  }));
 
   return (
     <section className="calendar-board" aria-label="Thời khóa biểu và chú giải trạng thái">
@@ -53,7 +59,7 @@ export const WeeklyCalendar = ({ schedule, onSelectSessions }: WeeklyCalendarPro
         ))}
       </div>
       <div
-        className="calendar-scroll"
+        className="calendar-scroll calendar-week-view"
         tabIndex={0}
         aria-label="Thời khóa biểu tuần, có thể cuộn ngang"
       >
@@ -158,6 +164,86 @@ export const WeeklyCalendar = ({ schedule, onSelectSessions }: WeeklyCalendarPro
             );
           })}
         </div>
+      </div>
+      <div className="calendar-agenda" aria-label="Danh sách buổi học theo ngày">
+        {groupsByDate.map(({ date, groups: dayGroups }, index) => (
+          <section className={cn("calendar-agenda-day", date === today && "is-today")} key={date}>
+            <header className="calendar-agenda-day-heading">
+              <span>
+                <strong>{date === today ? "Hôm nay" : weekdayNames[index]}</strong>
+                <small>{formatDate(date)}</small>
+              </span>
+              <span>{dayGroups.length ? `${dayGroups.length} ca học` : "Không có lịch"}</span>
+            </header>
+            {dayGroups.length ? (
+              <div className="calendar-agenda-events">
+                {dayGroups.map((group) => {
+                  const session = group.sessions[0];
+                  const stateCounts = group.sessions.reduce<
+                    Partial<Record<CalendarSession["scheduleState"], number>>
+                  >((counts, item) => {
+                    counts[item.scheduleState] = (counts[item.scheduleState] ?? 0) + 1;
+                    return counts;
+                  }, {});
+                  return (
+                    <button
+                      type="button"
+                      className="calendar-agenda-event"
+                      onClick={() => onSelectSessions(group.sessions)}
+                      key={group.key}
+                    >
+                      <span className="calendar-agenda-time">
+                        <Clock3 size={16} aria-hidden="true" />
+                        <strong>{group.time}</strong>
+                      </span>
+                      {group.sessions.length > 1 ? (
+                        <span className="calendar-agenda-summary">
+                          <span className="calendar-event-heading">
+                            <Layers3 size={16} aria-hidden="true" />
+                            <strong>{group.sessions.length} lớp cùng ca</strong>
+                          </span>
+                          <span className="calendar-event-statuses">
+                            {stateOrder.map((state) =>
+                              stateCounts[state] ? (
+                                <ScheduleStateBadge
+                                  state={state}
+                                  count={stateCounts[state]}
+                                  key={state}
+                                />
+                              ) : null,
+                            )}
+                          </span>
+                        </span>
+                      ) : session ? (
+                        <span className="calendar-agenda-summary">
+                          <span className="calendar-event-heading">
+                            <strong>{session.className}</strong>
+                            <ScheduleStateBadge state={session.scheduleState} />
+                          </span>
+                          <small>
+                            Buổi {session.ordinal} · {session.teacherName}
+                          </small>
+                          <small>
+                            {session.mode === "ONLINE" ? (
+                              <Video size={13} aria-hidden="true" />
+                            ) : (
+                              <MapPin size={13} aria-hidden="true" />
+                            )}
+                            {session.roomName ?? "Trực tuyến"}
+                            {session.isMakeup ? " · Buổi bù" : ""}
+                            {session.isSubstitution ? " · Dạy thay" : ""}
+                          </small>
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="calendar-agenda-empty">Không có buổi học trong ngày này.</p>
+            )}
+          </section>
+        ))}
       </div>
     </section>
   );

@@ -207,8 +207,8 @@ export const PendingConfirmationsPage = () => {
         />
       ) : (
         <>
-          <div className="table-shell pending-confirmation-table-wrap">
-            <table className="data-table pending-confirmation-table">
+          <div className="table-shell responsive-table-wrap pending-confirmation-table-wrap">
+            <table className="data-table responsive-card-table pending-confirmation-table">
               <caption className="sr-only">Danh sách buổi chờ xác nhận đã dạy</caption>
               <thead>
                 <tr>

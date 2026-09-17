@@ -183,8 +183,8 @@ export const ClassListPage = () => {
         />
       ) : (
         <>
-          <div className="table-shell class-list-table">
-            <table className="data-table">
+          <div className="table-shell responsive-table-wrap class-list-table">
+            <table className="data-table responsive-card-table">
               <caption className="sr-only">Danh sách lớp của {tenant.name}</caption>
               <thead>
                 <tr>

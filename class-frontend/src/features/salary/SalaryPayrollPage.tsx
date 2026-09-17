@@ -87,13 +87,100 @@ export const SalaryPayrollPage = () => {
         <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sắp xếp"><option value="-outstanding">Số dư cao nhất</option><option value="teacherName">Tên giáo viên</option><option value="-accrued">Lương phát sinh</option><option value="-paid">Đã trả</option></select>
       </div>
 
-      {query.isError ? <StatePanel kind="error" title="Không tải được bảng lương" description="Kiểm tra kết nối rồi thử lại." actionLabel="Thử lại" onAction={() => void query.refetch()} /> : !data?.teachers.items.length ? <StatePanel kind="empty" title="Không có dữ liệu lương phù hợp" description="Thay đổi kỳ hoặc bộ lọc để tiếp tục." /> : <>
-        <div className="data-table-wrap salary-table-wrap"><table className="data-table salary-table"><thead><tr><th>Giáo viên</th><th>Giờ / buổi</th><th>Tiền dạy</th><th>Cộng hoặc trừ</th><th>Đã trả</th><th>Còn lại</th><th>Trạng thái</th><th></th></tr></thead><tbody>{data.teachers.items.map((row) => {
-          const meta = statusMeta[row.status];
-          return <tr key={row.teacherId}><td><strong>{row.teacherName}</strong><small>Mã sổ {row.teacherId.slice(0, 8).toUpperCase()}</small></td><td><strong>{hours(row.totalMinutes)} giờ</strong><small>{row.sessionCount} buổi</small></td><td className="money-cell">{formatCurrency(row.accrued)}</td><td className={row.adjustments < 0 ? "money-cell amount-negative" : "money-cell"}>{formatCurrency(row.adjustments)}</td><td className="money-cell">{formatCurrency(row.paid)}</td><td className={row.outstanding < 0 ? "money-cell amount-negative" : "money-cell amount-positive"}>{formatCurrency(row.outstanding)}</td><td><Badge tone={meta.tone}>{meta.label}</Badge></td><td><Link className="table-action" to={`/t/${tenantSlug}/app/finance/salaries/${row.teacherId}?month=${month}`}>Chi tiết <ArrowUpRight size={14} /></Link></td></tr>;
-        })}</tbody></table></div>
-        <Pagination page={data.teachers.page} totalPages={data.teachers.totalPages} totalItems={data.teachers.totalItems} itemLabel="giáo viên" onPageChange={setPage} />
-      </>}
+      {query.isError ? (
+        <StatePanel
+          kind="error"
+          title="Không tải được bảng lương"
+          description="Kiểm tra kết nối rồi thử lại."
+          actionLabel="Thử lại"
+          onAction={() => void query.refetch()}
+        />
+      ) : !data?.teachers.items.length ? (
+        <StatePanel
+          kind="empty"
+          title="Không có dữ liệu lương phù hợp"
+          description="Thay đổi kỳ hoặc bộ lọc để tiếp tục."
+        />
+      ) : (
+        <>
+          <div className="data-table-wrap responsive-table-wrap salary-table-wrap">
+            <table className="data-table responsive-card-table salary-table">
+              <caption className="sr-only">Bảng lương giáo viên</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Giáo viên</th>
+                  <th scope="col">Giờ / buổi</th>
+                  <th scope="col">Tiền dạy</th>
+                  <th scope="col">Cộng hoặc trừ</th>
+                  <th scope="col">Đã trả</th>
+                  <th scope="col">Còn lại</th>
+                  <th scope="col">Trạng thái</th>
+                  <th scope="col">Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.teachers.items.map((row) => {
+                  const meta = statusMeta[row.status];
+                  return (
+                    <tr key={row.teacherId}>
+                      <td data-label="Giáo viên">
+                        <strong>{row.teacherName}</strong>
+                        <small>Mã sổ {row.teacherId.slice(0, 8).toUpperCase()}</small>
+                      </td>
+                      <td data-label="Giờ / buổi">
+                        <strong>{hours(row.totalMinutes)} giờ</strong>
+                        <small>{row.sessionCount} buổi</small>
+                      </td>
+                      <td className="money-cell" data-label="Tiền dạy">
+                        {formatCurrency(row.accrued)}
+                      </td>
+                      <td
+                        className={
+                          row.adjustments < 0 ? "money-cell amount-negative" : "money-cell"
+                        }
+                        data-label="Cộng hoặc trừ"
+                      >
+                        {formatCurrency(row.adjustments)}
+                      </td>
+                      <td className="money-cell" data-label="Đã trả">
+                        {formatCurrency(row.paid)}
+                      </td>
+                      <td
+                        className={
+                          row.outstanding < 0
+                            ? "money-cell amount-negative"
+                            : "money-cell amount-positive"
+                        }
+                        data-label="Còn lại"
+                      >
+                        {formatCurrency(row.outstanding)}
+                      </td>
+                      <td data-label="Trạng thái">
+                        <Badge tone={meta.tone}>{meta.label}</Badge>
+                      </td>
+                      <td data-label="Thao tác">
+                        <Link
+                          className="table-action"
+                          to={`/t/${tenantSlug}/app/finance/salaries/${row.teacherId}?month=${month}`}
+                        >
+                          Xem chi tiết <ArrowUpRight size={14} aria-hidden="true" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            page={data.teachers.page}
+            totalPages={data.teachers.totalPages}
+            totalItems={data.teachers.totalItems}
+            itemLabel="giáo viên"
+            onPageChange={setPage}
+          />
+        </>
+      )}
     </section>
   );
 };

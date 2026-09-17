@@ -208,8 +208,8 @@ export const AccountListPage = () => {
         />
       ) : (
         <>
-          <div className="data-table-wrap account-list-table-wrap">
-            <table className="data-table account-list-table">
+          <div className="data-table-wrap responsive-table-wrap account-list-table-wrap">
+            <table className="data-table responsive-card-table account-list-table">
               <caption className="sr-only">Danh sách người dùng của trung tâm</caption>
               <thead>
                 <tr>
@@ -255,7 +255,7 @@ export const AccountListPage = () => {
               <tbody>
                 {query.data?.items.map((account) => (
                   <tr key={account.id}>
-                    <td>
+                    <td data-label="Tài khoản">
                       <Link to={`${base}/${account.id}`}>
                         <strong>{account.displayName}</strong>
                       </Link>
@@ -263,23 +263,23 @@ export const AccountListPage = () => {
                         @{account.username} {account.email && `· ${account.email}`}
                       </small>
                     </td>
-                    <td>
+                    <td data-label="Hồ sơ">
                       <strong>{account.code ?? profileLabels[account.profileType]}</strong>
                       <small>{profileLabels[account.profileType]}</small>
                     </td>
-                    <td>
+                    <td data-label="Vai trò">
                       <div className="badge-row">
                         {account.roles.map((role) => (
                           <Badge key={role}>{roleLabels[role]}</Badge>
                         ))}
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Trạng thái">
                       <Badge tone={account.status === "ACTIVE" ? "success" : "danger"}>
                         {account.status === "ACTIVE" ? "Hoạt động" : "Đã khóa"}
                       </Badge>
                     </td>
-                    <td>
+                    <td data-label="Thao tác">
                       <div className="row-actions">
                         <Button
                           variant="secondary"

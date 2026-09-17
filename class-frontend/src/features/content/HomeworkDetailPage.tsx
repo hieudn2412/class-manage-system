@@ -540,16 +540,17 @@ const SubmissionTable = ({
   canReview: boolean;
   onDone: () => Promise<unknown>;
 }) => (
-  <div className="table-shell submission-table-shell">
-    <table className="data-table submission-table">
+  <div className="table-shell responsive-table-wrap submission-table-shell">
+    <table className="data-table responsive-card-table submission-table">
+      <caption className="sr-only">Danh sách bài làm học sinh đã nộp</caption>
       <thead>
         <tr>
-          <th>Học sinh</th>
-          <th>Lượt nộp</th>
-          <th>File bài làm</th>
-          <th>Ghi chú</th>
-          <th>Trạng thái</th>
-          <th>Thao tác</th>
+          <th scope="col">Học sinh</th>
+          <th scope="col">Lượt nộp</th>
+          <th scope="col">File bài làm</th>
+          <th scope="col">Ghi chú</th>
+          <th scope="col">Trạng thái</th>
+          <th scope="col">Thao tác</th>
         </tr>
       </thead>
       <tbody>
@@ -584,21 +585,21 @@ const SubmissionRow = ({
   const [reviewOpen, setReviewOpen] = useState(false);
   return (
     <tr>
-      <td>
+      <td data-label="Học sinh">
         <strong>{submission.studentName}</strong>
         <small>{submission.studentCode}</small>
       </td>
-      <td>
+      <td data-label="Lượt nộp">
         <strong>Lượt {submission.attemptNo}</strong>
         <small>{formatDateTime(submission.submittedAt)}{submission.late ? " · Trễ" : ""}</small>
       </td>
-      <td>
+      <td data-label="File bài làm">
         <SubmissionFileList tenantSlug={tenantSlug} files={submission.files} />
       </td>
-      <td>
+      <td data-label="Ghi chú">
         <span className="submission-note-cell">{submission.note || "Không có ghi chú."}</span>
       </td>
-      <td>
+      <td data-label="Trạng thái">
         <Badge tone={submission.reviewStatus === "REVIEWED" ? "success" : submission.reviewStatus === "REVISION_REQUESTED" ? "warning" : "neutral"}>
           {reviewLabels[submission.reviewStatus]}
         </Badge>
@@ -609,7 +610,7 @@ const SubmissionRow = ({
           </span>
         ) : null}
       </td>
-      <td>
+      <td data-label="Thao tác">
         <div className="row-actions submission-row-actions">
           {canReview ? <Button variant="secondary" onClick={() => setReviewOpen(true)}>Nhận xét bài làm</Button> : null}
         </div>

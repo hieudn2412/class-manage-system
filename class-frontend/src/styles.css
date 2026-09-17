@@ -63,7 +63,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  overflow-x: hidden;
+  overflow-x: visible;
   background: var(--canvas);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -6882,5 +6882,699 @@ button.homework-image-tile {
   .homework-image-tile,
   .homework-image-tile img {
     min-height: 170px;
+  }
+}
+
+/* Canonical responsive system: 360+, 768, 1024 and desktop. */
+
+:where(.app-column, .app-main, .management-page, .content-page, .salary-page),
+:where(.page-header, .management-header, .section-heading, .content-section-head) > *,
+:where(.form-grid, .detail-grid, .dashboard-lower, .metrics-grid) > * {
+  min-width: 0;
+}
+
+:where(h1, h2, h3, p, small, strong, a, button, td, th) {
+  overflow-wrap: anywhere;
+}
+
+:where(.button, .icon-button, .control, .search-box, select),
+input:not([type="checkbox"]):not([type="radio"]),
+textarea {
+  min-height: 44px;
+}
+
+.responsive-table-wrap {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-gutter: stable;
+}
+
+.responsive-card-table {
+  min-width: 760px;
+}
+
+.calendar-agenda {
+  display: none;
+}
+
+.modal {
+  display: flex;
+  max-height: min(88vh, 760px);
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.modal-header {
+  flex: 0 0 auto;
+  padding: 24px 24px 0;
+}
+
+.modal-header h2,
+.modal h2 {
+  margin: 0;
+}
+
+.modal-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 24px 4px;
+}
+
+.modal-actions {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px 24px 20px;
+}
+
+@media (max-width: 1199px) {
+  .dashboard-lower,
+  .detail-grid,
+  .content-detail-grid,
+  .homework-detail-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .metrics-grid,
+  .salary-metric-grid,
+  .preview-summary,
+  .content-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  .page-grid,
+  .platform-grid {
+    display: block;
+  }
+
+  .app-sidebar,
+  .platform-grid .app-sidebar {
+    position: fixed;
+    z-index: 50;
+    inset: 0 auto 0 0;
+    width: min(320px, calc(100vw - 44px));
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateX(-105%);
+    box-shadow: 18px 0 44px rgba(15, 23, 42, 0.18);
+    transition: transform 180ms ease;
+  }
+
+  .app-sidebar.open,
+  .platform-grid .app-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .mobile-backdrop {
+    position: fixed;
+    z-index: 45;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    background: rgba(15, 23, 42, 0.58);
+  }
+
+  .mobile-menu-button {
+    display: inline-grid;
+    flex: 0 0 auto;
+  }
+
+  .mobile-page-label {
+    display: block;
+    overflow: hidden;
+    margin-right: auto;
+    margin-left: 10px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .breadcrumbs,
+  .platform-desktop-title {
+    display: none;
+  }
+
+  .app-topbar,
+  .platform-grid .app-topbar {
+    min-height: calc(64px + env(safe-area-inset-top));
+    justify-content: flex-start;
+    padding: calc(10px + env(safe-area-inset-top)) clamp(16px, 3vw, 28px) 10px;
+  }
+
+  .platform-grid .scope-pill {
+    flex: 0 0 auto;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-main {
+    width: 100%;
+    max-width: none;
+    padding: 28px clamp(20px, 3.5vw, 36px) calc(56px + env(safe-area-inset-bottom));
+  }
+
+  .filter-panel,
+  .pending-confirmation-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .wizard-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wizard-stepper {
+    position: static;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .table-shell:not(.responsive-table-wrap),
+  .data-table-wrap:not(.responsive-table-wrap) {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 14px;
+  }
+
+  .app-main {
+    padding: 22px 16px calc(48px + env(safe-area-inset-bottom));
+  }
+
+  :where(.management-page, .content-page, .salary-page, .schedule-page) {
+    gap: 16px;
+  }
+
+  :where(.page-header, .management-header, .salary-header, .salary-detail-hero, .section-heading, .content-toolbar, .content-section-head, .tenant-email-header, .publish-bar) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  :where(.page-header, .management-header, .salary-header, .salary-detail-hero) h1 {
+    font-size: clamp(1.65rem, 7vw, 2.15rem);
+    line-height: 1.16;
+  }
+
+  :where(.page-actions, .row-actions, .salary-detail-actions, .tenant-email-actions) {
+    flex-wrap: wrap;
+  }
+
+  .filter-bar,
+  .salary-filter-bar,
+  .filter-panel,
+  .pending-confirmation-filters,
+  .schedule-filters,
+  .content-toolbar {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .salary-filter-bar .search-box,
+  .filter-panel > *,
+  .pending-confirmation-filters > *,
+  .schedule-filters > * {
+    width: 100%;
+    min-width: 0;
+    grid-column: auto;
+  }
+
+  .form-grid,
+  .slot-grid,
+  .tenant-email-grid,
+  .tenant-email-facts,
+  .session-detail-card dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .form-grid .full,
+  .form-span-2 {
+    grid-column: auto;
+  }
+
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .pagination-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pagination-actions .button {
+    justify-content: center;
+  }
+
+  .responsive-table-wrap,
+  .class-list-table,
+  .pending-confirmation-table-wrap {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .responsive-card-table,
+  .class-list-table .responsive-card-table,
+  .pending-confirmation-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .responsive-card-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .responsive-card-table tbody {
+    display: grid;
+    gap: 12px;
+  }
+
+  .responsive-card-table tbody tr {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .responsive-card-table tbody td {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(104px, 0.72fr) minmax(0, 1.28fr);
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 14px;
+    text-align: left !important;
+    white-space: normal;
+  }
+
+  .responsive-card-table tbody td::before {
+    align-self: start;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.45;
+    content: attr(data-label);
+  }
+
+  .responsive-card-table tbody td:first-child {
+    background: var(--blue-50);
+    padding-block: 14px;
+  }
+
+  .responsive-card-table tbody td:last-child {
+    border-bottom: 0;
+  }
+
+  .responsive-card-table :where(.row-actions, .submission-row-actions) {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .responsive-card-table :where(.row-actions, .submission-row-actions) .button,
+  .responsive-card-table td[data-label="Thao tác"] > :where(.button, .record-link, .table-action) {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .account-list-table thead,
+  .pending-confirmation-table thead {
+    position: static;
+    display: block;
+    width: auto;
+    height: auto;
+    margin-bottom: 12px;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .account-list-table thead tr,
+  .pending-confirmation-table thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .account-list-table thead th,
+  .pending-confirmation-table thead th {
+    display: block;
+    width: auto;
+    border: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  .account-list-table thead th:last-child,
+  .pending-confirmation-table thead th:first-child,
+  .pending-confirmation-table thead th:nth-child(6),
+  .pending-confirmation-table thead th:last-child {
+    display: none;
+  }
+
+  .account-list-table .table-sort-button,
+  .pending-confirmation-table .table-sort-button {
+    min-height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    padding: 8px 11px;
+    box-shadow: var(--shadow-xs);
+  }
+
+  .pending-confirmation-table tbody td:first-child {
+    position: absolute;
+    z-index: 1;
+    top: 14px;
+    right: 14px;
+    display: flex;
+    width: auto;
+    border: 0;
+    background: transparent;
+    padding: 0;
+  }
+
+  .pending-confirmation-table tbody tr {
+    position: relative;
+  }
+
+  .pending-confirmation-table tbody td:first-child::before {
+    display: none;
+  }
+
+  .pending-confirmation-table tbody td:nth-child(2) {
+    padding-right: 54px;
+  }
+
+  .calendar-week-view {
+    display: none;
+  }
+
+  .calendar-agenda {
+    display: grid;
+    gap: 12px;
+  }
+
+  .calendar-agenda-day {
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow-xs);
+  }
+
+  .calendar-agenda-day.is-today {
+    border-color: var(--blue-300);
+    box-shadow: inset 3px 0 0 var(--blue-600), var(--shadow-xs);
+  }
+
+  .calendar-agenda-day-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+    padding: 12px 14px;
+  }
+
+  .calendar-agenda-day-heading > span:first-child,
+  .calendar-agenda-day-heading strong,
+  .calendar-agenda-day-heading small {
+    display: block;
+  }
+
+  .calendar-agenda-day-heading small,
+  .calendar-agenda-day-heading > span:last-child,
+  .calendar-agenda-empty {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+  }
+
+  .calendar-agenda-events {
+    display: grid;
+  }
+
+  .calendar-agenda-event {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(92px, auto) minmax(0, 1fr);
+    align-items: start;
+    gap: 14px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    padding: 14px;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .calendar-agenda-event:last-child {
+    border-bottom: 0;
+  }
+
+  .calendar-agenda-event:hover,
+  .calendar-agenda-event:focus-visible {
+    background: var(--blue-50);
+  }
+
+  .calendar-agenda-time,
+  .calendar-agenda-summary,
+  .calendar-agenda-summary small {
+    display: flex;
+    min-width: 0;
+  }
+
+  .calendar-agenda-time {
+    align-items: center;
+    gap: 6px;
+    color: var(--blue-700);
+    font-size: 0.8rem;
+  }
+
+  .calendar-agenda-summary {
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .calendar-agenda-summary small {
+    align-items: center;
+    gap: 5px;
+    color: var(--text-secondary);
+  }
+
+  .calendar-agenda-empty {
+    margin: 0;
+    padding: 14px;
+  }
+
+  .calendar-legend {
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+  }
+
+  .calendar-legend > * {
+    flex: 0 0 auto;
+  }
+
+  .modal-backdrop {
+    place-items: end center;
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+    border-radius: 18px 18px 12px 12px;
+  }
+
+  .modal-header {
+    padding: 20px 18px 0;
+  }
+
+  .modal-body {
+    padding: 12px 18px 4px;
+  }
+
+  .modal-actions {
+    padding: 14px 18px max(16px, env(safe-area-inset-bottom));
+  }
+
+  .auth-page {
+    display: block;
+  }
+
+  .auth-aside {
+    min-height: auto;
+    padding: 18px 18px 24px;
+  }
+
+  .auth-aside .auth-statement {
+    margin-top: 30px;
+  }
+
+  .auth-aside .display-title {
+    font-size: clamp(2.15rem, 10vw, 3rem);
+    line-height: 1.02;
+  }
+
+  .auth-description {
+    margin-top: 16px;
+  }
+
+  .auth-benefits {
+    flex-wrap: wrap;
+    margin-top: 18px;
+  }
+
+  .auth-meta {
+    margin-top: 28px;
+  }
+
+  .auth-main {
+    min-height: auto;
+    padding: 24px 16px calc(40px + env(safe-area-inset-bottom));
+  }
+
+  .auth-card {
+    padding: clamp(20px, 5vw, 28px);
+  }
+
+  .public-trust-nav {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 18px 16px;
+  }
+
+  .public-trust-nav > div {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .public-trust-nav a:not(.public-trust-brand) {
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .public-trust-hero {
+    padding: 34px 16px 22px;
+  }
+
+  .public-trust-hero h1 {
+    font-size: clamp(2rem, 9vw, 3rem);
+    line-height: 1.08;
+  }
+
+  .public-trust-card {
+    margin: 18px 16px 42px;
+    padding: 20px;
+  }
+}
+
+@media (max-width: 479px) {
+  .app-sidebar,
+  .platform-grid .app-sidebar {
+    width: min(304px, calc(100vw - 36px));
+  }
+
+  .app-topbar,
+  .platform-grid .app-topbar {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .app-main {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .scope-pill {
+    padding-inline: 8px;
+    font-size: 0.65rem;
+  }
+
+  .metrics-grid,
+  .salary-metric-grid,
+  .preview-summary,
+  .content-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page-actions,
+  .management-header > .button,
+  .salary-header > .button,
+  .section-heading > .button,
+  .publish-bar > .button {
+    width: 100%;
+  }
+
+  .page-actions {
+    display: grid;
+  }
+
+  .page-actions .button,
+  .management-header > .button,
+  .salary-header > .button,
+  .section-heading > .button,
+  .publish-bar > .button {
+    justify-content: center;
+  }
+
+  .responsive-card-table tbody td {
+    grid-template-columns: minmax(88px, 0.68fr) minmax(0, 1.32fr);
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .calendar-agenda-event {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions .button {
+    width: 100%;
   }
 }

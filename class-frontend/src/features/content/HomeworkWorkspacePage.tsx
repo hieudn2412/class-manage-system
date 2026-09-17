@@ -94,8 +94,8 @@ export const HomeworkWorkspacePage = () => {
             </div>
             <span className="text-muted">{classes.length} lớp</span>
           </header>
-          <div className="table-shell">
-            <table className="data-table content-table homework-class-table">
+          <div className="table-shell responsive-table-wrap">
+            <table className="data-table content-table responsive-card-table homework-class-table">
               <caption className="sr-only">Danh sách lớp đã có bài tập về nhà</caption>
               <thead>
                 <tr>
@@ -108,15 +108,15 @@ export const HomeworkWorkspacePage = () => {
               <tbody>
                 {classes.map((row) => (
                   <tr key={row.classId}>
-                    <td>
+                    <td data-label="Tên lớp">
                       <span className="table-primary">{row.className}</span>
                       <span className="table-secondary">{row.classCode}</span>
                     </td>
-                    <td>{row.teacherName}</td>
-                    <td>
+                    <td data-label="Giáo viên">{row.teacherName}</td>
+                    <td data-label="Số lượng bài tập">
                       <strong>{row.homeworkCount}</strong>
                     </td>
-                    <td>
+                    <td data-label="Thao tác">
                       <Link
                         className="record-link"
                         to={"/t/" + tenant.slug + "/app/homeworks/classes/" + row.classId}
