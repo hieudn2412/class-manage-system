@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BookOpen,
   ChevronRight,
@@ -37,6 +37,20 @@ export const AppShell = () => {
   const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  useEffect(() => {
+    if (!menuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
   if (!session) return null;
   const base = `/t/${tenantSlug ?? tenant.slug}/app`;
   const canDashboard = hasPermission(session.user.roles, PERMISSIONS.VIEW_MANAGEMENT_DASHBOARD);

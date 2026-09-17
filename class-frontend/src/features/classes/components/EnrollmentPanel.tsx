@@ -197,8 +197,8 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
       ) : null}
       {roster.data?.items.length ? (
         <>
-          <div className="table-shell">
-            <table className="data-table enrollment-table">
+          <div className="table-shell responsive-table-wrap">
+            <table className="data-table responsive-card-table enrollment-table">
               <caption className="sr-only">Danh sách ghi danh của lớp</caption>
               <thead>
                 <tr>
@@ -213,11 +213,11 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
               <tbody>
                 {roster.data.items.map((item) => (
                   <tr key={item.id}>
-                    <td>
+                    <td data-label="Học sinh">
                       <strong>{item.student.name}</strong>
                       <small className="table-subline">{item.student.code}</small>
                     </td>
-                    <td>
+                    <td data-label="Trạng thái">
                       <Badge tone={item.status === "Active" ? "success" : "neutral"}>
                         {item.status === "Active"
                           ? "Đang học"
@@ -226,19 +226,19 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
                             : "Chuyển lớp"}
                       </Badge>
                     </td>
-                    <td>
+                    <td data-label="Thời gian">
                       {formatDate(item.effectiveFrom)}
                       {item.effectiveTo ? ` → ${formatDate(item.effectiveTo)}` : " → nay"}
                     </td>
-                    <td>
+                    <td data-label="Học phí gốc">
                       {item.originalTuitionAmount === null
                         ? "—"
                         : formatCurrency(item.originalTuitionAmount)}
                       <small className="table-subline">{item.tuitionStatus ?? "—"}</small>
                     </td>
-                    <td>{item.endReason || "—"}</td>
+                    <td data-label="Lý do">{item.endReason || "—"}</td>
                     {canManage && scope === "Active" ? (
-                      <td>
+                      <td data-label="Thao tác">
                         <Button variant="secondary" onClick={() => setEnding(item)}>
                           <UserMinus size={16} aria-hidden="true" />
                           Kết thúc

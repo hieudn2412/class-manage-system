@@ -26,6 +26,21 @@ export default defineConfig({
         viewport: { width: 390, height: 844 },
       },
     },
+    {
+      name: "mobile-small-responsive",
+      testMatch: /responsive-matrix\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 360, height: 800 } },
+    },
+    {
+      name: "tablet-responsive",
+      testMatch: /responsive-matrix\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 768, height: 1024 } },
+    },
+    {
+      name: "compact-desktop-responsive",
+      testMatch: /responsive-matrix\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { width: 1024, height: 768 } },
+    },
   ],
   webServer: useExistingServer
     ? undefined

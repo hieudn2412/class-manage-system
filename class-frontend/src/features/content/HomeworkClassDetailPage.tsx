@@ -77,8 +77,8 @@ export const HomeworkClassDetailPage = () => {
                 </div>
                 <span className="text-muted">{homeworks.data.totalItems} bài tập</span>
               </header>
-              <div className="table-shell">
-                <table className="data-table content-table homework-list-table">
+              <div className="table-shell responsive-table-wrap">
+                <table className="data-table content-table responsive-card-table homework-list-table">
                   <caption className="sr-only">Danh sách bài tập của lớp {className}</caption>
                   <thead>
                     <tr>
@@ -93,27 +93,27 @@ export const HomeworkClassDetailPage = () => {
                   <tbody>
                     {homeworks.data.items.map((item) => (
                       <tr key={item.id}>
-                        <td>
+                        <td data-label="Tên bài tập">
                           <span className="table-primary">{item.title}</span>
                           <span className="table-secondary">
                             {item.sessionOrdinal ? `Buổi ${item.sessionOrdinal}` : item.classCode}
                           </span>
                         </td>
-                        <td>{item.deadlineAt ? formatDateTime(item.deadlineAt) : "Không đặt"}</td>
-                        <td>
+                        <td data-label="Hạn nộp">{item.deadlineAt ? formatDateTime(item.deadlineAt) : "Không đặt"}</td>
+                        <td data-label="Trạng thái">
                           <Badge tone={homeworkStatusTone[item.status]}>
                             {homeworkStatusLabel[item.status]}
                           </Badge>
                         </td>
-                        <td>
+                        <td data-label="Lượt nộp">
                           {item.submittedCount}/{item.recipientCount} học sinh
                         </td>
-                        <td>
+                        <td data-label="Nhận xét">
                           {item.submittedCount
                             ? `${item.reviewedCount}/${item.submittedCount} bài đã nộp`
                             : "Chưa có bài nộp"}
                         </td>
-                        <td>
+                        <td data-label="Thao tác">
                           <Link
                             className="record-link"
                             to={`/t/${tenant.slug}/app/homeworks/${item.id}`}

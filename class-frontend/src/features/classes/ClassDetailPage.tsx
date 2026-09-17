@@ -225,8 +225,8 @@ export const ClassDetailPage = () => {
 
       {tab === "sessions" ? (
         item.sessions.length ? (
-          <div className="table-shell">
-            <table className="data-table">
+          <div className="table-shell responsive-table-wrap">
+            <table className="data-table responsive-card-table">
               <caption className="sr-only">Các buổi học của {item.name}</caption>
               <thead>
                 <tr>
@@ -241,16 +241,16 @@ export const ClassDetailPage = () => {
               <tbody>
                 {item.sessions.map((session) => (
                   <tr key={session.id}>
-                    <td>#{session.ordinal}</td>
-                    <td>{formatDateTime(session.startAt)}</td>
-                    <td>{session.lessonName || "Chưa nhập tên bài học"}</td>
-                    <td>{session.teacherName}</td>
-                    <td>
+                    <td data-label="Buổi">#{session.ordinal}</td>
+                    <td data-label="Thời gian">{formatDateTime(session.startAt)}</td>
+                    <td data-label="Bài học">{session.lessonName || "Chưa nhập tên bài học"}</td>
+                    <td data-label="Giáo viên">{session.teacherName}</td>
+                    <td data-label="Chuyên cần">
                       {session.attendanceRate === null
                         ? "Chưa điểm danh"
                         : formatPercent(session.attendanceRate)}
                     </td>
-                    <td>
+                    <td data-label="Bản ghi buổi học">
                       <span className="record-actions">
                         <Badge tone={session.recordStatus === "COMPLETE" ? "success" : "warning"}>
                           {session.recordStatus === "COMPLETE" ? "Đã có" : "Còn thiếu"}

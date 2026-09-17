@@ -47,30 +47,31 @@ export const ClassHomeworksPanel = ({
       {!query.data?.items.length ? (
         <StatePanel kind="empty" title="Chưa có bài tập về nhà" description="Giáo viên hoặc quản lý học vụ có thể tạo bài mới từ đây." />
       ) : (
-        <div className="table-shell">
-          <table className="data-table content-table">
+        <div className="table-shell responsive-table-wrap">
+          <table className="data-table content-table responsive-card-table">
+            <caption className="sr-only">Danh sách bài tập về nhà của lớp</caption>
             <thead>
               <tr>
-                <th>Bài</th>
-                <th>Trạng thái</th>
-                <th>Nộp</th>
-                <th>Đã nhận xét</th>
-                <th>Thao tác</th>
+                <th scope="col">Bài tập</th>
+                <th scope="col">Trạng thái</th>
+                <th scope="col">Lượt nộp</th>
+                <th scope="col">Đã nhận xét</th>
+                <th scope="col">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {query.data.items.map((item) => (
                 <tr key={item.id}>
-                  <td>
+                  <td data-label="Bài tập">
                     <span className="table-primary">{item.title}</span>
                     <span className="table-secondary">
                       {item.sessionOrdinal ? `Buổi ${item.sessionOrdinal}` : "Cấp lớp"}
                     </span>
                   </td>
-                  <td><Badge tone={homeworkStatusTone[item.status]}>{homeworkStatusLabel[item.status]}</Badge></td>
-                  <td>{rate(item.submittedCount, item.recipientCount)}</td>
-                  <td>{rate(item.reviewedCount, item.recipientCount)}</td>
-                  <td>
+                  <td data-label="Trạng thái"><Badge tone={homeworkStatusTone[item.status]}>{homeworkStatusLabel[item.status]}</Badge></td>
+                  <td data-label="Lượt nộp">{rate(item.submittedCount, item.recipientCount)}</td>
+                  <td data-label="Đã nhận xét">{rate(item.reviewedCount, item.recipientCount)}</td>
+                  <td data-label="Thao tác">
                     <Link className="record-link" to={`/t/${tenantSlug}/app/homeworks/${item.id}`}>
                       Mở chi tiết
                     </Link>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { CalendarSession, WeekSchedule } from "../../../shared/types/domain";
 import { WeeklyCalendar } from "./WeeklyCalendar";
@@ -50,12 +50,16 @@ describe("WeeklyCalendar", () => {
 
     render(<WeeklyCalendar schedule={schedule} onSelectSessions={onSelectSessions} />);
 
-    expect(screen.getByText("2 lớp cùng ca")).toBeInTheDocument();
-    expect(screen.getByText("1 sắp tới")).toBeInTheDocument();
-    expect(screen.getByText("1 đã dạy")).toBeInTheDocument();
-    expect(screen.getAllByText("Chưa xác nhận buổi dạy")).toHaveLength(2);
+    const week = screen.getByLabelText("Các buổi học trong tuần");
+    expect(within(week).getByText("2 lớp cùng ca")).toBeInTheDocument();
+    expect(within(week).getByText("1 sắp tới")).toBeInTheDocument();
+    expect(within(week).getByText("1 đã dạy")).toBeInTheDocument();
+    expect(within(week).getByText("Chưa xác nhận buổi dạy")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Mở 2 lớp cùng ca/ }));
+    const agenda = screen.getByLabelText("Danh sách buổi học theo ngày");
+    expect(within(agenda).getByText("2 lớp cùng ca")).toBeInTheDocument();
+
+    fireEvent.click(within(week).getByRole("button", { name: /Mở 2 lớp cùng ca/ }));
     expect(onSelectSessions).toHaveBeenCalledWith(sessions.slice(0, 2));
   });
 });

@@ -112,8 +112,8 @@ export const SchedulePreviewStep = ({
             onAcknowledgedChange={onAcknowledgedChange}
           />
 
-          <div className="table-shell preview-table">
-            <table className="data-table">
+          <div className="table-shell responsive-table-wrap preview-table">
+            <table className="data-table responsive-card-table">
               <caption className="sr-only">Danh sách buổi học dự kiến</caption>
               <thead>
                 <tr>
