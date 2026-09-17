@@ -98,6 +98,16 @@ class PlatformAccountIntegrationTest {
                     {"profileType":"STAFF","username":"hocvu.test","displayName":"Học vụ Test",
                      "roles":["ACADEMIC_MANAGER"]}
                     """)).andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        mvc.perform(get("/api/v1/accounts")
+                .param("sort", "profileType,desc")
+                .header("Authorization", bearer(adminToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].profileType").value("STUDENT"));
+        mvc.perform(get("/api/v1/accounts")
+                .param("sort", "role,asc")
+                .header("Authorization", bearer(adminToken)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].roles[0]").value("ACADEMIC_MANAGER"));
         String academicToken = login("/api/v1/auth/login", """
             {"tenantSlug":"trung-tam-test","username":"hocvu.test","password":"123456"}
             """);

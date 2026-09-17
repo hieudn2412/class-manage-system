@@ -298,7 +298,7 @@ public final class TeachingDtos {
 
     public record VerificationDecisionInput(
         @NotNull VerificationDecision decision,
-        @NotBlank String reason,
+        String reason,
         @NotNull Long version
     ) {
         public VerificationDecisionInput {

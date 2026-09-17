@@ -259,8 +259,8 @@ public class FileStorageService {
             .list();
         for (FileRow file : expired) {
             jdbc.sql("""
-                    UPDATE stored_files SET status='DELETED', deleted_at=now(),
-                        deleted_reason='expired staging cleanup'
+                    UPDATE stored_files SET status='DELETED', token=NULL, expires_at=NULL,
+                        deleted_at=now(), deleted_reason='expired staging cleanup'
                     WHERE id=:id AND status='STAGING'
                     """)
                 .param("id", file.id()).update();

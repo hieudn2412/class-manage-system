@@ -60,12 +60,36 @@ export const DashboardPage = () => {
         <section className="metrics-grid" aria-label="Chỉ số vận hành">
           {dashboard.kpis.map((kpi) => (
             <article className="panel metric-card" key={kpi.id}>
-              <div className="metric-card-head">
-                <p className="metric-label">{kpi.label}</p>
-                {kpi.delta ? <span className="badge badge-neutral">{kpi.delta}</span> : null}
-              </div>
-              <p className="metric-value">{kpi.value}</p>
-              <p className="metric-detail">{kpi.detail}</p>
+              {kpi.id === "verify" ? (
+                <button
+                  type="button"
+                  className="metric-card-button"
+                  onClick={() =>
+                    void navigate(`/t/${tenant.slug}/app/dashboard/pending-confirmations`)
+                  }
+                  aria-label={`${kpi.label}: ${kpi.value}. Xem danh sách`}
+                >
+                  <span className="metric-card-head">
+                    <span className="metric-label">{kpi.label}</span>
+                    {kpi.delta ? <span className="badge badge-neutral">{kpi.delta}</span> : null}
+                  </span>
+                  <span className="metric-value">{kpi.value}</span>
+                  <span className="metric-detail">{kpi.detail}</span>
+                  <span className="metric-card-link">
+                    Xem danh sách
+                    <ArrowRight size={15} aria-hidden="true" />
+                  </span>
+                </button>
+              ) : (
+                <>
+                  <div className="metric-card-head">
+                    <p className="metric-label">{kpi.label}</p>
+                    {kpi.delta ? <span className="badge badge-neutral">{kpi.delta}</span> : null}
+                  </div>
+                  <p className="metric-value">{kpi.value}</p>
+                  <p className="metric-detail">{kpi.detail}</p>
+                </>
+              )}
             </article>
           ))}
         </section>

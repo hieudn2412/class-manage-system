@@ -1,10 +1,14 @@
 package com.classops.backend.dashboard;
 
+import com.classops.backend.common.ApiException;
+import com.classops.backend.common.PageResponse;
 import com.classops.backend.dashboard.DashboardDtos.AttentionItem;
 import com.classops.backend.dashboard.DashboardDtos.ClassStateMetric;
 import com.classops.backend.dashboard.DashboardDtos.DashboardData;
 import com.classops.backend.dashboard.DashboardDtos.DashboardKpi;
+import com.classops.backend.dashboard.DashboardDtos.PendingConfirmationItem;
 import com.classops.backend.security.CurrentActor;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,10 +56,10 @@ public class DashboardService {
                 String.valueOf(todayStats.classCount()),
                 todayStats.sessionCount() + " buổi / " + todayStats.roomCount() + " phòng", null),
             new DashboardKpi("verify", "Chờ xác nhận đã dạy",
-                twoDigits(pendingConfirmation), "Thiếu check-in",
+                twoDigits(pendingConfirmation), "Chưa xác nhận buổi dạy",
                 pendingConfirmation > 0 ? "!" : null),
             new DashboardKpi("missing", "Buổi thiếu hồ sơ", twoDigits(missingDocumentation),
-                missingDocumentation + " buổi cần bổ sung điểm danh hoặc record",
+                missingDocumentation + " buổi cần bổ sung điểm danh hoặc bản ghi buổi học",
                 missingDocumentation > 0 ? "!" : null),
             new DashboardKpi("attendance", "Chuyên cần tháng", "—",
                 "Chưa có dữ liệu điểm danh", null)
@@ -63,6 +67,130 @@ public class DashboardService {
 
         return new DashboardData(today, displayName(tenantId, actor.userId()), kpis,
             attentionItems(tenantId), classStates(tenantId));
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PendingConfirmationItem> pendingConfirmations(
+        String search,
+        String mode,
+        LocalDate from,
+        LocalDate to,
+        String sort,
+        String direction,
+        int page,
+        int pageSize
+    ) {
+        validatePendingConfirmationFilters(mode, from, to, sort, direction, page, pageSize);
+        UUID tenantId = actor.tenantId();
+        String normalizedSearch = "%" + (search == null ? "" : search.trim().toLowerCase()) + "%";
+        String normalizedMode = mode == null || mode.isBlank() ? null : mode.trim().toUpperCase();
+        OffsetDateTime fromAt = from == null
+            ? null
+            : from.atStartOfDay(BUSINESS_ZONE).toOffsetDateTime();
+        OffsetDateTime toAt = to == null
+            ? null
+            : to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toOffsetDateTime();
+
+        String filters = """
+              FROM class_sessions s
+              JOIN classes c ON c.tenant_id=s.tenant_id AND c.id=s.class_id
+              JOIN teacher_profiles t
+                ON t.tenant_id=s.tenant_id AND t.id=s.actual_teacher_id
+              JOIN users u ON u.tenant_id=t.tenant_id AND u.id=t.user_id
+              LEFT JOIN rooms r ON r.tenant_id=s.tenant_id AND r.id=s.room_id
+              WHERE s.tenant_id=:tenantId AND s.status='PENDING_CONFIRMATION'
+                AND (
+                  lower(c.name) LIKE :search OR lower(c.code) LIKE :search
+                  OR lower(u.display_name) LIKE :search
+                )
+                AND (CAST(:mode AS varchar) IS NULL OR s.mode=:mode)
+                AND (CAST(:fromAt AS timestamptz) IS NULL OR s.start_at >= :fromAt)
+                AND (CAST(:toAt AS timestamptz) IS NULL OR s.start_at < :toAt)
+            """;
+        long total = pendingConfirmationQuery("SELECT count(*) " + filters, tenantId,
+            normalizedSearch, normalizedMode, fromAt, toAt)
+            .query(Long.class)
+            .single();
+
+        String orderColumn = switch (sort == null ? "startAt" : sort) {
+            case "className" -> "lower(c.name)";
+            case "teacherName" -> "lower(u.display_name)";
+            case "mode" -> "s.mode";
+            default -> "s.start_at";
+        };
+        String orderDirection = "desc".equalsIgnoreCase(direction) ? "DESC" : "ASC";
+        String sql = """
+            SELECT s.id, s.class_id, c.code AS class_code, c.name AS class_name,
+                   s.ordinal, s.start_at, s.end_at, t.id AS teacher_id,
+                   u.display_name AS teacher_name, s.mode, r.name AS room_name
+            """ + filters + " ORDER BY " + orderColumn + " " + orderDirection
+            + ", s.id LIMIT :limit OFFSET :offset";
+        List<PendingConfirmationItem> items = pendingConfirmationQuery(sql, tenantId,
+            normalizedSearch, normalizedMode, fromAt, toAt)
+            .param("limit", pageSize)
+            .param("offset", (page - 1) * pageSize)
+            .query((rs, row) -> new PendingConfirmationItem(
+                rs.getObject("id", UUID.class),
+                rs.getObject("class_id", UUID.class),
+                rs.getString("class_code"),
+                rs.getString("class_name"),
+                rs.getInt("ordinal"),
+                rs.getObject("start_at", OffsetDateTime.class),
+                rs.getObject("end_at", OffsetDateTime.class),
+                rs.getObject("teacher_id", UUID.class),
+                rs.getString("teacher_name"),
+                rs.getString("mode"),
+                rs.getString("room_name")))
+            .list();
+        return PageResponse.of(items, page, pageSize, total);
+    }
+
+    private JdbcClient.StatementSpec pendingConfirmationQuery(
+        String sql,
+        UUID tenantId,
+        String search,
+        String mode,
+        OffsetDateTime fromAt,
+        OffsetDateTime toAt
+    ) {
+        return jdbc.sql(sql)
+            .param("tenantId", tenantId)
+            .param("search", search)
+            .param("mode", mode)
+            .param("fromAt", fromAt)
+            .param("toAt", toAt);
+    }
+
+    private void validatePendingConfirmationFilters(
+        String mode,
+        LocalDate from,
+        LocalDate to,
+        String sort,
+        String direction,
+        int page,
+        int pageSize
+    ) {
+        if (page < 1 || pageSize < 1 || pageSize > 100) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAGINATION",
+                "Số trang hoặc số dòng mỗi trang chưa hợp lệ.");
+        }
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE",
+                "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.");
+        }
+        if (mode != null && !mode.isBlank()
+            && !List.of("IN_PERSON", "ONLINE").contains(mode.trim().toUpperCase())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
+                "Hình thức học chưa hợp lệ.");
+        }
+        if (sort != null && !List.of("startAt", "className", "teacherName", "mode").contains(sort)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
+                "Cột sắp xếp chưa hợp lệ.");
+        }
+        if (direction != null && !List.of("asc", "desc").contains(direction.toLowerCase())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR",
+                "Chiều sắp xếp chưa hợp lệ.");
+        }
     }
 
     private TodayStats todayStats(UUID tenantId, OffsetDateTime start, OffsetDateTime end) {
@@ -100,7 +228,7 @@ public class DashboardService {
             .param("tenantId", tenantId)
             .query((rs, row) -> new AttentionItem(
                 "attention-checkin",
-                "Buổi " + rs.getString("name") + " chưa có check-in",
+                "Buổi " + rs.getString("name") + " chưa được xác nhận đã dạy",
                 format(rs.getObject("start_at", OffsetDateTime.class)) + "–"
                     + rs.getObject("end_at", OffsetDateTime.class)
                         .atZoneSameInstant(BUSINESS_ZONE)

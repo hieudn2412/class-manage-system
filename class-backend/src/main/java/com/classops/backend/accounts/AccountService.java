@@ -64,10 +64,22 @@ public class AccountService {
         String order = switch (sort == null ? "createdAt,desc" : sort) {
             case "displayName,asc" -> "u.display_name ASC";
             case "displayName,desc" -> "u.display_name DESC";
+            case "profileType,asc" -> "u.profile_type ASC, coalesce(tp.code,sp.code,'') ASC";
+            case "profileType,desc" -> "u.profile_type DESC, coalesce(tp.code,sp.code,'') DESC";
+            case "role,asc" -> """
+                coalesce((SELECT min(sr.role_code) FROM user_roles sr
+                  WHERE sr.tenant_id=u.tenant_id AND sr.user_id=u.id),'') ASC
+                """;
+            case "role,desc" -> """
+                coalesce((SELECT min(sr.role_code) FROM user_roles sr
+                  WHERE sr.tenant_id=u.tenant_id AND sr.user_id=u.id),'') DESC
+                """;
+            case "status,asc" -> "u.status ASC";
+            case "status,desc" -> "u.status DESC";
             case "createdAt,asc" -> "u.created_at ASC";
             default -> "u.created_at DESC";
         };
-        List<UUID> ids = bind(jdbc.sql("SELECT u.id" + from + where + " ORDER BY " + order +
+        List<UUID> ids = bind(jdbc.sql("SELECT u.id" + from + where + " ORDER BY " + order + ", u.id" +
                 " LIMIT :limit OFFSET :offset"), access.tenantId, normalizedStatus,
                 normalizedProfile, normalizedRole, term)
             .param("limit", pageSize).param("offset", (page - 1) * pageSize)
