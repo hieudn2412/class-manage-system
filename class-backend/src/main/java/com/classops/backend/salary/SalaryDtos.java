@@ -3,6 +3,7 @@ package com.classops.backend.salary;
 import com.classops.backend.common.PageResponse;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
@@ -20,6 +21,7 @@ public final class SalaryDtos {
     public enum AccrualStatus { ACTIVE, REVERSED }
     public enum PaymentMethod { CASH, BANK_TRANSFER }
     public enum BalanceStatus { OWED, SETTLED, OVERPAID }
+    public enum SalaryNotificationStatus { QUEUED, SENT, FAILED }
 
     public record HourlyRateView(
         UUID id,
@@ -179,7 +181,40 @@ public final class SalaryDtos {
         BigDecimal due,
         BigDecimal paid,
         BigDecimal outstanding,
-        BalanceStatus status
+        BalanceStatus status,
+        boolean emailAvailable,
+        SalaryNotificationStatus lastNotificationStatus,
+        OffsetDateTime lastNotificationAt
+    ) {
+    }
+
+    public record SendSalaryNotificationsInput(
+        @NotNull YearMonth month,
+        @NotEmpty @Size(max = 100) List<@NotNull UUID> teacherIds,
+        @NotNull LocalDate paymentDate,
+        @Size(max = 500) String contactNote,
+        boolean confirmResend
+    ) {
+    }
+
+    public record SalaryNotificationQueued(
+        UUID teacherId,
+        String teacherName,
+        UUID notificationId
+    ) {
+    }
+
+    public record SalaryNotificationSkipped(
+        UUID teacherId,
+        String teacherName,
+        String reason
+    ) {
+    }
+
+    public record SendSalaryNotificationsResult(
+        int queuedCount,
+        List<SalaryNotificationQueued> queued,
+        List<SalaryNotificationSkipped> skipped
     ) {
     }
 

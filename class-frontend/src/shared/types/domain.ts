@@ -38,6 +38,23 @@ export interface AuthSession {
   expiresAt: string;
 }
 
+export interface SelfProfile {
+  scope: "PLATFORM" | "TENANT";
+  id: string;
+  tenant: Pick<Tenant, "id" | "slug" | "name"> | null;
+  profileType: ProfileType | null;
+  code: string | null;
+  username: string;
+  displayName: string;
+  email: string | null;
+  roles: Role[];
+  status: UserStatus;
+  parentName: string | null;
+  parentPhone: string | null;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
 export interface InitialAdministrator {
   id: string;
   username: string;
@@ -612,6 +629,35 @@ export interface PayrollTeacherRow {
   paid: number;
   outstanding: number;
   status: SalaryBalanceStatus;
+  emailAvailable: boolean;
+  lastNotificationStatus: "QUEUED" | "SENT" | "FAILED" | null;
+  lastNotificationAt: string | null;
+}
+
+export interface SendSalaryNotificationsInput {
+  month: string;
+  teacherIds: string[];
+  paymentDate: string;
+  contactNote?: string;
+  confirmResend: boolean;
+}
+
+export interface SalaryNotificationQueued {
+  teacherId: string;
+  teacherName: string;
+  notificationId: string;
+}
+
+export interface SalaryNotificationSkipped {
+  teacherId: string;
+  teacherName: string;
+  reason: "MISSING_EMAIL";
+}
+
+export interface SendSalaryNotificationsResult {
+  queuedCount: number;
+  queued: SalaryNotificationQueued[];
+  skipped: SalaryNotificationSkipped[];
 }
 
 export interface PayrollPage {
@@ -699,10 +745,7 @@ export interface SalaryYearSummary {
 }
 
 export type FilePurpose =
-  | "HOMEWORK_ATTACHMENT"
-  | "SUBMISSION_IMAGE"
-  | "REVIEW_ATTACHMENT"
-  | "MATERIAL";
+  "HOMEWORK_ATTACHMENT" | "SUBMISSION_IMAGE" | "REVIEW_ATTACHMENT" | "MATERIAL";
 
 export interface StoredFile {
   id: string;
@@ -794,8 +837,7 @@ export interface HomeworkDetail extends HomeworkSummary {
 }
 
 export interface StudentHomeworkDetail
-  extends Omit<HomeworkDetail, "recipients" | "submissions">,
-    StudentHomeworkSummary {
+  extends Omit<HomeworkDetail, "recipients" | "submissions">, StudentHomeworkSummary {
   myRecipient: HomeworkRecipient;
   mySubmissions: HomeworkSubmission[];
 }
@@ -857,10 +899,7 @@ export interface TenantStorageUsage {
 }
 
 export type TenantEmailConnectionStatus =
-  | "NOT_CONNECTED"
-  | "CONNECTED"
-  | "REAUTH_REQUIRED"
-  | "DISCONNECTED";
+  "NOT_CONNECTED" | "CONNECTED" | "REAUTH_REQUIRED" | "DISCONNECTED";
 
 export interface TenantEmailConnection {
   status: TenantEmailConnectionStatus;

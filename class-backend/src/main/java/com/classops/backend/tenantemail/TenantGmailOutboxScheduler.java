@@ -52,9 +52,13 @@ public class TenantGmailOutboxScheduler {
             connection = connections.connectedForSend(row.tenantId());
             JsonNode payload = mapper.readTree(row.payload());
             String refreshToken = connections.decryptRefreshToken(connection);
+            String textBody = payload.hasNonNull("textBody")
+                ? payload.path("textBody").asText() : payload.path("body").asText();
+            String htmlBody = payload.hasNonNull("htmlBody")
+                ? payload.path("htmlBody").asText() : null;
             String messageId = gmail.sendMessage(refreshToken, connections.tenantName(row.tenantId()),
                 connection.gmailAddress(), payload.path("to").asText(),
-                payload.path("title").asText(), payload.path("body").asText(),
+                payload.path("title").asText(), textBody, htmlBody,
                 connections.absoluteDeepLink(payload.path("deepLink").asText("")));
             jdbc.sql("""
                     UPDATE outbox_events

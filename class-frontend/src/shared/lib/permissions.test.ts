@@ -34,5 +34,8 @@ describe("quyền vertical slice lịch lớp", () => {
     expect(hasPermission(["ACCOUNTANT"], PERMISSIONS.MANAGE_SALARY)).toBe(true);
     expect(hasPermission(["TEACHER"], PERMISSIONS.VIEW_OWN_SALARY)).toBe(true);
     expect(hasPermission(["TEACHER"], PERMISSIONS.VIEW_SALARY)).toBe(false);
+    expect(hasPermission(["ADMIN"], PERMISSIONS.SEND_SALARY_NOTIFICATION)).toBe(true);
+    expect(hasPermission(["ACCOUNTANT"], PERMISSIONS.SEND_SALARY_NOTIFICATION)).toBe(false);
+    expect(hasPermission(["ACADEMIC_MANAGER"], PERMISSIONS.SEND_SALARY_NOTIFICATION)).toBe(false);
   });
 });

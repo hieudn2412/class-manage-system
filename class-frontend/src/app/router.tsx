@@ -3,7 +3,13 @@ import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
 import { PlatformShell } from "./layout/PlatformShell";
 import { TenantProvider } from "./providers/TenantProvider";
-import { RequireAnyPermission, RequireAuth, RequirePermission, RequirePlatformScope, RequireTenantScope } from "./guards";
+import {
+  RequireAnyPermission,
+  RequireAuth,
+  RequirePermission,
+  RequirePlatformScope,
+  RequireTenantScope,
+} from "./guards";
 import { PERMISSIONS } from "../shared/lib/permissions";
 import { PageSkeleton } from "../shared/ui/Skeleton";
 import { RouteErrorPage } from "./pages/RouteErrorPage";
@@ -102,23 +108,72 @@ const ForbiddenPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
-const PlatformLoginPage = lazy(() => import("../features/platform/PlatformLoginPage").then(m=>({default:m.PlatformLoginPage})));
-const PlatformTenantListPage = lazy(() => import("../features/platform/PlatformTenantListPage").then(m=>({default:m.PlatformTenantListPage})));
-const PlatformQuotaPage = lazy(() => import("../features/platform/PlatformQuotaPage").then(m=>({default:m.PlatformQuotaPage})));
-const AccountListPage = lazy(() => import("../features/accounts/AccountListPage").then(m=>({default:m.AccountListPage})));
-const AccountFormPage = lazy(() => import("../features/accounts/AccountFormPage").then(m=>({default:m.AccountFormPage})));
-const SalaryPayrollPage = lazy(() => import("../features/salary/SalaryPayrollPage").then(m=>({default:m.SalaryPayrollPage})));
-const SalaryTeacherDetailPage = lazy(() => import("../features/salary/SalaryTeacherDetailPage").then(m=>({default:m.SalaryTeacherDetailPage})));
-const MySalaryPage = lazy(() => import("../features/salary/MySalaryPage").then(m=>({default:m.MySalaryPage})));
-const HomeworkWorkspacePage = lazy(() => import("../features/content/HomeworkWorkspacePage").then(m=>({default:m.HomeworkWorkspacePage})));
-const HomeworkClassDetailPage = lazy(() => import("../features/content/HomeworkClassDetailPage").then(m=>({default:m.HomeworkClassDetailPage})));
-const HomeworkDetailPage = lazy(() => import("../features/content/HomeworkDetailPage").then(m=>({default:m.HomeworkDetailPage})));
-const StudentHomeworksPage = lazy(() => import("../features/content/StudentHomeworksPage").then(m=>({default:m.StudentHomeworksPage})));
-const NotificationsPage = lazy(() => import("../features/content/NotificationsPage").then(m=>({default:m.NotificationsPage})));
-const TenantEmailSettingsPage = lazy(() => import("../features/content/TenantEmailSettingsPage").then(m=>({default:m.TenantEmailSettingsPage})));
-const PublicAboutPage = lazy(() => import("./pages/PublicTrustPages").then(m=>({default:m.PublicAboutPage})));
-const PrivacyPolicyPage = lazy(() => import("./pages/PublicTrustPages").then(m=>({default:m.PrivacyPolicyPage})));
-const TermsOfServicePage = lazy(() => import("./pages/PublicTrustPages").then(m=>({default:m.TermsOfServicePage})));
+const PlatformLoginPage = lazy(() =>
+  import("../features/platform/PlatformLoginPage").then((m) => ({ default: m.PlatformLoginPage })),
+);
+const PlatformTenantListPage = lazy(() =>
+  import("../features/platform/PlatformTenantListPage").then((m) => ({
+    default: m.PlatformTenantListPage,
+  })),
+);
+const PlatformQuotaPage = lazy(() =>
+  import("../features/platform/PlatformQuotaPage").then((m) => ({ default: m.PlatformQuotaPage })),
+);
+const AccountListPage = lazy(() =>
+  import("../features/accounts/AccountListPage").then((m) => ({ default: m.AccountListPage })),
+);
+const AccountFormPage = lazy(() =>
+  import("../features/accounts/AccountFormPage").then((m) => ({ default: m.AccountFormPage })),
+);
+const SalaryPayrollPage = lazy(() =>
+  import("../features/salary/SalaryPayrollPage").then((m) => ({ default: m.SalaryPayrollPage })),
+);
+const SalaryTeacherDetailPage = lazy(() =>
+  import("../features/salary/SalaryTeacherDetailPage").then((m) => ({
+    default: m.SalaryTeacherDetailPage,
+  })),
+);
+const MySalaryPage = lazy(() =>
+  import("../features/salary/MySalaryPage").then((m) => ({ default: m.MySalaryPage })),
+);
+const HomeworkWorkspacePage = lazy(() =>
+  import("../features/content/HomeworkWorkspacePage").then((m) => ({
+    default: m.HomeworkWorkspacePage,
+  })),
+);
+const HomeworkClassDetailPage = lazy(() =>
+  import("../features/content/HomeworkClassDetailPage").then((m) => ({
+    default: m.HomeworkClassDetailPage,
+  })),
+);
+const HomeworkDetailPage = lazy(() =>
+  import("../features/content/HomeworkDetailPage").then((m) => ({ default: m.HomeworkDetailPage })),
+);
+const StudentHomeworksPage = lazy(() =>
+  import("../features/content/StudentHomeworksPage").then((m) => ({
+    default: m.StudentHomeworksPage,
+  })),
+);
+const NotificationsPage = lazy(() =>
+  import("../features/content/NotificationsPage").then((m) => ({ default: m.NotificationsPage })),
+);
+const TenantEmailSettingsPage = lazy(() =>
+  import("../features/content/TenantEmailSettingsPage").then((m) => ({
+    default: m.TenantEmailSettingsPage,
+  })),
+);
+const PublicAboutPage = lazy(() =>
+  import("./pages/PublicTrustPages").then((m) => ({ default: m.PublicAboutPage })),
+);
+const PrivacyPolicyPage = lazy(() =>
+  import("./pages/PublicTrustPages").then((m) => ({ default: m.PrivacyPolicyPage })),
+);
+const TermsOfServicePage = lazy(() =>
+  import("./pages/PublicTrustPages").then((m) => ({ default: m.TermsOfServicePage })),
+);
+const ProfilePage = lazy(() =>
+  import("../features/profile/ProfilePage").then((m) => ({ default: m.ProfilePage })),
+);
 
 const withSuspense = (content: ReactNode) => (
   <Suspense fallback={<PageSkeleton />}>{content}</Suspense>
@@ -139,12 +194,24 @@ export const router = createBrowserRouter([
   { path: "/privacy", element: withSuspense(<PrivacyPolicyPage />) },
   { path: "/terms", element: withSuspense(<TermsOfServicePage />) },
   { path: "/platform/login", element: withSuspense(<PlatformLoginPage />) },
+  { path: "/platform/change-password", element: withSuspense(<ChangePasswordPage />) },
   { path: "/platform/403", element: withSuspense(<ForbiddenPage />) },
-  { path: "/platform/app", element: <RequireAuth><RequirePlatformScope><PlatformShell /></RequirePlatformScope></RequireAuth>, children: [
-    { index: true, element: <Navigate to="tenants" replace /> },
-    { path: "tenants", element: withSuspense(<PlatformTenantListPage />) },
-    { path: "quotas", element: withSuspense(<PlatformQuotaPage />) },
-  ]},
+  {
+    path: "/platform/app",
+    element: (
+      <RequireAuth>
+        <RequirePlatformScope>
+          <PlatformShell />
+        </RequirePlatformScope>
+      </RequireAuth>
+    ),
+    children: [
+      { index: true, element: <Navigate to="tenants" replace /> },
+      { path: "tenants", element: withSuspense(<PlatformTenantListPage />) },
+      { path: "quotas", element: withSuspense(<PlatformQuotaPage />) },
+      { path: "profile", element: withSuspense(<ProfilePage />) },
+    ],
+  },
   {
     path: "/t/:tenantSlug",
     element: <TenantRoot />,
@@ -163,6 +230,10 @@ export const router = createBrowserRouter([
         ),
         children: [
           { index: true, element: withSuspense(<RoleLandingPage />) },
+          {
+            path: "profile",
+            element: <RequireTenantScope>{withSuspense(<ProfilePage />)}</RequireTenantScope>,
+          },
           {
             path: "dashboard",
             element: (
@@ -345,15 +416,48 @@ export const router = createBrowserRouter([
           },
           {
             path: "accounts",
-            element: <RequireTenantScope><RequireAnyPermission permissions={[PERMISSIONS.MANAGE_TENANT_ACCOUNTS,PERMISSIONS.MANAGE_LEARNING_ACCOUNTS]}>{withSuspense(<AccountListPage />)}</RequireAnyPermission></RequireTenantScope>,
+            element: (
+              <RequireTenantScope>
+                <RequireAnyPermission
+                  permissions={[
+                    PERMISSIONS.MANAGE_TENANT_ACCOUNTS,
+                    PERMISSIONS.MANAGE_LEARNING_ACCOUNTS,
+                  ]}
+                >
+                  {withSuspense(<AccountListPage />)}
+                </RequireAnyPermission>
+              </RequireTenantScope>
+            ),
           },
           {
             path: "accounts/new",
-            element: <RequireTenantScope><RequireAnyPermission permissions={[PERMISSIONS.MANAGE_TENANT_ACCOUNTS,PERMISSIONS.MANAGE_LEARNING_ACCOUNTS]}>{withSuspense(<AccountFormPage />)}</RequireAnyPermission></RequireTenantScope>,
+            element: (
+              <RequireTenantScope>
+                <RequireAnyPermission
+                  permissions={[
+                    PERMISSIONS.MANAGE_TENANT_ACCOUNTS,
+                    PERMISSIONS.MANAGE_LEARNING_ACCOUNTS,
+                  ]}
+                >
+                  {withSuspense(<AccountFormPage />)}
+                </RequireAnyPermission>
+              </RequireTenantScope>
+            ),
           },
           {
             path: "accounts/:accountId",
-            element: <RequireTenantScope><RequireAnyPermission permissions={[PERMISSIONS.MANAGE_TENANT_ACCOUNTS,PERMISSIONS.MANAGE_LEARNING_ACCOUNTS]}>{withSuspense(<AccountFormPage />)}</RequireAnyPermission></RequireTenantScope>,
+            element: (
+              <RequireTenantScope>
+                <RequireAnyPermission
+                  permissions={[
+                    PERMISSIONS.MANAGE_TENANT_ACCOUNTS,
+                    PERMISSIONS.MANAGE_LEARNING_ACCOUNTS,
+                  ]}
+                >
+                  {withSuspense(<AccountFormPage />)}
+                </RequireAnyPermission>
+              </RequireTenantScope>
+            ),
           },
           {
             path: "sessions/:sessionId",

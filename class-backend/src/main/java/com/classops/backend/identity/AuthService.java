@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -160,6 +161,13 @@ public class AuthService {
 
     @Transactional
     public AuthSession changePassword(String newPassword) {
+        if ("PLATFORM".equals(actor.scope())) {
+            return changePlatformTemporaryPassword(newPassword);
+        }
+        return changeTenantTemporaryPassword(newPassword);
+    }
+
+    private AuthSession changeTenantTemporaryPassword(String newPassword) {
         UUID tenantId = actor.tenantId();
         UUID userId = actor.userId();
         UserEntity current = userRepository.findById(userId)
@@ -208,6 +216,160 @@ public class AuthService {
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "TENANT_NOT_FOUND",
                 "Không tìm thấy trung tâm."));
         return issueTenantSession(updated, tenantDto(tenant));
+    }
+
+    private AuthSession changePlatformTemporaryPassword(String newPassword) {
+        UUID userId = actor.userId();
+        PlatformAccount current = platformAccount(userId);
+        if (!"MUST_CHANGE".equals(current.passwordState())) {
+            throw new ApiException(HttpStatus.CONFLICT, "PASSWORD_CHANGE_NOT_REQUIRED",
+                "Tài khoản không ở trạng thái bắt buộc đổi mật khẩu.");
+        }
+        int changed = jdbc.sql("""
+                UPDATE platform_users
+                SET password_hash=:passwordHash, password_state='READY',
+                    token_version=token_version+1, version=version+1, updated_at=now()
+                WHERE id=:userId AND status='ACTIVE' AND password_state='MUST_CHANGE'
+                """)
+            .param("passwordHash", passwordEncoder.encode(newPassword))
+            .param("userId", userId)
+            .update();
+        if (changed != 1) {
+            throw new ApiException(HttpStatus.CONFLICT, "PASSWORD_STATE_CHANGED",
+                "Trạng thái tài khoản đã thay đổi. Vui lòng đăng nhập lại.");
+        }
+        auditPlatformPassword("PASSWORD_CHANGED", userId,
+            "{\"passwordState\":\"MUST_CHANGE\"}", "{\"passwordState\":\"READY\"}");
+        return issuePlatformSession(platformAccount(userId));
+    }
+
+    @Transactional
+    public AuthSession changeOwnPassword(String currentPassword, String newPassword) {
+        return "PLATFORM".equals(actor.scope())
+            ? changeOwnPlatformPassword(currentPassword, newPassword)
+            : changeOwnTenantPassword(currentPassword, newPassword);
+    }
+
+    private AuthSession changeOwnTenantPassword(String currentPassword, String newPassword) {
+        UUID tenantId = actor.tenantId();
+        UUID userId = actor.userId();
+        UserEntity current = userRepository.findById(userId)
+            .filter(user -> tenantId.equals(user.getTenantId()))
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND",
+                "Không tìm thấy hồ sơ của bạn."));
+        validateCurrentAndNewPassword(currentPassword, newPassword, current.getPasswordHash());
+        int changed = jdbc.sql("""
+                UPDATE users
+                SET password_hash=:passwordHash, token_version=token_version+1,
+                    version=version+1, updated_at=now()
+                WHERE tenant_id=:tenantId AND id=:userId
+                  AND status='ACTIVE' AND password_state='READY'
+                """)
+            .param("passwordHash", passwordEncoder.encode(newPassword))
+            .param("tenantId", tenantId)
+            .param("userId", userId)
+            .update();
+        if (changed != 1) {
+            throw passwordStateChanged();
+        }
+        entityManager.clear();
+        auditTenantPassword("SELF_PASSWORD_CHANGED", tenantId, userId, null,
+            "{\"sessionsRevoked\":true}");
+        UserEntity updated = userRepository.findById(userId)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND",
+                "Không tìm thấy hồ sơ của bạn."));
+        TenantEntity tenant = tenantRepository.findById(tenantId)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "TENANT_NOT_FOUND",
+                "Không tìm thấy trung tâm."));
+        return issueTenantSession(updated, tenantDto(tenant));
+    }
+
+    private AuthSession changeOwnPlatformPassword(String currentPassword, String newPassword) {
+        UUID userId = actor.userId();
+        PlatformAccount current = platformAccount(userId);
+        validateCurrentAndNewPassword(currentPassword, newPassword, current.passwordHash());
+        int changed = jdbc.sql("""
+                UPDATE platform_users
+                SET password_hash=:passwordHash, token_version=token_version+1,
+                    version=version+1, updated_at=now()
+                WHERE id=:userId AND status='ACTIVE' AND password_state='READY'
+                """)
+            .param("passwordHash", passwordEncoder.encode(newPassword))
+            .param("userId", userId)
+            .update();
+        if (changed != 1) {
+            throw passwordStateChanged();
+        }
+        auditPlatformPassword("SELF_PASSWORD_CHANGED", userId, null,
+            "{\"sessionsRevoked\":true}");
+        return issuePlatformSession(platformAccount(userId));
+    }
+
+    private void validateCurrentAndNewPassword(String currentPassword, String newPassword,
+                                               String passwordHash) {
+        if (!passwordEncoder.matches(currentPassword, passwordHash)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CURRENT_PASSWORD_INVALID",
+                "Mật khẩu hiện tại chưa đúng. Vui lòng kiểm tra và thử lại.", Map.of(),
+                Map.of("currentPassword", "Mật khẩu hiện tại chưa đúng."));
+        }
+        if (passwordEncoder.matches(newPassword, passwordHash)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_REUSE_NOT_ALLOWED",
+                "Mật khẩu mới cần khác mật khẩu hiện tại.", Map.of(),
+                Map.of("newPassword", "Mật khẩu mới cần khác mật khẩu hiện tại."));
+        }
+    }
+
+    private ApiException passwordStateChanged() {
+        return new ApiException(HttpStatus.CONFLICT, "PASSWORD_STATE_CHANGED",
+            "Trạng thái tài khoản đã thay đổi. Vui lòng đăng nhập lại.");
+    }
+
+    private PlatformAccount platformAccount(UUID userId) {
+        return jdbc.sql("""
+                SELECT id, username, display_name, password_hash, status,
+                       password_state, token_version
+                FROM platform_users WHERE id=:userId
+                """)
+            .param("userId", userId)
+            .query((rs, row) -> new PlatformAccount(
+                rs.getObject("id", UUID.class), rs.getString("username"),
+                rs.getString("display_name"), rs.getString("password_hash"),
+                rs.getString("status"), rs.getString("password_state"),
+                rs.getInt("token_version")))
+            .optional()
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND",
+                "Không tìm thấy hồ sơ của bạn."));
+    }
+
+    private void auditTenantPassword(String action, UUID tenantId, UUID userId,
+                                     String oldValue, String newValue) {
+        jdbc.sql("""
+                INSERT INTO audit_events (
+                  id, tenant_id, actor_user_id, actor_type, action, entity_type, entity_id,
+                  old_value, new_value
+                ) VALUES (
+                  :id, :tenantId, :userId, 'USER', :action, 'User', :userId,
+                  CAST(:oldValue AS jsonb), CAST(:newValue AS jsonb)
+                )
+                """)
+            .param("id", UUID.randomUUID()).param("tenantId", tenantId).param("userId", userId)
+            .param("action", action).param("oldValue", oldValue).param("newValue", newValue)
+            .update();
+    }
+
+    private void auditPlatformPassword(String action, UUID userId,
+                                       String oldValue, String newValue) {
+        jdbc.sql("""
+                INSERT INTO audit_events (
+                  id, tenant_id, actor_type, platform_actor_user_id, action,
+                  entity_type, entity_id, old_value, new_value
+                ) VALUES (
+                  :id, NULL, 'PLATFORM', :userId, :action,
+                  'PlatformUser', :userId, CAST(:oldValue AS jsonb), CAST(:newValue AS jsonb)
+                )
+                """)
+            .param("id", UUID.randomUUID()).param("userId", userId).param("action", action)
+            .param("oldValue", oldValue).param("newValue", newValue).update();
     }
 
     private AuthSession issueTenantSession(UserEntity user, TenantDto tenant) {

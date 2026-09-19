@@ -60,6 +60,144 @@ test.beforeEach(async ({ page }) => {
       });
       return;
     }
+    if (path.endsWith("/profile/me/password") && route.request().method() === "PUT") {
+      await route.fulfill({
+        json: {
+          token: "responsive-e2e-token-new",
+          scope: "TENANT",
+          tenant,
+          user: {
+            id: "admin-user",
+            tenantId: tenant.id,
+            username: "admin.anhduong",
+            displayName: "Quản trị viên Ánh Dương có tên rất dài",
+            roles: ["ADMIN"],
+            status: "ACTIVE",
+            passwordState: "READY",
+          },
+          expiresAt: "2099-01-01T00:00:00Z",
+        },
+      });
+      return;
+    }
+    if (path.endsWith("/profile/me")) {
+      await route.fulfill({
+        json: {
+          scope: "TENANT",
+          id: "admin-user",
+          tenant,
+          profileType: "STAFF",
+          code: null,
+          username: "admin.anhduong",
+          displayName: "Quản trị viên Ánh Dương có tên rất dài",
+          email: "admin@anhduong.vn",
+          roles: ["ADMIN"],
+          status: "ACTIVE",
+          parentName: null,
+          parentPhone: null,
+          lastLoginAt: "2026-09-19T08:00:00Z",
+          createdAt: "2026-01-01T08:00:00Z",
+        },
+      });
+      return;
+    }
+    if (path.endsWith("/salary/payroll") && route.request().method() === "GET") {
+      await route.fulfill({
+        json: {
+          month: "2026-09",
+          metrics: {
+            teacherCount: 1,
+            sessionCount: 8,
+            totalMinutes: 720,
+            accrued: 3200000,
+            adjustments: 200000,
+            due: 3400000,
+            paid: 0,
+            outstanding: 3400000,
+            overpaidTeachers: 0,
+          },
+          teachers: {
+            items: [
+              {
+                teacherId: "a2000000-0000-0000-0000-000000000001",
+                teacherName: "Nguyễn Thị Huyền có tên rất dài",
+                sessionCount: 8,
+                totalMinutes: 720,
+                accrued: 3200000,
+                adjustments: 200000,
+                due: 3400000,
+                paid: 0,
+                outstanding: 3400000,
+                status: "OWED",
+                emailAvailable: true,
+                lastNotificationStatus: null,
+                lastNotificationAt: null,
+              },
+            ],
+            page: 1,
+            pageSize: 20,
+            totalItems: 1,
+            totalPages: 1,
+          },
+        },
+      });
+      return;
+    }
+    if (path.endsWith("/salary/payroll-notifications") && route.request().method() === "POST") {
+      await route.fulfill({
+        status: 202,
+        json: {
+          queuedCount: 1,
+          queued: [
+            {
+              teacherId: "a2000000-0000-0000-0000-000000000001",
+              teacherName: "Nguyễn Thị Huyền có tên rất dài",
+              notificationId: "b2000000-0000-0000-0000-000000000001",
+            },
+          ],
+          skipped: [],
+        },
+      });
+      return;
+    }
+    if (path.endsWith("/teachers/me/salary") && route.request().method() === "GET") {
+      await route.fulfill({
+        json: {
+          month: "2026-09",
+          teacherId: "a2000000-0000-0000-0000-000000000001",
+          teacherName: "Nguyễn Thị Huyền có tên rất dài",
+          metrics: {
+            sessionCount: 8,
+            totalMinutes: 720,
+            accrued: 3200000,
+            adjustments: 200000,
+            due: 3400000,
+            paid: 1000000,
+            outstanding: 2400000,
+            status: "OWED",
+          },
+          accruals: [
+            {
+              id: "accrual-responsive-1",
+              sessionId: "session-responsive-1",
+              classCode: "TOAN-RESPONSIVE",
+              className: "Lớp Toán tư duy nâng cao có tên rất dài",
+              ordinal: 8,
+              sessionDate: "2026-09-17",
+              scheduledMinutes: 90,
+              hourlyRate: 266667,
+              amount: 400000,
+              revision: 2,
+              status: "ACTIVE",
+              substitution: false,
+            },
+          ],
+          adjustments: [],
+          payments: [],
+        },
+      });
+      return;
+    }
     await route.fulfill({ status: 404, json: { code: "NOT_FOUND", message: "Không tìm thấy." } });
   });
 });
@@ -127,5 +265,72 @@ test("menu quản trị hệ thống thích ứng ở mọi kích thước", asy
   });
   await page.goto("/platform/app/tenants");
   await expect(page.getByRole("heading", { name: "Trung tâm trên hệ thống" })).toBeVisible();
+  await checkResponsiveShell(page);
+});
+
+test("hồ sơ cá nhân và biểu mẫu đổi mật khẩu thích ứng ở mọi kích thước", async ({ page }) => {
+  await page.goto("/t/anh-duong/app/profile");
+  await expect(page.getByRole("heading", { name: "Hồ sơ cá nhân" })).toBeVisible();
+  await expect(page.getByText("admin@anhduong.vn")).toBeVisible();
+
+  await page.getByLabel("Mật khẩu hiện tại").fill("Demo@123");
+  await page.getByLabel("Mật khẩu mới", { exact: true }).fill("NewDemo@2026");
+  await page.getByLabel("Nhập lại mật khẩu mới").fill("NewDemo@2026");
+  await page.getByRole("button", { name: "Đổi mật khẩu" }).click();
+  await expect(page.getByText(/Các phiên đăng nhập cũ đã được đăng xuất/)).toBeVisible();
+
+  await checkResponsiveShell(page);
+});
+
+test("chọn giáo viên và gửi thông báo lương trên desktop lẫn mobile", async ({ page }) => {
+  await page.goto("/t/anh-duong/app/finance/salaries?month=2026-09");
+  await expect(page.getByRole("heading", { name: "Lương phát sinh và đã trả" })).toBeVisible();
+  await page.getByLabel("Chọn Nguyễn Thị Huyền có tên rất dài để gửi thông báo lương").check();
+  await page.getByRole("button", { name: /Gửi thông báo lương/ }).click();
+  await expect(page.getByRole("heading", { name: "Gửi thông báo lương" })).toBeVisible();
+  await page.getByLabel(/Ngày dự kiến thanh toán/).fill("2026-10-15");
+  await page.getByLabel(/Ghi chú liên hệ/).fill("Vui lòng liên hệ phòng kế toán nếu cần hỗ trợ.");
+  await page.getByRole("button", { name: "Gửi thông báo", exact: true }).click();
+  await expect(page.getByText("Đã đưa 1 email vào hàng đợi.")).toBeVisible();
+
+  await checkResponsiveShell(page);
+});
+
+test("phiếu lương cá nhân thích ứng và không tràn ngang", async ({ page }) => {
+  await page.goto("/t/anh-duong/login");
+  await page.evaluate((tenantData) => {
+    localStorage.setItem(
+      "edu-ops:session",
+      JSON.stringify({
+        token: "teacher-responsive-e2e-token",
+        scope: "TENANT",
+        tenant: tenantData,
+        user: {
+          id: "teacher-responsive-user",
+          tenantId: tenantData.id,
+          username: "teacher.responsive",
+          displayName: "Nguyễn Thị Huyền có tên rất dài",
+          roles: ["TEACHER"],
+          status: "ACTIVE",
+          passwordState: "READY",
+        },
+        expiresAt: "2099-01-01T00:00:00Z",
+      }),
+    );
+  }, tenant);
+  await page.goto("/t/anh-duong/app/my-salary");
+
+  await expect(page.getByRole("heading", { name: "Giờ dạy và lương của tôi" })).toBeVisible();
+  await expect(page.getByText("Còn được thanh toán")).toBeVisible();
+  await expect(page.locator(".my-salary-metrics > div")).toHaveCount(6);
+  await expect(
+    page.getByRole("link", { name: "Lớp Toán tư duy nâng cao có tên rất dài" }),
+  ).toBeVisible();
+
+  const salaryCardOverflow = await page.locator(".salary-line").evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return Math.max(0, rect.right - document.documentElement.clientWidth);
+  });
+  expect(salaryCardOverflow).toBeLessThanOrEqual(1);
   await checkResponsiveShell(page);
 });

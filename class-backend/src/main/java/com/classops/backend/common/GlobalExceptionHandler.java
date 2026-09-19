@@ -24,7 +24,7 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
     @ExceptionHandler(ApiException.class)
     ResponseEntity<Map<String, Object>> api(ApiException ex, HttpServletRequest request) {
-        return problem(ex.status(), ex.code(), ex.getMessage(), ex.details(), Map.of(), request);
+        return problem(ex.status(), ex.code(), ex.getMessage(), ex.details(), ex.fieldErrors(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

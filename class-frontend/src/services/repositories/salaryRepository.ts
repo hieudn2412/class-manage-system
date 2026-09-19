@@ -6,6 +6,8 @@ import type {
   SalaryPayment,
   SalaryPaymentMethod,
   SalaryYearSummary,
+  SendSalaryNotificationsInput,
+  SendSalaryNotificationsResult,
   TeacherPayrollDetail,
 } from "../../shared/types/domain";
 
@@ -149,4 +151,11 @@ export const salaryRepository = {
       status: query.status,
       sort: query.sort,
     })}`, { tenantSlug }),
+  sendNotifications: (tenantSlug: string, input: SendSalaryNotificationsInput) =>
+    apiRequest<SendSalaryNotificationsResult>("salary/payroll-notifications", {
+      tenantSlug,
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey() },
+      body: JSON.stringify(input),
+    }),
 };

@@ -20,7 +20,11 @@ export const RequireAuth = ({ children }: PropsWithChildren) => {
     );
   }
   if (session.user.passwordState === "MUST_CHANGE") {
-    return <Navigate to={`/t/${tenantSlug ?? "anh-duong"}/change-password`} replace />;
+    const target =
+      session.scope === "PLATFORM"
+        ? "/platform/change-password"
+        : `/t/${session.tenant?.slug ?? tenantSlug ?? "anh-duong"}/change-password`;
+    return <Navigate to={target} replace />;
   }
   return children;
 };

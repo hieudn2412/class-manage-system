@@ -38,7 +38,9 @@ class PermissionCatalogTest {
     @Test
     void adminCanManageTenantEmailConnection() {
         assertThat(PermissionCatalog.union(List.of("ADMIN")))
-            .contains("MANAGE_TENANT_EMAIL");
+            .contains("MANAGE_TENANT_EMAIL", "SEND_SALARY_NOTIFICATION");
+        assertThat(PermissionCatalog.union(List.of("ACCOUNTANT", "ACADEMIC_MANAGER")))
+            .doesNotContain("SEND_SALARY_NOTIFICATION");
     }
 
 }

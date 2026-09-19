@@ -1,10 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertTriangle, KeyRound } from "lucide-react";
 import { useForm } from "react-hook-form";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { z } from "zod";
 import { useAuth } from "../../app/providers/AuthProvider";
-import { useTenant } from "../../app/providers/TenantProvider";
 import { authRepository } from "../../services/repositories/authRepository";
 import { ApiError } from "../../shared/types/api";
 import { Button } from "../../shared/ui/Button";
@@ -24,9 +23,11 @@ const schema = z
 type FormValues = z.infer<typeof schema>;
 
 export const ChangePasswordPage = () => {
-  const tenant = useTenant();
   const { session, setChangedPasswordSession } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const platformRoute = location.pathname.startsWith("/platform");
   const {
     register,
     handleSubmit,
@@ -37,19 +38,29 @@ export const ChangePasswordPage = () => {
     defaultValues: { newPassword: "", confirmPassword: "" },
   });
 
-  if (!session) return <Navigate to={`/t/${tenant.slug}/login`} replace />;
+  if (!session) {
+    return <Navigate to={platformRoute ? "/platform/login" : `/t/${tenantSlug}/login`} replace />;
+  }
   if (session.user.passwordState !== "MUST_CHANGE") {
-    return <Navigate to={`/t/${tenant.slug}/app`} replace />;
+    return (
+      <Navigate
+        to={session.scope === "PLATFORM" ? "/platform/app" : `/t/${session.tenant?.slug}/app`}
+        replace
+      />
+    );
   }
 
   const onSubmit = handleSubmit(async ({ newPassword }) => {
     try {
       const nextSession = await authRepository.changePassword({
-        tenantSlug: tenant.slug,
+        tenantSlug: session.tenant?.slug,
         newPassword,
       });
       setChangedPasswordSession(nextSession);
-      void navigate(`/t/${tenant.slug}/app`, { replace: true });
+      void navigate(
+        nextSession.scope === "PLATFORM" ? "/platform/app" : `/t/${nextSession.tenant?.slug}/app`,
+        { replace: true },
+      );
     } catch (caught) {
       setError("root", {
         message:
