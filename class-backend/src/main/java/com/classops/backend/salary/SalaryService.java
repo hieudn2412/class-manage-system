@@ -17,6 +17,7 @@ import com.classops.backend.salary.SalaryDtos.PayrollTeacherRow;
 import com.classops.backend.salary.SalaryDtos.SalaryAccrualLine;
 import com.classops.backend.salary.SalaryDtos.SalaryAdjustmentView;
 import com.classops.backend.salary.SalaryDtos.SalaryMonthSummary;
+import com.classops.backend.salary.SalaryDtos.SalaryNotificationStatus;
 import com.classops.backend.salary.SalaryDtos.SalaryPaymentView;
 import com.classops.backend.salary.SalaryDtos.SalaryYearSummary;
 import com.classops.backend.salary.SalaryDtos.TeacherPayrollDetail;
@@ -448,26 +449,50 @@ public class SalaryService {
                        COALESCE(a.minutes,0) AS minutes,
                        COALESCE(a.amount,0) AS accrued,
                        COALESCE(ad.amount,0) AS adjustments,
-                       COALESCE(p.amount,0) AS paid
+                       COALESCE(p.amount,0) AS paid,
+                       CASE WHEN u.status='ACTIVE' AND NULLIF(trim(u.email),'') IS NOT NULL
+                            THEN true ELSE false END AS email_available,
+                       n.occurred_at AS notification_occurred_at,
+                       n.published_at AS notification_published_at,
+                       n.dead_lettered_at AS notification_failed_at
                 FROM teacher_profiles t
                 JOIN users u ON u.tenant_id=t.tenant_id AND u.id=t.user_id
                 LEFT JOIN accrual a ON a.teacher_id=t.id
                 LEFT JOIN adjustment ad ON ad.teacher_id=t.id
                 LEFT JOIN payment p ON p.teacher_id=t.id
+                LEFT JOIN LATERAL (
+                  SELECT o.occurred_at, o.published_at, o.dead_lettered_at
+                  FROM outbox_events o
+                  WHERE o.tenant_id=t.tenant_id AND o.aggregate_type='TEACHER_PAYROLL'
+                    AND o.aggregate_id=t.id AND o.event_type='EMAIL_NOTIFICATION'
+                    AND o.payload->>'month'=:monthText
+                  ORDER BY o.occurred_at DESC
+                  LIMIT 1
+                ) n ON true
                 WHERE t.tenant_id=:tenantId
                 """)
             .param("tenantId", tenantId).param("from", month.atDay(1))
             .param("to", month.plusMonths(1).atDay(1))
+            .param("monthText", month.toString())
             .query((rs, row) -> {
                 BigDecimal accrued = rs.getBigDecimal("accrued");
                 BigDecimal adjustments = rs.getBigDecimal("adjustments");
                 BigDecimal due = accrued.add(adjustments);
                 BigDecimal paid = rs.getBigDecimal("paid");
                 BigDecimal outstanding = due.subtract(paid);
+                OffsetDateTime occurredAt = rs.getObject("notification_occurred_at", OffsetDateTime.class);
+                OffsetDateTime publishedAt = rs.getObject("notification_published_at", OffsetDateTime.class);
+                OffsetDateTime failedAt = rs.getObject("notification_failed_at", OffsetDateTime.class);
+                SalaryNotificationStatus notificationStatus = occurredAt == null ? null
+                    : publishedAt != null ? SalaryNotificationStatus.SENT
+                    : failedAt != null ? SalaryNotificationStatus.FAILED
+                    : SalaryNotificationStatus.QUEUED;
                 return new PayrollTeacherRow(
                     rs.getObject("teacher_id", UUID.class), rs.getString("display_name"),
                     rs.getLong("session_count"), rs.getLong("minutes"), accrued, adjustments,
-                    due, paid, outstanding, balanceStatus(outstanding));
+                    due, paid, outstanding, balanceStatus(outstanding),
+                    rs.getBoolean("email_available"), notificationStatus,
+                    publishedAt == null ? occurredAt : publishedAt);
             }).list();
     }
 

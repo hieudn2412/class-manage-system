@@ -49,16 +49,75 @@ describe("auth và role guards", () => {
   });
 
   it("tách phiên platform khỏi route tenant", async () => {
-    saveSession({
-      ...createTestSession(), scope: "PLATFORM", tenant: null, expiresAt: "2099-01-01T00:00:00Z",
-      user: { ...createTestSession().user, tenantId: null, roles: ["SUPER_ADMIN"] },
-    }, false);
-    renderWithProviders(<Routes>
-      <Route path="/platform/app" element={<RequirePlatformScope><div>Platform workspace</div></RequirePlatformScope>} />
-      <Route path="/t/:tenantSlug/app" element={<RequireTenantScope><div>Tenant workspace</div></RequireTenantScope>} />
-      <Route path="/t/:tenantSlug/403" element={<div>Không có quyền tenant</div>} />
-    </Routes>, ["/platform/app"]);
+    saveSession(
+      {
+        ...createTestSession(),
+        scope: "PLATFORM",
+        tenant: null,
+        expiresAt: "2099-01-01T00:00:00Z",
+        user: { ...createTestSession().user, tenantId: null, roles: ["SUPER_ADMIN"] },
+      },
+      false,
+    );
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/platform/app"
+          element={
+            <RequirePlatformScope>
+              <div>Platform workspace</div>
+            </RequirePlatformScope>
+          }
+        />
+        <Route
+          path="/t/:tenantSlug/app"
+          element={
+            <RequireTenantScope>
+              <div>Tenant workspace</div>
+            </RequireTenantScope>
+          }
+        />
+        <Route path="/t/:tenantSlug/403" element={<div>Không có quyền tenant</div>} />
+      </Routes>,
+      ["/platform/app"],
+    );
     expect(await screen.findByText("Platform workspace")).toBeInTheDocument();
     expect(screen.queryByText("Tenant workspace")).not.toBeInTheDocument();
+  });
+
+  it("đưa quản trị viên hệ thống tới đúng trang đổi mật khẩu bắt buộc", async () => {
+    const session = createTestSession();
+    saveSession(
+      {
+        ...session,
+        scope: "PLATFORM",
+        tenant: null,
+        expiresAt: "2099-01-01T00:00:00Z",
+        user: {
+          ...session.user,
+          tenantId: null,
+          roles: ["SUPER_ADMIN"],
+          passwordState: "MUST_CHANGE",
+        },
+      },
+      false,
+    );
+
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/platform/app"
+          element={
+            <RequireAuth>
+              <div>Platform workspace</div>
+            </RequireAuth>
+          }
+        />
+        <Route path="/platform/change-password" element={<div>Đổi mật khẩu hệ thống</div>} />
+      </Routes>,
+      ["/platform/app"],
+    );
+
+    expect(await screen.findByText("Đổi mật khẩu hệ thống")).toBeInTheDocument();
   });
 });

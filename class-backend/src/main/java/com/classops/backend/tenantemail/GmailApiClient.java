@@ -6,7 +6,9 @@ import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.MediaType;
 import org.slf4j.Logger;
@@ -66,8 +68,14 @@ public class GmailApiClient {
 
     public String sendMessage(String refreshToken, String tenantName, String fromEmail,
                               String to, String title, String body, String deepLink) {
+        return sendMessage(refreshToken, tenantName, fromEmail, to, title, body, null, deepLink);
+    }
+
+    public String sendMessage(String refreshToken, String tenantName, String fromEmail,
+                              String to, String title, String textBody, String htmlBody,
+                              String deepLink) {
         String accessToken = refreshAccessToken(refreshToken);
-        String raw = mimeRaw(tenantName, fromEmail, to, title, body, deepLink);
+        String raw = mimeRaw(tenantName, fromEmail, to, title, textBody, htmlBody, deepLink);
         try {
             SendResponse response = rest.post()
                 .uri(properties.sendUri())
@@ -213,16 +221,27 @@ public class GmailApiClient {
     }
 
     private String mimeRaw(String tenantName, String fromEmail, String to, String title,
-                           String body, String deepLink) {
+                           String textBody, String htmlBody, String deepLink) {
         try {
             MimeMessage message = new MimeMessage(Session.getInstance(new Properties()));
             message.setFrom(new InternetAddress(fromEmail, tenantName, StandardCharsets.UTF_8.name()));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to, false));
             message.setSubject(title, StandardCharsets.UTF_8.name());
             String text = deepLink == null || deepLink.isBlank()
-                ? body
-                : body + "\n\nMở trong hệ thống: " + deepLink;
-            message.setText(text, StandardCharsets.UTF_8.name());
+                ? textBody
+                : textBody + "\n\nMở trong hệ thống: " + deepLink;
+            if (htmlBody == null || htmlBody.isBlank()) {
+                message.setText(text, StandardCharsets.UTF_8.name());
+            } else {
+                MimeBodyPart textPart = new MimeBodyPart();
+                textPart.setText(text, StandardCharsets.UTF_8.name());
+                MimeBodyPart htmlPart = new MimeBodyPart();
+                htmlPart.setContent(htmlBody, "text/html; charset=UTF-8");
+                MimeMultipart alternative = new MimeMultipart("alternative");
+                alternative.addBodyPart(textPart);
+                alternative.addBodyPart(htmlPart);
+                message.setContent(alternative);
+            }
             message.saveChanges();
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             message.writeTo(output);

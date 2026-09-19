@@ -12,6 +12,7 @@ import {
   Menu,
   School,
   ShieldCheck,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -64,7 +65,9 @@ export const AppShell = () => {
   const canFinance = hasPermission(session.user.roles, PERMISSIONS.VIEW_FINANCE);
   const canViewSalary = hasPermission(session.user.roles, PERMISSIONS.VIEW_SALARY);
   const canViewOwnSalary = hasPermission(session.user.roles, PERMISSIONS.VIEW_OWN_SALARY);
-  const canAccounts = hasPermission(session.user.roles, PERMISSIONS.MANAGE_TENANT_ACCOUNTS) || hasPermission(session.user.roles, PERMISSIONS.MANAGE_LEARNING_ACCOUNTS);
+  const canAccounts =
+    hasPermission(session.user.roles, PERMISSIONS.MANAGE_TENANT_ACCOUNTS) ||
+    hasPermission(session.user.roles, PERMISSIONS.MANAGE_LEARNING_ACCOUNTS);
   const canManageTenantEmail = hasPermission(session.user.roles, PERMISSIONS.MANAGE_TENANT_EMAIL);
   const isPlatform = hasPermission(session.user.roles, PERMISSIONS.VIEW_PLATFORM_TENANTS);
   const isTeacherOnly =
@@ -98,7 +101,13 @@ export const AppShell = () => {
           { label: "Lịch dạy", icon: School, to: `${base}/teaching-schedule` },
           { label: "Lớp của tôi", icon: BookOpen, to: `${base}/my-classes` },
           ...(isTeacherOnly
-            ? [{ label: "Giao bài tập", icon: ClipboardPlus, to: `${base}/my-classes?intent=homework` }]
+            ? [
+                {
+                  label: "Giao bài tập",
+                  icon: ClipboardPlus,
+                  to: `${base}/my-classes?intent=homework`,
+                },
+              ]
             : []),
           ...(canViewOwnSalary
             ? [{ label: "Lương của tôi", icon: CircleDollarSign, to: `${base}/my-salary` }]
@@ -113,9 +122,7 @@ export const AppShell = () => {
             : []),
         ]
       : []),
-    ...(canAccounts
-      ? [{ label: "Người dùng", icon: Users, to: `${base}/accounts` }]
-      : []),
+    ...(canAccounts ? [{ label: "Người dùng", icon: Users, to: `${base}/accounts` }] : []),
     ...(canManageTenantEmail
       ? [{ label: "Gmail thông báo", icon: Mail, to: `${base}/settings/email` }]
       : []),
@@ -124,6 +131,7 @@ export const AppShell = () => {
       : canFinance
         ? [{ label: "Tài chính", icon: CircleDollarSign, planned: true }]
         : []),
+    { label: "Hồ sơ cá nhân", icon: UserRound, to: `${base}/profile` },
   ];
 
   const handleLogout = () => {

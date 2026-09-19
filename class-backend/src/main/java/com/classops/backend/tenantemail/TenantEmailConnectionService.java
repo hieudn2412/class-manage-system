@@ -294,6 +294,10 @@ public class TenantEmailConnectionService {
         return row;
     }
 
+    public void requireConnectedForSend(UUID tenantId) {
+        connectedForSend(tenantId);
+    }
+
     void markReauthRequired(UUID tenantId, UUID connectionId, String code, String message) {
         jdbc.sql("""
                 UPDATE tenant_email_connections

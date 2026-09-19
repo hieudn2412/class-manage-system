@@ -9,6 +9,8 @@ import com.classops.backend.salary.SalaryDtos.HourlyRateView;
 import com.classops.backend.salary.SalaryDtos.PayrollPage;
 import com.classops.backend.salary.SalaryDtos.SalaryAdjustmentView;
 import com.classops.backend.salary.SalaryDtos.SalaryPaymentView;
+import com.classops.backend.salary.SalaryDtos.SendSalaryNotificationsInput;
+import com.classops.backend.salary.SalaryDtos.SendSalaryNotificationsResult;
 import com.classops.backend.salary.SalaryDtos.SalaryYearSummary;
 import com.classops.backend.salary.SalaryDtos.TeacherPayrollDetail;
 import com.classops.backend.salary.SalaryDtos.UpdateAdjustmentInput;
@@ -46,10 +48,13 @@ import java.util.UUID;
 public class SalaryController {
     private final SalaryService service;
     private final SalaryExportService exportService;
+    private final SalaryNotificationService notificationService;
 
-    public SalaryController(SalaryService service, SalaryExportService exportService) {
+    public SalaryController(SalaryService service, SalaryExportService exportService,
+                            SalaryNotificationService notificationService) {
         this.service = service;
         this.exportService = exportService;
+        this.notificationService = notificationService;
     }
 
     @GetMapping("/classes/{classId}/hourly-rates")
@@ -127,6 +132,15 @@ public class SalaryController {
         @RequestParam @DateTimeFormat(pattern = "yyyy-MM") YearMonth month
     ) {
         return service.teacherPayroll(teacherId, month);
+    }
+
+    @PostMapping("/salary/payroll-notifications")
+    @PreAuthorize("hasAuthority('SEND_SALARY_NOTIFICATION')")
+    ResponseEntity<SendSalaryNotificationsResult> sendPayrollNotifications(
+        @Valid @RequestBody SendSalaryNotificationsInput input,
+        @RequestHeader("Idempotency-Key") String idempotencyKey
+    ) {
+        return ResponseEntity.accepted().body(notificationService.send(input, idempotencyKey));
     }
 
     @GetMapping("/teachers/me/salary")

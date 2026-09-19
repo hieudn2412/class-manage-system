@@ -1480,6 +1480,135 @@ class SchedulingVerticalSliceIntegrationTest {
             .query(Long.class).single();
     }
 
+    @Test
+    void adminQueuesSalaryEmailsAndMustConfirmResend() throws Exception {
+        UUID teacherUser = UUID.randomUUID();
+        UUID teacherProfile = UUID.randomUUID();
+        String username = "salary.mail." + teacherUser.toString().substring(0, 8);
+        user(teacherUser, username, "Cô Mai", "TEACHER");
+        jdbc.sql("""
+                INSERT INTO teacher_profiles(id, tenant_id, user_id, code)
+                VALUES (:id, :tenantId, :userId, :code)
+                """)
+            .param("id", teacherProfile).param("tenantId", TENANT_A)
+            .param("userId", teacherUser).param("code", "MAIL-" + teacherUser.toString().substring(0, 6))
+            .update();
+
+        UUID missingEmailUser = UUID.randomUUID();
+        UUID missingEmailProfile = UUID.randomUUID();
+        String missingUsername = "salary.noemail." + missingEmailUser.toString().substring(0, 8);
+        user(missingEmailUser, missingUsername, "Thầy Nam", "TEACHER");
+        jdbc.sql("UPDATE users SET email=NULL WHERE tenant_id=:tenantId AND id=:userId")
+            .param("tenantId", TENANT_A).param("userId", missingEmailUser).update();
+        jdbc.sql("""
+                INSERT INTO teacher_profiles(id, tenant_id, user_id, code)
+                VALUES (:id, :tenantId, :userId, :code)
+                """)
+            .param("id", missingEmailProfile).param("tenantId", TENANT_A)
+            .param("userId", missingEmailUser)
+            .param("code", "NOEMAIL-" + missingEmailUser.toString().substring(0, 6)).update();
+
+        jdbc.sql("""
+                INSERT INTO tenant_email_connections (
+                  id, tenant_id, gmail_address, google_subject, status,
+                  refresh_token_ciphertext, refresh_token_iv, connected_by, connected_at
+                ) VALUES (
+                  :id, :tenantId, 'notify@example.test', 'google-subject', 'CONNECTED',
+                  :ciphertext, :iv, :admin, now()
+                )
+                ON CONFLICT (tenant_id) DO UPDATE SET
+                  status='CONNECTED', gmail_address='notify@example.test',
+                  refresh_token_ciphertext=:ciphertext, refresh_token_iv=:iv,
+                  connected_by=:admin, connected_at=now()
+                """)
+            .param("id", UUID.randomUUID()).param("tenantId", TENANT_A)
+            .param("ciphertext", new byte[]{1, 2, 3}).param("iv", new byte[]{4, 5, 6})
+            .param("admin", ADMIN_A).update();
+
+        String adminToken = login("admin.anhduong");
+        Map<String, Object> input = Map.of(
+            "month", "2026-08",
+            "teacherIds", List.of(teacherProfile, missingEmailProfile),
+            "paymentDate", "2026-09-15",
+            "contactNote", "Liên hệ <phòng kế toán>.",
+            "confirmResend", false);
+
+        mvc.perform(post("/api/v1/salary/payroll-notifications")
+                .header("Authorization", "Bearer " + adminToken)
+                .header("Idempotency-Key", "salary-email-batch-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(input)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.queuedCount").value(1))
+            .andExpect(jsonPath("$.queued[0].teacherId").value(teacherProfile.toString()))
+            .andExpect(jsonPath("$.skipped[0].teacherId").value(missingEmailProfile.toString()))
+            .andExpect(jsonPath("$.skipped[0].reason").value("MISSING_EMAIL"));
+
+        mvc.perform(post("/api/v1/salary/payroll-notifications")
+                .header("Authorization", "Bearer " + adminToken)
+                .header("Idempotency-Key", "salary-email-batch-1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(input)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.queuedCount").value(1));
+
+        assertThat(jdbc.sql("""
+                SELECT count(*) FROM outbox_events
+                WHERE tenant_id=:tenantId AND aggregate_type='TEACHER_PAYROLL'
+                  AND aggregate_id=:teacherId AND payload->>'month'='2026-08'
+                """)
+            .param("tenantId", TENANT_A).param("teacherId", teacherProfile)
+            .query(Long.class).single()).isEqualTo(1);
+        String html = jdbc.sql("""
+                SELECT payload->>'htmlBody' FROM outbox_events
+                WHERE tenant_id=:tenantId AND aggregate_type='TEACHER_PAYROLL'
+                  AND aggregate_id=:teacherId
+                ORDER BY occurred_at DESC LIMIT 1
+                """)
+            .param("tenantId", TENANT_A).param("teacherId", teacherProfile)
+            .query(String.class).single();
+        assertThat(html).contains("Thông báo bảng lương", "&lt;phòng kế toán&gt;",
+                "<thead><tr>", "scope=\"col\"", "Số buổi", "Còn lại", "</tr></tbody>")
+            .doesNotContain("Liên hệ <phòng kế toán>");
+
+        mvc.perform(get("/api/v1/salary/payroll")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("month", "2026-08")
+                .param("search", "Cô Mai"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.teachers.items[0].emailAvailable").value(true))
+            .andExpect(jsonPath("$.teachers.items[0].lastNotificationStatus").value("QUEUED"))
+            .andExpect(jsonPath("$.teachers.items[0].lastNotificationAt").exists());
+
+        mvc.perform(post("/api/v1/salary/payroll-notifications")
+                .header("Authorization", "Bearer " + adminToken)
+                .header("Idempotency-Key", "salary-email-batch-2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(input)))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("SALARY_NOTIFICATION_ALREADY_SENT"))
+            .andExpect(jsonPath("$.details.duplicates[0].teacherId")
+                .value(teacherProfile.toString()));
+
+        Map<String, Object> resendInput = new LinkedHashMap<>(input);
+        resendInput.put("confirmResend", true);
+        mvc.perform(post("/api/v1/salary/payroll-notifications")
+                .header("Authorization", "Bearer " + adminToken)
+                .header("Idempotency-Key", "salary-email-batch-3")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(resendInput)))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.queuedCount").value(1));
+
+        String teacherToken = login(username);
+        mvc.perform(post("/api/v1/salary/payroll-notifications")
+                .header("Authorization", "Bearer " + teacherToken)
+                .header("Idempotency-Key", "salary-email-forbidden")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsBytes(input)))
+            .andExpect(status().isForbidden());
+    }
+
     private String login(String username) throws Exception {
         String response = mvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)

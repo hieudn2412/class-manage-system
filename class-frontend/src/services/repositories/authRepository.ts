@@ -8,7 +8,7 @@ export interface LoginInput {
 }
 
 export interface ChangePasswordInput {
-  tenantSlug: string;
+  tenantSlug?: string;
   newPassword: string;
 }
 
@@ -40,7 +40,9 @@ export const authRepository: AuthRepository = {
       tenantSlug,
       body: JSON.stringify({ newPassword }),
     }),
-  platformLogin: (username, password) => apiRequest<AuthSession>("platform/auth/login", {
-    method: "POST", body: JSON.stringify({ username, password }),
-  }),
+  platformLogin: (username, password) =>
+    apiRequest<AuthSession>("platform/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
 };

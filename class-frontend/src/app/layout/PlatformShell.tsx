@@ -1,12 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  Building2,
-  DatabaseZap,
-  LogOut,
-  Menu,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { Building2, DatabaseZap, LogOut, Menu, ShieldCheck, UserRound, X } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "../../shared/lib/cn";
 import { useAuth } from "../providers/AuthProvider";
@@ -32,9 +25,11 @@ export const PlatformShell = () => {
   }, [menuOpen]);
 
   if (!session) return null;
-  const currentLabel = location.pathname.includes("quotas")
-    ? "Hạn mức dung lượng"
-    : "Trung tâm";
+  const currentLabel = location.pathname.includes("profile")
+    ? "Hồ sơ cá nhân"
+    : location.pathname.includes("quotas")
+      ? "Hạn mức dung lượng"
+      : "Trung tâm";
   const signOut = () => {
     logout();
     void navigate("/platform/login", { replace: true });
@@ -76,7 +71,7 @@ export const PlatformShell = () => {
         <nav className="sidebar-nav">
           <p className="nav-section-label">Quản trị</p>
           <NavLink
-            className="nav-link"
+            className={({ isActive }) => cn("nav-link", isActive && "active")}
             to="/platform/app/tenants"
             onClick={() => setMenuOpen(false)}
           >
@@ -84,12 +79,21 @@ export const PlatformShell = () => {
             Trung tâm
           </NavLink>
           <NavLink
-            className="nav-link"
+            className={({ isActive }) => cn("nav-link", isActive && "active")}
             to="/platform/app/quotas"
             onClick={() => setMenuOpen(false)}
           >
             <DatabaseZap size={18} aria-hidden="true" />
             Hạn mức dung lượng
+          </NavLink>
+          <p className="nav-section-label">Tài khoản</p>
+          <NavLink
+            className={({ isActive }) => cn("nav-link", isActive && "active")}
+            to="/platform/app/profile"
+            onClick={() => setMenuOpen(false)}
+          >
+            <UserRound size={18} aria-hidden="true" />
+            Hồ sơ cá nhân
           </NavLink>
         </nav>
         <div className="sidebar-user">
