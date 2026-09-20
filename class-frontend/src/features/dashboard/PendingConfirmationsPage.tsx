@@ -7,7 +7,7 @@ import {
   CheckCircle2,
   SlidersHorizontal,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTenant } from "../../app/providers/TenantProvider";
 import {
@@ -18,6 +18,7 @@ import { formatDateTime } from "../../shared/lib/format";
 import type { PendingConfirmationSort } from "../../shared/types/domain";
 import { Badge } from "../../shared/ui/Badge";
 import { Button } from "../../shared/ui/Button";
+import { FilterDisclosure } from "../../shared/ui/FilterDisclosure";
 import { Input, Select } from "../../shared/ui/FormField";
 import { PageHeader } from "../../shared/ui/PageHeader";
 import { Pagination } from "../../shared/ui/Pagination";
@@ -75,7 +76,6 @@ export const PendingConfirmationsPage = () => {
     page: readPositiveInt(searchParams.get("page"), 1),
     pageSize: 15,
   };
-  const [searchValue, setSearchValue] = useState(params.search);
   const [selectedId, setSelectedId] = useState("");
 
   const query = useQuery({
@@ -83,18 +83,6 @@ export const PendingConfirmationsPage = () => {
     queryFn: () => dashboardRepository.getPendingConfirmations(tenant.slug, params),
     placeholderData: (previous) => previous,
   });
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      if (searchValue === params.search) return;
-      const next = new URLSearchParams(searchParams);
-      if (searchValue.trim()) next.set("search", searchValue.trim());
-      else next.delete("search");
-      next.set("page", "1");
-      setSearchParams(next, { replace: true });
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [params.search, searchParams, searchValue, setSearchParams]);
 
   const selectedItem = query.data?.items.find((item) => item.id === selectedId);
 
@@ -114,7 +102,6 @@ export const PendingConfirmationsPage = () => {
   };
 
   const resetFilters = () => {
-    setSearchValue("");
     setSelectedId("");
     setSearchParams({ sort: "startAt", direction: "asc", page: "1" });
   };
@@ -144,43 +131,50 @@ export const PendingConfirmationsPage = () => {
         }
       />
 
-      <section className="filter-panel pending-confirmation-filters" aria-label="Bộ lọc buổi chờ xác nhận">
-        <Input
-          label="Tìm kiếm"
-          value={searchValue}
-          onChange={(event) => setSearchValue(event.target.value)}
-          placeholder="Tên lớp, mã lớp hoặc giáo viên"
-        />
-        <Select
-          label="Hình thức"
-          value={params.mode}
-          onChange={(event) => updateParams({ mode: event.target.value })}
-        >
-          <option value="">Tất cả hình thức</option>
-          <option value="IN_PERSON">Tại trung tâm</option>
-          <option value="ONLINE">Trực tuyến</option>
-        </Select>
-        <Input
-          label="Từ ngày"
-          type="date"
-          value={params.from}
-          max={params.to || undefined}
-          onChange={(event) => updateParams({ from: event.target.value })}
-        />
-        <Input
-          label="Đến ngày"
-          type="date"
-          value={params.to}
-          min={params.from || undefined}
-          onChange={(event) => updateParams({ to: event.target.value })}
-        />
-        <div className="filter-actions">
-          <Button variant="secondary" onClick={resetFilters}>
-            <SlidersHorizontal size={17} aria-hidden="true" />
-            Xóa bộ lọc
-          </Button>
+      <FilterDisclosure
+        label="Bộ lọc"
+        activeCount={[params.mode, params.from, params.to].filter(Boolean).length}
+        primary={
+          <Input
+            label="Tìm kiếm"
+            value={params.search}
+            onChange={(event) => updateParams({ search: event.target.value })}
+            placeholder="Tên lớp, mã lớp hoặc giáo viên"
+          />
+        }
+      >
+        <div className="filter-collapse-grid">
+          <Select
+            label="Hình thức"
+            value={params.mode}
+            onChange={(event) => updateParams({ mode: event.target.value })}
+          >
+            <option value="">Tất cả hình thức</option>
+            <option value="IN_PERSON">Tại trung tâm</option>
+            <option value="ONLINE">Trực tuyến</option>
+          </Select>
+          <Input
+            label="Từ ngày"
+            type="date"
+            value={params.from}
+            max={params.to || undefined}
+            onChange={(event) => updateParams({ from: event.target.value })}
+          />
+          <Input
+            label="Đến ngày"
+            type="date"
+            value={params.to}
+            min={params.from || undefined}
+            onChange={(event) => updateParams({ to: event.target.value })}
+          />
+          <div className="filter-collapse-actions">
+            <Button variant="secondary" onClick={resetFilters}>
+              <SlidersHorizontal size={17} aria-hidden="true" />
+              Xóa bộ lọc
+            </Button>
+          </div>
         </div>
-      </section>
+      </FilterDisclosure>
 
       {query.isPending ? (
         <div role="status" aria-label="Đang tải danh sách buổi chờ xác nhận">

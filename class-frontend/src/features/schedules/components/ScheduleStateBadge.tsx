@@ -7,7 +7,7 @@ export const scheduleStatePresentation: Record<ScheduleState, { label: string; t
   {
     UPCOMING: { label: "Sắp tới", tone: "neutral" },
     TAUGHT: { label: "Đã dạy", tone: "success" },
-    MISSING_CHECK_IN: { label: "Chưa xác nhận buổi dạy", tone: "danger" },
+    MISSING_CHECK_IN: { label: "Chưa xác nhận", tone: "danger" },
     CANCELLED: { label: "Đã hủy", tone: "danger" },
   };
 

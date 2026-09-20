@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Eye,
   LockKeyhole,
   Plus,
   RotateCcw,
@@ -11,11 +12,14 @@ import {
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { managementRepository } from "../../services/repositories/managementRepository";
+import { formatDate, formatDateTime } from "../../shared/lib/format";
 import { roleLabels } from "../../shared/lib/permissions";
 import type { Account } from "../../shared/types/domain";
 import { Badge } from "../../shared/ui/Badge";
 import { Button } from "../../shared/ui/Button";
+import { FilterDisclosure } from "../../shared/ui/FilterDisclosure";
 import { Input } from "../../shared/ui/FormField";
+import { ListTable, type ListTableColumn } from "../../shared/ui/ListTable";
 import { Modal } from "../../shared/ui/Modal";
 import { Pagination } from "../../shared/ui/Pagination";
 import { PageSkeleton } from "../../shared/ui/Skeleton";
@@ -28,7 +32,12 @@ const profileLabels = {
   STUDENT: "Học sinh",
 } as const;
 
-type AccountSortColumn = "displayName" | "profileType" | "role" | "status";
+const accountRoleLabel = (account: Account): string =>
+  account.roles.length > 0
+    ? account.roles.map((role) => roleLabels[role]).join(", ")
+    : profileLabels[account.profileType];
+
+type AccountSortColumn = "displayName" | "profileType" | "createdAt";
 type SortDirection = "asc" | "desc";
 
 interface SortHeaderProps {
@@ -83,6 +92,7 @@ export const AccountListPage = () => {
     account: Account;
     kind: "status" | "reset";
   } | null>(null);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [reason, setReason] = useState("");
   const [password, setPassword] = useState("");
   const client = useQueryClient();
@@ -109,6 +119,75 @@ export const AccountListPage = () => {
     }));
     setPage(1);
   };
+
+  const accountColumns: ListTableColumn<Account>[] = [
+    {
+      id: "name",
+      header: (
+        <SortHeader
+          label="Tên"
+          column="displayName"
+          activeColumn={sort.column}
+          direction={sort.direction}
+          onSort={sortBy}
+        />
+      ),
+      ariaSort: ariaSort("displayName", sort.column, sort.direction),
+      className: "account-list-name-cell",
+      cell: (account) => (
+        <div className="account-list-name">
+          <strong>{account.displayName}</strong>
+          <small>@{account.username}</small>
+        </div>
+      ),
+    },
+    {
+      id: "role",
+      header: (
+        <SortHeader
+          label="Chức vụ"
+          column="profileType"
+          activeColumn={sort.column}
+          direction={sort.direction}
+          onSort={sortBy}
+        />
+      ),
+      ariaSort: ariaSort("profileType", sort.column, sort.direction),
+      className: "account-list-role-cell",
+      cell: (account) => <span className="account-list-role">{accountRoleLabel(account)}</span>,
+    },
+    {
+      id: "createdAt",
+      header: (
+        <SortHeader
+          label="Ngày tạo"
+          column="createdAt"
+          activeColumn={sort.column}
+          direction={sort.direction}
+          onSort={sortBy}
+        />
+      ),
+      ariaSort: ariaSort("createdAt", sort.column, sort.direction),
+      className: "account-list-created-cell",
+      cell: (account) => <span className="account-list-created">{formatDate(account.createdAt)}</span>,
+    },
+    {
+      id: "view",
+      header: "Xem",
+      className: "account-list-view-cell",
+      cell: (account) => (
+        <Button
+          variant="secondary"
+          className="account-list-view-button"
+          aria-label={`Xem chi tiết ${account.displayName}`}
+          onClick={() => setSelectedAccount(account)}
+        >
+          <Eye size={17} aria-hidden="true" />
+          <span>Xem chi tiết</span>
+        </Button>
+      ),
+    },
+  ];
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -139,6 +218,11 @@ export const AccountListPage = () => {
 
   if (query.isLoading) return <PageSkeleton />;
 
+  const openAction = (account: Account, kind: "status" | "reset") => {
+    setSelectedAccount(null);
+    setTarget({ account, kind });
+  };
+
   return (
     <section className="management-page">
       <header className="management-header">
@@ -153,44 +237,51 @@ export const AccountListPage = () => {
         </Link>
       </header>
 
-      <div className="filter-bar">
-        <label className="search-box">
-          <Search size={17} aria-hidden="true" />
-          <input
-            value={search}
+      <FilterDisclosure
+        label="Bộ lọc"
+        activeCount={[profile, status].filter(Boolean).length}
+        primary={
+          <label className="search-box">
+            <Search size={17} aria-hidden="true" />
+            <input
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Tên, tên đăng nhập, email hoặc mã…"
+            />
+          </label>
+        }
+      >
+        <div className="filter-collapse-grid">
+          <select
+            aria-label="Loại hồ sơ"
+            value={profile}
             onChange={(event) => {
-              setSearch(event.target.value);
+              setProfile(event.target.value);
               setPage(1);
             }}
-            placeholder="Tên, tên đăng nhập, email hoặc mã…"
-          />
-        </label>
-        <select
-          aria-label="Loại hồ sơ"
-          value={profile}
-          onChange={(event) => {
-            setProfile(event.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">Mọi loại hồ sơ</option>
-          <option value="STAFF">Nhân sự</option>
-          <option value="TEACHER">Giáo viên</option>
-          <option value="STUDENT">Học sinh</option>
-        </select>
-        <select
-          aria-label="Trạng thái tài khoản"
-          value={status}
-          onChange={(event) => {
-            setStatus(event.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">Mọi trạng thái</option>
-          <option value="ACTIVE">Hoạt động</option>
-          <option value="LOCKED">Đã khóa</option>
-        </select>
-      </div>
+          >
+            <option value="">Mọi loại hồ sơ</option>
+            <option value="STAFF">Nhân sự</option>
+            <option value="TEACHER">Giáo viên</option>
+            <option value="STUDENT">Học sinh</option>
+          </select>
+          <select
+            aria-label="Trạng thái tài khoản"
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">Mọi trạng thái</option>
+            <option value="ACTIVE">Hoạt động</option>
+            <option value="LOCKED">Đã khóa</option>
+          </select>
+        </div>
+      </FilterDisclosure>
 
       {query.isError ? (
         <StatePanel
@@ -208,100 +299,13 @@ export const AccountListPage = () => {
         />
       ) : (
         <>
-          <div className="data-table-wrap responsive-table-wrap account-list-table-wrap">
-            <table className="data-table responsive-card-table account-list-table">
-              <caption className="sr-only">Danh sách người dùng của trung tâm</caption>
-              <thead>
-                <tr>
-                  <th scope="col" aria-sort={ariaSort("displayName", sort.column, sort.direction)}>
-                    <SortHeader
-                      label="Tài khoản"
-                      column="displayName"
-                      activeColumn={sort.column}
-                      direction={sort.direction}
-                      onSort={sortBy}
-                    />
-                  </th>
-                  <th scope="col" aria-sort={ariaSort("profileType", sort.column, sort.direction)}>
-                    <SortHeader
-                      label="Hồ sơ"
-                      column="profileType"
-                      activeColumn={sort.column}
-                      direction={sort.direction}
-                      onSort={sortBy}
-                    />
-                  </th>
-                  <th scope="col" aria-sort={ariaSort("role", sort.column, sort.direction)}>
-                    <SortHeader
-                      label="Vai trò"
-                      column="role"
-                      activeColumn={sort.column}
-                      direction={sort.direction}
-                      onSort={sortBy}
-                    />
-                  </th>
-                  <th scope="col" aria-sort={ariaSort("status", sort.column, sort.direction)}>
-                    <SortHeader
-                      label="Trạng thái"
-                      column="status"
-                      activeColumn={sort.column}
-                      direction={sort.direction}
-                      onSort={sortBy}
-                    />
-                  </th>
-                  <th scope="col">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {query.data?.items.map((account) => (
-                  <tr key={account.id}>
-                    <td data-label="Tài khoản">
-                      <Link to={`${base}/${account.id}`}>
-                        <strong>{account.displayName}</strong>
-                      </Link>
-                      <small>
-                        @{account.username} {account.email && `· ${account.email}`}
-                      </small>
-                    </td>
-                    <td data-label="Hồ sơ">
-                      <strong>{account.code ?? profileLabels[account.profileType]}</strong>
-                      <small>{profileLabels[account.profileType]}</small>
-                    </td>
-                    <td data-label="Vai trò">
-                      <div className="badge-row">
-                        {account.roles.map((role) => (
-                          <Badge key={role}>{roleLabels[role]}</Badge>
-                        ))}
-                      </div>
-                    </td>
-                    <td data-label="Trạng thái">
-                      <Badge tone={account.status === "ACTIVE" ? "success" : "danger"}>
-                        {account.status === "ACTIVE" ? "Hoạt động" : "Đã khóa"}
-                      </Badge>
-                    </td>
-                    <td data-label="Thao tác">
-                      <div className="row-actions">
-                        <Button
-                          variant="secondary"
-                          onClick={() => setTarget({ account, kind: "status" })}
-                        >
-                          <LockKeyhole size={15} aria-hidden="true" />
-                          {account.status === "ACTIVE" ? "Khóa tài khoản" : "Mở lại tài khoản"}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => setTarget({ account, kind: "reset" })}
-                        >
-                          <RotateCcw size={15} aria-hidden="true" />
-                          Đặt lại mật khẩu
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ListTable
+            caption="Danh sách người dùng của trung tâm"
+            items={query.data?.items ?? []}
+            columns={accountColumns}
+            getRowKey={(account) => account.id}
+            className="account-user-list"
+          />
           {query.data ? (
             <Pagination
               page={query.data.page}
@@ -313,6 +317,104 @@ export const AccountListPage = () => {
           ) : null}
         </>
       )}
+
+      <Modal
+        open={Boolean(selectedAccount)}
+        title="Thông tin người dùng"
+        closeLabel="Đóng"
+        className="account-detail-modal"
+        onClose={() => setSelectedAccount(null)}
+      >
+        {selectedAccount ? (
+          <div className="account-detail">
+            <div className="account-detail-hero">
+              <span className="account-detail-avatar" aria-hidden="true">
+                {selectedAccount.displayName
+                  .trim()
+                  .split(/\s+/)
+                  .slice(-2)
+                  .map((part) => part[0])
+                  .join("")
+                  .toUpperCase()}
+              </span>
+              <div>
+                <h3>{selectedAccount.displayName}</h3>
+                <p>@{selectedAccount.username}</p>
+              </div>
+              <Badge tone={selectedAccount.status === "ACTIVE" ? "success" : "danger"}>
+                {selectedAccount.status === "ACTIVE" ? "Hoạt động" : "Đã khóa"}
+              </Badge>
+            </div>
+            <dl className="account-detail-grid">
+              <div>
+                <dt>Email</dt>
+                <dd>{selectedAccount.email || "Chưa cập nhật"}</dd>
+              </div>
+              <div>
+                <dt>Hồ sơ</dt>
+                <dd>
+                  {selectedAccount.code
+                    ? `${selectedAccount.code} · ${profileLabels[selectedAccount.profileType]}`
+                    : profileLabels[selectedAccount.profileType]}
+                </dd>
+              </div>
+              <div>
+                <dt>Vai trò</dt>
+                <dd className="badge-row">
+                  {selectedAccount.roles.map((role) => (
+                    <Badge key={role}>{roleLabels[role]}</Badge>
+                  ))}
+                </dd>
+              </div>
+              <div>
+                <dt>Trạng thái mật khẩu</dt>
+                <dd>
+                  {selectedAccount.passwordState === "MUST_CHANGE"
+                    ? "Cần đổi mật khẩu"
+                    : "Đang sử dụng"}
+                </dd>
+              </div>
+              {selectedAccount.profileType === "STUDENT" ? (
+                <>
+                  <div>
+                    <dt>Phụ huynh</dt>
+                    <dd>{selectedAccount.parentName || "Chưa cập nhật"}</dd>
+                  </div>
+                  <div>
+                    <dt>Số điện thoại phụ huynh</dt>
+                    <dd>{selectedAccount.parentPhone || "Chưa cập nhật"}</dd>
+                  </div>
+                </>
+              ) : null}
+              <div>
+                <dt>Lần đăng nhập gần nhất</dt>
+                <dd>
+                  {selectedAccount.lastLoginAt
+                    ? formatDateTime(selectedAccount.lastLoginAt)
+                    : "Chưa ghi nhận"}
+                </dd>
+              </div>
+              <div>
+                <dt>Ngày tạo</dt>
+                <dd>{formatDate(selectedAccount.createdAt)}</dd>
+              </div>
+            </dl>
+            <div className="account-detail-actions">
+              <Link className="button button-secondary" to={`${base}/${selectedAccount.id}`}>
+                Chỉnh sửa
+              </Link>
+              <Button variant="secondary" onClick={() => openAction(selectedAccount, "status")}>
+                <LockKeyhole size={15} aria-hidden="true" />
+                {selectedAccount.status === "ACTIVE" ? "Khóa tài khoản" : "Mở lại tài khoản"}
+              </Button>
+              <Button variant="ghost" onClick={() => openAction(selectedAccount, "reset")}>
+                <RotateCcw size={15} aria-hidden="true" />
+                Đặt lại mật khẩu
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
 
       <Modal
         open={Boolean(target)}

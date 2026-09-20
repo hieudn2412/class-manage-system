@@ -15,7 +15,13 @@ class ScheduleStateResolver {
         this.clock = clock;
     }
 
-    ScheduleState resolve(OffsetDateTime startAt, boolean checkedIn) {
+    ScheduleState resolve(OffsetDateTime startAt, String status, boolean checkedIn) {
+        if ("CANCELLED".equals(status)) {
+            return ScheduleState.CANCELLED;
+        }
+        if ("COMPLETED".equals(status)) {
+            return ScheduleState.TAUGHT;
+        }
         OffsetDateTime now = OffsetDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
         if (now.isBefore(startAt)) {
             return ScheduleState.UPCOMING;

@@ -3,6 +3,7 @@ package com.classops.backend.identity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,10 +36,21 @@ public class ProfileController {
         return auth.changeOwnPassword(request.currentPassword(), request.newPassword());
     }
 
+    @PutMapping("/email")
+    @Operation(summary = "Update the current account email")
+    ProfileService.SelfProfile updateEmail(@Valid @RequestBody EmailUpdateRequest request) {
+        return profiles.updateEmail(request.email());
+    }
+
     public record PasswordChangeRequest(
         @NotBlank(message = "Vui lòng nhập mật khẩu hiện tại.") String currentPassword,
         @NotBlank(message = "Vui lòng nhập mật khẩu mới.")
         @Size(min = 8, message = "Mật khẩu mới phải có ít nhất 8 ký tự.") String newPassword
+    ) {
+    }
+
+    public record EmailUpdateRequest(
+        @Email(message = "Email chưa đúng định dạng.") String email
     ) {
     }
 }

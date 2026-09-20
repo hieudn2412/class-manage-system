@@ -34,6 +34,10 @@ afterEach(() => {
 describe("hồ sơ cá nhân", () => {
   it("hiển thị dữ liệu theo vai trò và đổi mật khẩu thành công", async () => {
     vi.spyOn(profileRepository, "me").mockResolvedValue(studentProfile);
+    vi.spyOn(profileRepository, "updateEmail").mockResolvedValue({
+      ...studentProfile,
+      email: "minh.anh@example.vn",
+    });
     vi.spyOn(profileRepository, "changePassword").mockResolvedValue(createTestSession(studentUser));
     const user = userEvent.setup();
 
@@ -43,6 +47,16 @@ describe("hồ sơ cá nhân", () => {
     expect(screen.getByText("HS-0001")).toBeVisible();
     expect(screen.getByText("Nguyễn Văn An")).toBeVisible();
     expect(screen.getByText("0909000000")).toBeVisible();
+
+    const emailInput = screen.getByLabelText("Email");
+    await user.clear(emailInput);
+    await user.type(emailInput, "minh.anh@example.vn");
+    await user.click(screen.getByRole("button", { name: "Lưu email" }));
+
+    expect(profileRepository.updateEmail).toHaveBeenCalledWith({
+      email: "minh.anh@example.vn",
+    });
+    expect(await screen.findByText("Đã cập nhật email liên hệ.")).toBeVisible();
 
     await user.type(screen.getByLabelText("Mật khẩu hiện tại"), "123456");
     await user.type(screen.getByLabelText("Mật khẩu mới"), "Student@2026");

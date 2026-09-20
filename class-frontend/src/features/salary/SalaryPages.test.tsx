@@ -85,7 +85,26 @@ const ownSalary: TeacherPayrollDetail = {
   payments: [],
 };
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+const useMobileViewport = () => {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches: query === "(max-width: 767px)",
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
+};
 
 const tenantRoutes = (element: React.ReactNode) => (
   <Routes>
@@ -107,6 +126,121 @@ const textEqualsIgnoringCurrencySpaces =
     element?.textContent?.replace(/[\s\u00a0\u202f]+/g, " ").trim() === expected;
 
 describe("FL-12 salary pages", () => {
+  it("tìm kiếm realtime khi người dùng nhập", async () => {
+    saveSession(createTestSession(), false);
+    vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
+    const list = vi.spyOn(salaryRepository, "payroll").mockResolvedValue(payroll);
+
+    renderWithProviders(tenantRoutes(<SalaryPayrollPage />), [
+      "/t/anh-duong/app/salary-test?month=2026-08",
+    ]);
+
+    await screen.findByRole("heading", { name: "Lương phát sinh và đã trả" });
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(screen.getByLabelText("Tìm giáo viên"), { target: { value: "C" } });
+    fireEvent.change(screen.getByLabelText("Tìm giáo viên"), { target: { value: "Cô" } });
+    fireEvent.change(screen.getByLabelText("Tìm giáo viên"), { target: { value: "Cô Lan" } });
+
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(4), { timeout: 1000 });
+    expect(list).toHaveBeenLastCalledWith(
+      "anh-duong",
+      expect.objectContaining({ search: "Cô Lan", page: 1 }),
+    );
+  });
+
+  it("hiển thị bảng lương mobile ba cột, chọn cả trang và mở tóm tắt", async () => {
+    useMobileViewport();
+    saveSession(createTestSession(), false);
+    vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
+    vi.spyOn(salaryRepository, "payroll").mockResolvedValue({
+      ...payroll,
+      teachers: {
+        ...payroll.teachers,
+        items: [
+          payroll.teachers.items[0]!,
+          {
+            ...payroll.teachers.items[0]!,
+            teacherId: "teacher-owed",
+            teacherName: "Cô Mai",
+            due: 500000,
+            paid: 0,
+            outstanding: 500000,
+            status: "OWED",
+            emailAvailable: false,
+          },
+          {
+            ...payroll.teachers.items[0]!,
+            teacherId: "teacher-settled",
+            teacherName: "Cô An",
+            due: 300000,
+            paid: 300000,
+            outstanding: 0,
+            status: "SETTLED",
+          },
+        ],
+        totalItems: 3,
+      },
+    });
+    const user = userEvent.setup();
+
+    renderWithProviders(tenantRoutes(<SalaryPayrollPage />), [
+      "/t/anh-duong/app/salary-test?month=2026-08",
+    ]);
+
+    const table = await screen.findByRole("table", { name: "Danh sách lương giáo viên" });
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(3);
+    expect(within(table).getByRole("columnheader", { name: "Giáo viên" })).toBeVisible();
+    expect(within(table).getByRole("columnheader", { name: "Tổng lương" })).toBeVisible();
+    expect(within(table).getByRole("columnheader", { name: "Xem" })).toBeVisible();
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+    expect(within(table).queryByText("Có thể gửi email")).not.toBeInTheDocument();
+    expect(within(table).getAllByText(textEqualsIgnoringCurrencySpaces("300.000 ₫")).length)
+      .toBeGreaterThan(0);
+
+    const missingEmailCheckbox = screen.getByRole("checkbox", {
+      name: "Chọn Cô Mai để gửi thông báo lương",
+    });
+    expect(missingEmailCheckbox).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Chọn tất cả (2)" }));
+    expect(screen.getByRole("checkbox", {
+      name: "Chọn Cô Lan để gửi thông báo lương",
+    })).toBeChecked();
+    expect(screen.getByRole("checkbox", {
+      name: "Chọn Cô An để gửi thông báo lương",
+    })).toBeChecked();
+    expect(screen.getByRole("button", {
+      name: "Gửi thông báo lương cho 2 giáo viên đã chọn",
+    })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Bỏ chọn trang này" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Xem lương của Cô Lan" }));
+    let dialog = await screen.findByRole("dialog", { name: "Tóm tắt lương" });
+    expect(within(dialog).getByText("Cô Lan")).toBeVisible();
+    expect(within(dialog).getByText("Trả thừa")).toBeVisible();
+    expect(within(dialog).getByRole("link", { name: "Xem chi tiết đầy đủ" })).toHaveAttribute(
+      "href",
+      "/t/anh-duong/app/finance/salaries/teacher-fl12?month=2026-08",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Đóng" }));
+
+    await user.click(screen.getByRole("button", { name: "Xem lương của Cô Mai" }));
+    dialog = await screen.findByRole("dialog", { name: "Tóm tắt lương" });
+    expect(within(dialog).getByText("Còn phải trả")).toBeVisible();
+    expect(within(dialog).getByText("Chưa có email")).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Đóng" }));
+
+    await user.click(screen.getByRole("button", { name: "Xem lương của Cô An" }));
+    dialog = await screen.findByRole("dialog", { name: "Tóm tắt lương" });
+    expect(within(dialog).getByText("Đã cân bằng")).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Đóng" }));
+
+    await user.click(screen.getByRole("button", { name: "Bỏ chọn trang này" }));
+    expect(screen.getByRole("checkbox", {
+      name: "Chọn Cô Lan để gửi thông báo lương",
+    })).not.toBeChecked();
+  });
+
   it("WF-15 hiển thị trả thừa và giữ kỳ trên URL", async () => {
     saveSession(createTestSession(), false);
     vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
@@ -120,7 +254,17 @@ describe("FL-12 salary pages", () => {
     expect(
       screen.getAllByText(textEqualsIgnoringCurrencySpaces("-100.000 ₫")).length,
     ).toBeGreaterThan(0);
-    await userEvent.setup().selectOptions(screen.getByLabelText("Lọc trạng thái"), "OVERPAID");
+    const table = screen.getByRole("table", { name: "Bảng lương giáo viên" });
+    expect(within(table).queryByRole("columnheader", { name: "Cộng hoặc trừ" }))
+      .not.toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Còn lại" }))
+      .not.toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Email thông báo" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chọn tất cả (1)" })).toBeVisible();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Bộ lọc/ }));
+    await user.selectOptions(screen.getByLabelText("Lọc trạng thái"), "OVERPAID");
     await waitFor(() =>
       expect(list).toHaveBeenLastCalledWith(
         "anh-duong",
@@ -239,7 +383,10 @@ describe("FL-12 salary pages", () => {
     ]);
 
     await screen.findByRole("heading", { name: "Lương phát sinh và đã trả" });
-    await userEvent.setup().click(screen.getByRole("button", { name: "Gửi email" }));
+    await userEvent.setup().click(screen.getByLabelText("Chọn Cô Lan để gửi thông báo lương"));
+    await userEvent.setup().click(screen.getByRole("button", {
+      name: "Gửi thông báo lương cho 1 giáo viên đã chọn",
+    }));
     expect(screen.getByText("Thông báo của kỳ này đã được tạo trước đó")).toBeVisible();
     await userEvent.setup().type(screen.getByLabelText(/Ngày dự kiến thanh toán/), "2026-09-15");
     await userEvent.setup().click(screen.getByRole("button", { name: "Xác nhận gửi lại" }));

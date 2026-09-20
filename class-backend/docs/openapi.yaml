@@ -330,7 +330,7 @@ paths:
       operationId: listTenantAccounts
       summary: Tìm, lọc và phân trang tài khoản tenant
       tags: [Tenant accounts]
-      parameters: [{$ref: "#/components/parameters/Search"}, {$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}, {name: status, in: query, schema: {type: string}}, {name: role, in: query, schema: {type: string}}, {name: profileType, in: query, schema: {type: string}}]
+      parameters: [{$ref: "#/components/parameters/Search"}, {$ref: "#/components/parameters/Page"}, {$ref: "#/components/parameters/PageSize"}, {name: status, in: query, schema: {type: string}}, {name: role, in: query, schema: {type: string}}, {name: profileType, in: query, schema: {type: string}}, {name: sort, in: query, schema: {type: string, enum: ["displayName,asc", "displayName,desc", "profileType,asc", "profileType,desc", "createdAt,asc", "createdAt,desc"], default: "createdAt,desc"}}]
       responses: {"200": {description: PageResponse tài khoản trong tenant JWT}}
     post:
       operationId: createTenantAccount
@@ -490,6 +490,28 @@ paths:
           content:
             application/json:
               schema: {$ref: "#/components/schemas/AuthSession"}
+        "400": {$ref: "#/components/responses/ValidationError"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "409": {$ref: "#/components/responses/Conflict"}
+  /profile/me/email:
+    put:
+      operationId: updateMyEmail
+      tags: [Personal profile]
+      summary: Cập nhật email liên hệ của tài khoản đang đăng nhập
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: {type: [string, "null"], format: email}
+      responses:
+        "200":
+          description: Hồ sơ sau khi cập nhật email
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/SelfProfile"}
         "400": {$ref: "#/components/responses/ValidationError"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "409": {$ref: "#/components/responses/Conflict"}

@@ -121,6 +121,7 @@ describe("responsive teaching lists", () => {
       expect.objectContaining({ status: "ACTIVE", role: "PRIMARY", page: 2 }),
     );
 
+    await user.click(screen.getByRole("button", { name: /Bộ lọc/ }));
     await user.selectOptions(screen.getByLabelText("Trạng thái lớp"), "CLOSED");
     await waitFor(() =>
       expect(screen.getByTestId("location-search")).toHaveTextContent(

@@ -365,6 +365,12 @@ export const SessionOperationsPage = () => {
   const canCorrectCompletion = Boolean(
     session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_SESSION_SCHEDULE),
   );
+  const hasManagementActions =
+    (detail.canVerify && detail.status === "PENDING_CONFIRMATION") ||
+    (detail.status === "COMPLETED" && canCorrectCompletion) ||
+    detail.allowedActions.includes("SUBSTITUTE_TEACHER") ||
+    detail.allowedActions.includes("CANCEL_SESSION") ||
+    detail.allowedActions.includes("CREATE_MAKEUP");
   const closeVerification = () => {
     setVerificationOpen(false);
     if (verificationRequested) {
@@ -375,20 +381,58 @@ export const SessionOperationsPage = () => {
   };
   return (
     <div className="teaching-page session-operations-page">
-      <Link
-        className="back-link"
-        to={
-          detail.actualTeacher
-            ? `/t/${tenant.slug}/app/my-classes/${detail.classId}`
-            : `/t/${tenant.slug}/app/schedule`
-        }
-      >
-        <ArrowLeft size={17} aria-hidden="true" />
-        Quay lại lịch sử buổi
-      </Link>
+      <div className="session-page-toolbar">
+        <Link
+          className="back-link"
+          to={
+            detail.actualTeacher
+              ? `/t/${tenant.slug}/app/my-classes/${detail.classId}`
+              : `/t/${tenant.slug}/app/schedule`
+          }
+        >
+          <ArrowLeft size={17} aria-hidden="true" />
+          Quay lại lịch sử buổi
+        </Link>
+        {hasManagementActions ? (
+          <div className="session-management-actions" aria-label="Thao tác quản lý buổi học">
+            {detail.canVerify && detail.status === "PENDING_CONFIRMATION" ? (
+              <Button onClick={() => setVerificationOpen(true)}>
+                <ClipboardCheck size={18} aria-hidden="true" />
+                Xử lý xác nhận
+              </Button>
+            ) : null}
+            {detail.status === "COMPLETED" && canCorrectCompletion ? (
+              <Button variant="secondary" onClick={() => setCorrectionOpen(true)}>
+                <Pencil size={18} aria-hidden="true" />
+                Sửa dữ liệu hoàn tất
+              </Button>
+            ) : null}
+            {detail.allowedActions.includes("SUBSTITUTE_TEACHER") ? (
+              <Button
+                variant="secondary"
+                onClick={() => setSessionMutationAction("SUBSTITUTE_TEACHER")}
+              >
+                <UserRoundCheck size={18} aria-hidden="true" />
+                Thay giáo viên
+              </Button>
+            ) : null}
+            {detail.allowedActions.includes("CANCEL_SESSION") ? (
+              <Button variant="danger" onClick={() => setSessionMutationAction("CANCEL_SESSION")}>
+                <XCircle size={18} aria-hidden="true" />
+                Hủy / xếp bù
+              </Button>
+            ) : null}
+            {detail.allowedActions.includes("CREATE_MAKEUP") ? (
+              <Button variant="secondary" onClick={() => setSessionMutationAction("CREATE_MAKEUP")}>
+                <CalendarPlus size={18} aria-hidden="true" />
+                Tạo buổi bù
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
       <section className="panel session-hero" aria-labelledby="session-title">
         <div className="session-hero-copy">
-          <p className="eyebrow">{detail.classCode}</p>
           <h1 className="page-title" id="session-title">
             {detail.className} <span>· Buổi {detail.ordinal}</span>
           </h1>
@@ -448,39 +492,6 @@ export const SessionOperationsPage = () => {
             <Button variant="secondary" onClick={() => setHomeworkOpen(true)}>
               <ClipboardPlus size={18} aria-hidden="true" />
               Giao bài tập
-            </Button>
-          ) : null}
-          {detail.canVerify && detail.status === "PENDING_CONFIRMATION" ? (
-            <Button onClick={() => setVerificationOpen(true)}>
-              <ClipboardCheck size={18} aria-hidden="true" />
-              Xử lý xác nhận
-            </Button>
-          ) : null}
-          {detail.status === "COMPLETED" && canCorrectCompletion ? (
-            <Button variant="secondary" onClick={() => setCorrectionOpen(true)}>
-              <Pencil size={18} aria-hidden="true" />
-              Sửa dữ liệu hoàn tất
-            </Button>
-          ) : null}
-          {detail.allowedActions.includes("SUBSTITUTE_TEACHER") ? (
-            <Button
-              variant="secondary"
-              onClick={() => setSessionMutationAction("SUBSTITUTE_TEACHER")}
-            >
-              <UserRoundCheck size={18} aria-hidden="true" />
-              Thay giáo viên
-            </Button>
-          ) : null}
-          {detail.allowedActions.includes("CANCEL_SESSION") ? (
-            <Button variant="danger" onClick={() => setSessionMutationAction("CANCEL_SESSION")}>
-              <XCircle size={18} aria-hidden="true" />
-              Hủy / xếp bù
-            </Button>
-          ) : null}
-          {detail.allowedActions.includes("CREATE_MAKEUP") ? (
-            <Button variant="secondary" onClick={() => setSessionMutationAction("CREATE_MAKEUP")}>
-              <CalendarPlus size={18} aria-hidden="true" />
-              Tạo buổi bù
             </Button>
           ) : null}
         </div>

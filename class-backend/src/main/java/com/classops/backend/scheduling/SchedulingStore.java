@@ -372,11 +372,7 @@ public class SchedulingStore {
             .param("month", month == null || month.isBlank() ? null : month)
             .param("status", dbStatus).param("teacherId", teacherId)
             .query(Long.class).single();
-        String order = switch (sort == null ? "name" : sort) {
-            case "progress" -> "completed_sessions DESC, c.name";
-            case "expectedEndDate" -> "c.expected_end_date NULLS LAST, c.name";
-            default -> "c.name";
-        };
+        String order = classListOrder(sort);
         String listSql = """
                 SELECT c.id, c.code, c.name, c.total_sessions, c.expected_end_date, c.status,
                        t.id AS teacher_id, u.display_name AS teacher_name,
@@ -410,6 +406,25 @@ public class SchedulingStore {
                 sessionMonths(tenantId, rs.getObject("id", UUID.class))))
             .list();
         return PageResponse.of(items, page, pageSize, total);
+    }
+
+    private String classListOrder(String sort) {
+        String normalized = sort == null || sort.isBlank() ? "name,asc" : sort.trim();
+        String[] parts = normalized.split(",", 2);
+        String column = parts[0];
+        String direction = parts.length > 1 && "desc".equalsIgnoreCase(parts[1]) ? "DESC" : "ASC";
+        String tieBreaker = "ASC".equals(direction) ? "ASC" : "DESC";
+        String completedSessions = """
+                (SELECT count(*) FROM class_sessions ps
+                 WHERE ps.tenant_id=c.tenant_id AND ps.class_id=c.id AND ps.status='COMPLETED')
+                """;
+        return switch (column) {
+            case "progress" -> "(%s::numeric / NULLIF(c.total_sessions, 0)) %s NULLS LAST, %s %s, lower(c.name) ASC"
+                .formatted(completedSessions, direction, completedSessions, direction);
+            case "expectedEndDate" -> "c.expected_end_date %s NULLS LAST, lower(c.name) ASC"
+                .formatted(direction);
+            default -> "lower(c.name) %s, c.name %s".formatted(direction, tieBreaker);
+        };
     }
 
     Optional<SessionRow> sessionForUpdate(UUID tenantId, UUID sessionId) {
@@ -476,9 +491,7 @@ public class SchedulingStore {
                     rs.getBoolean("is_substitution"),
                     rs.getObject("replaces_session_id", UUID.class) != null,
                     status,
-                    "CANCELLED".equals(status)
-                        ? SchedulingDtos.ScheduleState.CANCELLED
-                        : scheduleStateResolver.resolve(startAt, checkedIn),
+                    scheduleStateResolver.resolve(startAt, status, checkedIn),
                     rs.getObject("makeup_root_session_id", UUID.class),
                     rs.getObject("replaces_session_id", UUID.class),
                     replacementId,
