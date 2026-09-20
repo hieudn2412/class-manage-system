@@ -7,6 +7,7 @@ import { teachingRepository } from "../../services/repositories/teachingReposito
 import { formatDate } from "../../shared/lib/format";
 import { Badge } from "../../shared/ui/Badge";
 import { Button } from "../../shared/ui/Button";
+import { FilterDisclosure } from "../../shared/ui/FilterDisclosure";
 import { Input, Select } from "../../shared/ui/FormField";
 import { PageHeader } from "../../shared/ui/PageHeader";
 import { Pagination } from "../../shared/ui/Pagination";
@@ -71,35 +72,50 @@ export const MyClassesPage = () => {
         </section>
       ) : null}
       <section className="panel-flat teaching-filter-panel" aria-label="Tìm và lọc lớp">
-        <div className="teacher-class-filters">
-          <Input
-            label="Tìm theo tên hoặc mã lớp"
-            value={search}
-            onChange={(event) => setFilter("search", event.target.value)}
-            placeholder="Ví dụ: Toán tư duy"
-          />
-          <Select
-            label="Trạng thái lớp"
-            value={status}
-            onChange={(e) => setFilter("status", e.target.value)}
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="SCHEDULED">Đã xếp lịch</option>
-            <option value="ACTIVE">Đang dạy</option>
-            <option value="AWAITING_CLOSE">Chờ kết thúc</option>
-            <option value="CLOSED">Đã đóng</option>
-            <option value="CANCELLED">Đã hủy</option>
-          </Select>
-          <Select
-            label="Vai trò giảng dạy"
-            value={role}
-            onChange={(e) => setFilter("role", e.target.value)}
-          >
-            <option value="">Tất cả vai trò</option>
-            <option value="PRIMARY">Giáo viên chính</option>
-            <option value="ACTUAL">Đã trực tiếp dạy</option>
-          </Select>
-        </div>
+        <FilterDisclosure
+          label="Bộ lọc"
+          activeCount={[status, role].filter(Boolean).length}
+          primary={
+            <Input
+              label="Tìm theo tên hoặc mã lớp"
+              value={search}
+              onChange={(event) => setFilter("search", event.target.value)}
+              placeholder="Ví dụ: Toán tư duy"
+            />
+          }
+        >
+          <div className="filter-collapse-grid teacher-class-filters">
+            <Select
+              label="Trạng thái lớp"
+              value={status}
+              onChange={(e) => setFilter("status", e.target.value)}
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="SCHEDULED">Đã xếp lịch</option>
+              <option value="ACTIVE">Đang dạy</option>
+              <option value="AWAITING_CLOSE">Chờ kết thúc</option>
+              <option value="CLOSED">Đã đóng</option>
+              <option value="CANCELLED">Đã hủy</option>
+            </Select>
+            <Select
+              label="Vai trò giảng dạy"
+              value={role}
+              onChange={(e) => setFilter("role", e.target.value)}
+            >
+              <option value="">Tất cả vai trò</option>
+              <option value="PRIMARY">Giáo viên chính</option>
+              <option value="ACTUAL">Đã trực tiếp dạy</option>
+            </Select>
+            {hasFilters ? (
+              <div className="filter-collapse-actions">
+                <Button variant="ghost" onClick={() => setParams(new URLSearchParams({ page: "1" }))}>
+                  <FilterX size={16} aria-hidden="true" />
+                  Xóa bộ lọc
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </FilterDisclosure>
         <div className="teaching-filter-summary" aria-live="polite">
           <span>
             {query.data ? (
@@ -110,12 +126,6 @@ export const MyClassesPage = () => {
               "Đang cập nhật danh sách"
             )}
           </span>
-          {hasFilters ? (
-            <Button variant="ghost" onClick={() => setParams(new URLSearchParams({ page: "1" }))}>
-              <FilterX size={16} aria-hidden="true" />
-              Xóa bộ lọc
-            </Button>
-          ) : null}
         </div>
       </section>
 

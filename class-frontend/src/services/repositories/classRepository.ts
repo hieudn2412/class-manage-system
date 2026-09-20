@@ -20,7 +20,7 @@ export interface ClassListParams {
   teacherId: string;
   page: number;
   pageSize: number;
-  sort: "name" | "progress" | "expectedEndDate";
+  sort: string;
 }
 
 export interface ClassRepository {

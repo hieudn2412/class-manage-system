@@ -8,6 +8,7 @@ import { ApiError } from "../../../shared/types/api";
 import type { EnrollmentItem, LifecycleWarning } from "../../../shared/types/domain";
 import { Badge } from "../../../shared/ui/Badge";
 import { Button } from "../../../shared/ui/Button";
+import { FilterDisclosure } from "../../../shared/ui/FilterDisclosure";
 import { Modal } from "../../../shared/ui/Modal";
 import { Pagination } from "../../../shared/ui/Pagination";
 import { PageSkeleton } from "../../../shared/ui/Skeleton";
@@ -147,7 +148,26 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
           <Badge>Kế toán · chỉ đọc</Badge>
         )}
       </div>
-      <div className="enrollment-filters">
+      <FilterDisclosure
+        label="Bộ lọc"
+        className="enrollment-filters"
+        activeCount={scope === "History" ? 1 : 0}
+        primary={
+          <label className="student-search enrollment-search">
+            <span className="sr-only">Tìm học sinh</span>
+            <input
+              className="control"
+              value={search}
+              placeholder="Tên hoặc mã học sinh"
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+            />
+            <Search size={18} aria-hidden="true" />
+          </label>
+        }
+      >
         <div className="tabs compact-tabs" role="tablist" aria-label="Phạm vi danh sách học sinh">
           {(["Active", "History"] as const).map((value) => (
             <button
@@ -165,20 +185,7 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
             </button>
           ))}
         </div>
-        <label className="student-search enrollment-search">
-          <span className="sr-only">Tìm học sinh</span>
-          <input
-            className="control"
-            value={search}
-            placeholder="Tên hoặc mã học sinh"
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-          />
-          <Search size={18} aria-hidden="true" />
-        </label>
-      </div>
+      </FilterDisclosure>
 
       {roster.isPending ? <PageSkeleton /> : null}
       {roster.isError ? (

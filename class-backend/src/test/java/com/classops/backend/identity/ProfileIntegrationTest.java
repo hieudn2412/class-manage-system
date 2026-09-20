@@ -87,6 +87,17 @@ class ProfileIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.profileType").value("TEACHER"))
             .andExpect(jsonPath("$.code").value("GV-0001"));
+        mvc.perform(put("/api/v1/profile/me/email")
+                .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"admin@profile.vn\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"))
+            .andExpect(jsonPath("$.fieldErrors.email").exists());
+        mvc.perform(put("/api/v1/profile/me/email")
+                .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"teacher.self@profile.vn\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.email").value("teacher.self@profile.vn"));
 
         String studentToken = login("/api/v1/auth/login", "student.profile", "123456", "ho-so");
         mvc.perform(get("/api/v1/profile/me").header("Authorization", bearer(studentToken)))
@@ -148,6 +159,12 @@ class ProfileIntegrationTest {
             .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/v1/profile/me").header("Authorization", bearer(freshPlatformToken)))
             .andExpect(status().isOk());
+        mvc.perform(put("/api/v1/profile/me/email")
+                .header("Authorization", bearer(freshPlatformToken)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"superadmin@profile.vn\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.scope").value("PLATFORM"))
+            .andExpect(jsonPath("$.email").value("superadmin@profile.vn"));
 
         jdbc.sql("""
                 UPDATE platform_users SET password_state='MUST_CHANGE', token_version=token_version+1

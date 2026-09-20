@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, KeyRound, ShieldCheck, UserRound } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, KeyRound, Mail, ShieldCheck, UserRound } from "lucide-react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useAuth } from "../../app/providers/AuthProvider";
@@ -33,6 +34,17 @@ const passwordSchema = z
   });
 
 type PasswordForm = z.infer<typeof passwordSchema>;
+
+const emailSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), {
+      message: "Email chưa đúng định dạng.",
+    }),
+});
+
+type EmailForm = z.infer<typeof emailSchema>;
 
 const profileTypeLabels = {
   STAFF: "Nhân sự trung tâm",
@@ -86,7 +98,7 @@ const ProfileDetails = ({ profile }: { profile: SelfProfile }) => (
       <InfoItem label="Họ và tên" value={profile.displayName} />
       <InfoItem label="Tên đăng nhập" value={profile.username} />
       {profile.tenant ? <InfoItem label="Trung tâm" value={profile.tenant.name} /> : null}
-      {profile.scope === "TENANT" ? <InfoItem label="Email" value={profile.email} /> : null}
+      <InfoItem label="Email" value={profile.email} />
       {profile.profileType ? (
         <InfoItem label="Loại tài khoản" value={profileTypeLabels[profile.profileType]} />
       ) : null}
@@ -128,11 +140,22 @@ const ProfileDetails = ({ profile }: { profile: SelfProfile }) => (
 export const ProfilePage = () => {
   const { setChangedPasswordSession } = useAuth();
   const { showToast } = useToast();
+  const client = useQueryClient();
   const profileQuery = useQuery({ queryKey: ["self-profile"], queryFn: profileRepository.me });
+  const {
+    register: registerEmail,
+    handleSubmit: handleEmailSubmit,
+    reset: resetEmail,
+    setError: setEmailError,
+    formState: { errors: emailErrors },
+  } = useForm<EmailForm>({
+    resolver: zodResolver(emailSchema),
+    defaultValues: { email: "" },
+  });
   const {
     register,
     handleSubmit,
-    reset,
+    reset: resetPassword,
     setError,
     formState: { errors, isSubmitting },
   } = useForm<PasswordForm>({
@@ -140,11 +163,39 @@ export const ProfilePage = () => {
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
   });
 
+  useEffect(() => {
+    if (profileQuery.data) resetEmail({ email: profileQuery.data.email ?? "" });
+  }, [profileQuery.data, resetEmail]);
+
+  const emailMutation = useMutation({
+    mutationFn: (input: EmailForm) => profileRepository.updateEmail(input),
+    onSuccess: (updatedProfile) => {
+      client.setQueryData(["self-profile"], updatedProfile);
+      resetEmail({ email: updatedProfile.email ?? "" });
+      showToast("Đã cập nhật email liên hệ.");
+    },
+    onError: (caught) => {
+      if (caught instanceof ApiError) {
+        if (caught.fieldErrors?.email) {
+          setEmailError("email", { message: caught.fieldErrors.email });
+        } else {
+          setEmailError("root", { message: caught.message });
+        }
+        return;
+      }
+      setEmailError("root", { message: "Không thể cập nhật email. Vui lòng thử lại." });
+    },
+  });
+
+  const onEmailSubmit = handleEmailSubmit(({ email }) => {
+    emailMutation.mutate({ email });
+  });
+
   const onSubmit = handleSubmit(async ({ currentPassword, newPassword }) => {
     try {
       const nextSession = await profileRepository.changePassword({ currentPassword, newPassword });
       setChangedPasswordSession(nextSession);
-      reset();
+      resetPassword();
       showToast("Đã đổi mật khẩu. Các phiên đăng nhập cũ đã được đăng xuất.");
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -187,61 +238,102 @@ export const ProfilePage = () => {
       />
       <div className="profile-layout">
         <ProfileDetails profile={profileQuery.data} />
-        <section
-          className="profile-card profile-security-card"
-          aria-labelledby="profile-password-title"
-        >
-          <div className="profile-section-heading">
-            <span className="profile-security-icon" aria-hidden="true">
-              <ShieldCheck size={22} />
-            </span>
-            <div>
-              <h2 id="profile-password-title">Đổi mật khẩu</h2>
-              <p>Dùng mật khẩu chỉ bạn biết để bảo vệ tài khoản.</p>
-            </div>
-          </div>
-          <form
-            className="profile-password-form"
-            onSubmit={(event) => void onSubmit(event)}
-            noValidate
-          >
-            <div className="profile-security-note">
-              <KeyRound size={18} aria-hidden="true" />
-              <p>Sau khi đổi mật khẩu, các phiên đăng nhập cũ sẽ tự động hết hiệu lực.</p>
-            </div>
-            {errors.root?.message ? (
-              <div className="form-alert" role="alert">
-                <AlertTriangle size={18} aria-hidden="true" />
-                <span>{errors.root.message}</span>
+        <div className="profile-side-stack">
+          <section className="profile-card profile-contact-card" aria-labelledby="profile-email-title">
+            <div className="profile-section-heading">
+              <span className="profile-security-icon" aria-hidden="true">
+                <Mail size={22} />
+              </span>
+              <div>
+                <h2 id="profile-email-title">Email liên hệ</h2>
+                <p>Email dùng để nhận thông báo và hỗ trợ khôi phục tài khoản.</p>
               </div>
-            ) : null}
-            <Input
-              label="Mật khẩu hiện tại"
-              type="password"
-              autoComplete="current-password"
-              error={errors.currentPassword?.message}
-              {...register("currentPassword")}
-            />
-            <Input
-              label="Mật khẩu mới"
-              type="password"
-              autoComplete="new-password"
-              hint="Tối thiểu 8 ký tự và khác mật khẩu hiện tại."
-              error={errors.newPassword?.message}
-              {...register("newPassword")}
-            />
-            <Input
-              label="Nhập lại mật khẩu mới"
-              type="password"
-              autoComplete="new-password"
-              error={errors.confirmPassword?.message}
-              {...register("confirmPassword")}
-            />
-            <Button type="submit" loading={isSubmitting} className="profile-submit-button">
-              Đổi mật khẩu
-            </Button>
-          </form>
-        </section>
+            </div>
+            <form
+              className="profile-password-form"
+              onSubmit={(event) => void onEmailSubmit(event)}
+              noValidate
+            >
+              {emailErrors.root?.message ? (
+                <div className="form-alert" role="alert">
+                  <AlertTriangle size={18} aria-hidden="true" />
+                  <span>{emailErrors.root.message}</span>
+                </div>
+              ) : null}
+              <Input
+                label="Email"
+                type="email"
+                autoComplete="email"
+                placeholder="ten@example.com"
+                hint="Để trống nếu bạn chưa muốn lưu email."
+                error={emailErrors.email?.message}
+                {...registerEmail("email")}
+              />
+              <Button
+                type="submit"
+                loading={emailMutation.isPending}
+                className="profile-submit-button"
+              >
+                Lưu email
+              </Button>
+            </form>
+          </section>
+          <section
+            className="profile-card profile-security-card"
+            aria-labelledby="profile-password-title"
+          >
+            <div className="profile-section-heading">
+              <span className="profile-security-icon" aria-hidden="true">
+                <ShieldCheck size={22} />
+              </span>
+              <div>
+                <h2 id="profile-password-title">Đổi mật khẩu</h2>
+                <p>Dùng mật khẩu chỉ bạn biết để bảo vệ tài khoản.</p>
+              </div>
+            </div>
+            <form
+              className="profile-password-form"
+              onSubmit={(event) => void onSubmit(event)}
+              noValidate
+            >
+              <div className="profile-security-note">
+                <KeyRound size={18} aria-hidden="true" />
+                <p>Sau khi đổi mật khẩu, các phiên đăng nhập cũ sẽ tự động hết hiệu lực.</p>
+              </div>
+              {errors.root?.message ? (
+                <div className="form-alert" role="alert">
+                  <AlertTriangle size={18} aria-hidden="true" />
+                  <span>{errors.root.message}</span>
+                </div>
+              ) : null}
+              <Input
+                label="Mật khẩu hiện tại"
+                type="password"
+                autoComplete="current-password"
+                error={errors.currentPassword?.message}
+                {...register("currentPassword")}
+              />
+              <Input
+                label="Mật khẩu mới"
+                type="password"
+                autoComplete="new-password"
+                hint="Tối thiểu 8 ký tự và khác mật khẩu hiện tại."
+                error={errors.newPassword?.message}
+                {...register("newPassword")}
+              />
+              <Input
+                label="Nhập lại mật khẩu mới"
+                type="password"
+                autoComplete="new-password"
+                error={errors.confirmPassword?.message}
+                {...register("confirmPassword")}
+              />
+              <Button type="submit" loading={isSubmitting} className="profile-submit-button">
+                Đổi mật khẩu
+              </Button>
+            </form>
+          </section>
+        </div>
       </div>
     </div>
   );

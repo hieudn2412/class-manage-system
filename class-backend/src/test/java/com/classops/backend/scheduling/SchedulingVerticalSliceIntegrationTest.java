@@ -271,6 +271,106 @@ class SchedulingVerticalSliceIntegrationTest {
     }
 
     @Test
+    void classListSortsByColumnsAndDirection() throws Exception {
+        String adminToken = login("admin.anhduong");
+        UUID laterClassId = UUID.randomUUID();
+        UUID earlyClassId = UUID.randomUUID();
+        insertTeacherClass(laterClassId, UUID.randomUUID(), "ONLINE", null,
+            OffsetDateTime.parse("2026-09-21T19:00:00+07:00"),
+            OffsetDateTime.parse("2026-09-21T21:00:00+07:00"), "COMPLETED");
+        insertTeacherClass(earlyClassId, UUID.randomUUID(), "ONLINE", null,
+            OffsetDateTime.parse("2026-09-07T19:00:00+07:00"),
+            OffsetDateTime.parse("2026-09-07T21:00:00+07:00"), "SCHEDULED");
+        jdbc.sql("""
+                UPDATE classes SET name=:name
+                WHERE tenant_id=:tenant AND id=:classId
+                """)
+            .param("tenant", TENANT_A)
+            .param("classId", laterClassId)
+            .param("name", "Sort kiểm thử A")
+            .update();
+        jdbc.sql("""
+                UPDATE classes SET name=:name
+                WHERE tenant_id=:tenant AND id=:classId
+                """)
+            .param("tenant", TENANT_A)
+            .param("classId", earlyClassId)
+            .param("name", "Sort kiểm thử B")
+            .update();
+
+        mvc.perform(get("/api/v1/classes")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("page", "1")
+                .param("pageSize", "10")
+                .param("month", "2026-09")
+                .param("search", "Sort kiểm thử")
+                .param("sort", "name,asc"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].id").value(laterClassId.toString()))
+            .andExpect(jsonPath("$.items[1].id").value(earlyClassId.toString()));
+        mvc.perform(get("/api/v1/classes")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("page", "1")
+                .param("pageSize", "10")
+                .param("month", "2026-09")
+                .param("search", "Sort kiểm thử")
+                .param("sort", "name,desc"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].id").value(earlyClassId.toString()))
+            .andExpect(jsonPath("$.items[1].id").value(laterClassId.toString()));
+        mvc.perform(get("/api/v1/classes")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("page", "1")
+                .param("pageSize", "10")
+                .param("month", "2026-09")
+                .param("search", "Sort kiểm thử")
+                .param("sort", "progress,asc"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].id").value(earlyClassId.toString()))
+            .andExpect(jsonPath("$.items[1].id").value(laterClassId.toString()));
+        mvc.perform(get("/api/v1/classes")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("page", "1")
+                .param("pageSize", "10")
+                .param("month", "2026-09")
+                .param("search", "Sort kiểm thử")
+                .param("sort", "progress,desc"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].id").value(laterClassId.toString()))
+            .andExpect(jsonPath("$.items[1].id").value(earlyClassId.toString()));
+        mvc.perform(get("/api/v1/classes")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("page", "1")
+                .param("pageSize", "10")
+                .param("month", "2026-09")
+                .param("search", "Sort kiểm thử")
+                .param("sort", "expectedEndDate"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].id").value(earlyClassId.toString()))
+            .andExpect(jsonPath("$.items[0].expectedEndDate").value("2026-09-07"))
+            .andExpect(jsonPath("$.items[1].id").value(laterClassId.toString()))
+            .andExpect(jsonPath("$.items[1].expectedEndDate").value("2026-09-21"));
+        mvc.perform(get("/api/v1/classes")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("page", "1")
+                .param("pageSize", "10")
+                .param("month", "2026-09")
+                .param("search", "Sort kiểm thử")
+                .param("sort", "expectedEndDate,desc"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items.length()").value(2))
+            .andExpect(jsonPath("$.items[0].id").value(laterClassId.toString()))
+            .andExpect(jsonPath("$.items[0].expectedEndDate").value("2026-09-21"))
+            .andExpect(jsonPath("$.items[1].id").value(earlyClassId.toString()))
+            .andExpect(jsonPath("$.items[1].expectedEndDate").value("2026-09-07"));
+    }
+
+    @Test
     void sessionSubstitutionCancellationAndMakeupFlow() throws Exception {
         String adminToken = login("admin.anhduong");
         OffsetDateTime start = OffsetDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"))

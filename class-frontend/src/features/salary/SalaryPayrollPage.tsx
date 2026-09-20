@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Download, Mail, Search, Send, WalletCards } from "lucide-react";
+import {
+  ArrowUpRight,
+  CheckCheck,
+  Download,
+  Eye,
+  Search,
+  Send,
+  WalletCards,
+} from "lucide-react";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../app/providers/AuthProvider";
@@ -7,9 +15,13 @@ import { useTenant } from "../../app/providers/TenantProvider";
 import { salaryRepository } from "../../services/repositories/salaryRepository";
 import { formatCurrency, formatDateTime, formatMonth, getCurrentMonth } from "../../shared/lib/format";
 import { hasPermission, PERMISSIONS } from "../../shared/lib/permissions";
+import { useMediaQuery } from "../../shared/lib/useMediaQuery";
 import type { PayrollTeacherRow, SalaryBalanceStatus } from "../../shared/types/domain";
 import { Badge, type BadgeTone } from "../../shared/ui/Badge";
 import { Button } from "../../shared/ui/Button";
+import { FilterDisclosure } from "../../shared/ui/FilterDisclosure";
+import { ListTable, type ListTableColumn } from "../../shared/ui/ListTable";
+import { Modal } from "../../shared/ui/Modal";
 import { Pagination } from "../../shared/ui/Pagination";
 import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
@@ -42,6 +54,8 @@ export const SalaryPayrollPage = () => {
   const [page, setPage] = useState(1);
   const [selectedRecipients, setSelectedRecipients] = useState<Record<string, PayrollTeacherRow>>({});
   const [notificationRecipients, setNotificationRecipients] = useState<PayrollTeacherRow[]>([]);
+  const [selectedTeacher, setSelectedTeacher] = useState<PayrollTeacherRow | null>(null);
+  const isMobile = useMediaQuery("(max-width: 767px)");
   const { showToast } = useToast();
   const canSendNotifications = Boolean(
     session && hasPermission(session.user.roles, PERMISSIONS.SEND_SALARY_NOTIFICATION),
@@ -52,6 +66,7 @@ export const SalaryPayrollPage = () => {
   const query = useQuery({
     queryKey: ["salary-payroll", tenant.id, queryInput],
     queryFn: () => salaryRepository.payroll(tenant.slug, queryInput),
+    placeholderData: (previous) => previous,
   });
   const exportMutation = useMutation({
     mutationFn: () => salaryRepository.exportPayroll(tenant.slug, { month, search, status, sort }),
@@ -65,8 +80,82 @@ export const SalaryPayrollPage = () => {
       showToast("Đã xuất bảng lương theo bộ lọc hiện tại.");
     },
   });
+
   if (query.isLoading) return <PageSkeleton />;
   const data = query.data;
+  const pageTeachers = data?.teachers.items ?? [];
+  const eligiblePageTeachers = pageTeachers.filter((row) => row.emailAvailable);
+  const allEligiblePageTeachersSelected =
+    eligiblePageTeachers.length > 0 &&
+    eligiblePageTeachers.every((row) => Boolean(selectedRecipients[row.teacherId]));
+
+  const toggleRecipient = (row: PayrollTeacherRow, checked: boolean) => {
+    setSelectedRecipients((current) => {
+      const next = { ...current };
+      if (checked) next[row.teacherId] = row;
+      else delete next[row.teacherId];
+      return next;
+    });
+  };
+
+  const toggleEligiblePageTeachers = () => {
+    setSelectedRecipients((current) => {
+      const next = { ...current };
+      eligiblePageTeachers.forEach((row) => {
+        if (allEligiblePageTeachersSelected) delete next[row.teacherId];
+        else next[row.teacherId] = row;
+      });
+      return next;
+    });
+  };
+
+  const mobileColumns: ListTableColumn<PayrollTeacherRow>[] = [
+    {
+      id: "teacher",
+      header: "Giáo viên",
+      className: "salary-mobile-teacher-column",
+      cell: (row) => (
+        <div className="salary-mobile-teacher-cell">
+          {canSendNotifications ? (
+            <input
+              type="checkbox"
+              aria-label={`Chọn ${row.teacherName} để gửi thông báo lương`}
+              checked={Boolean(selectedRecipients[row.teacherId])}
+              disabled={!row.emailAvailable}
+              onChange={(event) => toggleRecipient(row, event.target.checked)}
+            />
+          ) : null}
+          <span>
+            <strong>{row.teacherName}</strong>
+            {!row.emailAvailable ? <small>Chưa có email</small> : null}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "due",
+      header: "Tổng lương",
+      className: "salary-mobile-due-column",
+      cell: (row) => <strong className="salary-mobile-due">{formatCurrency(row.due)}</strong>,
+    },
+    {
+      id: "view",
+      header: "Xem",
+      className: "salary-mobile-view-column",
+      cell: (row) => (
+        <Button
+          variant="secondary"
+          className="salary-mobile-view-button"
+          aria-label={`Xem lương của ${row.teacherName}`}
+          onClick={() => setSelectedTeacher(row)}
+        >
+          <Eye size={17} aria-hidden="true" />
+          <span>Xem chi tiết</span>
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <section className="salary-page management-page">
       <header className="salary-header">
@@ -76,27 +165,6 @@ export const SalaryPayrollPage = () => {
           <p>Kỳ lương luôn mở; mọi thay đổi buổi cũ được phản ánh trực tiếp vào số dư.</p>
         </div>
         <div className="salary-header-actions">
-          {canSendNotifications ? (
-            <span
-              className="salary-notification-trigger"
-              lang="vi"
-              title={selectedRecipientCount
-                ? undefined
-                : "Chọn ít nhất một giáo viên có email trong bảng để gửi thông báo."}
-            >
-              <Button
-                disabled={!selectedRecipientCount}
-                aria-label={selectedRecipientCount
-                  ? `Gửi thông báo lương cho ${selectedRecipientCount} giáo viên đã chọn`
-                  : "Gửi thông báo lương — hãy chọn ít nhất một giáo viên có email trong bảng"}
-                onClick={() => setNotificationRecipients(Object.values(selectedRecipients))}
-              >
-                <Send size={17} aria-hidden="true" />
-                Gửi thông báo lương
-                {selectedRecipientCount ? ` (${selectedRecipientCount})` : ""}
-              </Button>
-            </span>
-          ) : null}
           <Button variant="secondary" loading={exportMutation.isPending} onClick={() => exportMutation.mutate()}>
             <Download size={17} aria-hidden="true" /> Xuất Excel
           </Button>
@@ -116,11 +184,56 @@ export const SalaryPayrollPage = () => {
         <article className={data.metrics.outstanding < 0 ? "metric-negative" : "metric-accent"}><span>Số dư</span><strong>{formatCurrency(data.metrics.outstanding)}</strong><small>{data.metrics.overpaidTeachers} trường hợp trả thừa</small></article>
       </div> : null}
 
-      <div className="salary-filter-bar">
-        <label className="search-box"><Search size={17} /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); clearSelection(); }} placeholder="Tìm giáo viên…" /></label>
-        <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); clearSelection(); }} aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option><option value="OWED">Còn phải trả</option><option value="SETTLED">Đã cân bằng</option><option value="OVERPAID">Trả thừa</option></select>
-        <select value={sort} onChange={(event) => { setSort(event.target.value); clearSelection(); }} aria-label="Sắp xếp"><option value="-outstanding">Số dư cao nhất</option><option value="teacherName">Tên giáo viên</option><option value="-accrued">Lương phát sinh</option><option value="-paid">Đã trả</option></select>
-      </div>
+      <FilterDisclosure
+        label="Bộ lọc"
+        activeCount={[status, sort !== "-outstanding" ? sort : ""].filter(Boolean).length}
+        className="salary-filter-disclosure"
+        primary={
+          <label className="search-box">
+            <Search size={17} aria-hidden="true" />
+            <input
+              aria-label="Tìm giáo viên"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+                clearSelection();
+              }}
+              placeholder="Tìm giáo viên…"
+            />
+          </label>
+        }
+      >
+        <div className="filter-collapse-grid salary-filter-options">
+          <select
+            value={status}
+            onChange={(event) => {
+              setStatus(event.target.value);
+              setPage(1);
+              clearSelection();
+            }}
+            aria-label="Lọc trạng thái"
+          >
+            <option value="">Mọi trạng thái</option>
+            <option value="OWED">Còn phải trả</option>
+            <option value="SETTLED">Đã cân bằng</option>
+            <option value="OVERPAID">Trả thừa</option>
+          </select>
+          <select
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value);
+              clearSelection();
+            }}
+            aria-label="Sắp xếp"
+          >
+            <option value="-outstanding">Số dư cao nhất</option>
+            <option value="teacherName">Tên giáo viên</option>
+            <option value="-accrued">Lương phát sinh</option>
+            <option value="-paid">Đã trả</option>
+          </select>
+        </div>
+      </FilterDisclosure>
 
       {query.isError ? (
         <StatePanel
@@ -138,41 +251,73 @@ export const SalaryPayrollPage = () => {
         />
       ) : (
         <>
-          <div className="data-table-wrap responsive-table-wrap salary-table-wrap">
-            <table className="data-table responsive-card-table salary-table">
+          {canSendNotifications ? (
+            <div className="salary-bulk-toolbar" aria-label="Chọn giáo viên gửi thông báo lương">
+              <div className="salary-bulk-selection-count" aria-live="polite">
+                <strong>{selectedRecipientCount}</strong>
+                <span>giáo viên đã chọn</span>
+              </div>
+              <div className="salary-bulk-actions">
+                <Button
+                  variant="secondary"
+                  disabled={!eligiblePageTeachers.length}
+                  onClick={toggleEligiblePageTeachers}
+                >
+                  <CheckCheck size={16} aria-hidden="true" />
+                  {allEligiblePageTeachersSelected
+                    ? "Bỏ chọn trang này"
+                    : `Chọn tất cả (${eligiblePageTeachers.length})`}
+                </Button>
+                <span
+                  className="salary-notification-trigger"
+                  title={selectedRecipientCount
+                    ? undefined
+                    : "Chọn ít nhất một giáo viên có email trong bảng để gửi thông báo."}
+                >
+                  <Button
+                    disabled={!selectedRecipientCount}
+                    aria-label={selectedRecipientCount
+                      ? `Gửi thông báo lương cho ${selectedRecipientCount} giáo viên đã chọn`
+                      : "Gửi thông báo lương — hãy chọn ít nhất một giáo viên có email trong bảng"}
+                    onClick={() => setNotificationRecipients(Object.values(selectedRecipients))}
+                  >
+                    <Send size={16} aria-hidden="true" />
+                    Gửi thông báo lương
+                    {selectedRecipientCount ? ` (${selectedRecipientCount})` : ""}
+                  </Button>
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          {isMobile ? (
+            <ListTable
+              caption="Danh sách lương giáo viên"
+              items={pageTeachers}
+              columns={mobileColumns}
+              getRowKey={(row) => row.teacherId}
+              getRowClassName={(row) =>
+                selectedRecipients[row.teacherId] ? "is-selected" : undefined
+              }
+              className="salary-mobile-list"
+              wrapperClassName="salary-mobile-list-wrap"
+            />
+          ) : (
+            <div className="data-table-wrap responsive-table-wrap salary-table-wrap">
+              <table className="data-table responsive-card-table salary-table">
               <caption className="sr-only">Bảng lương giáo viên</caption>
               <thead>
                 <tr>
                   {canSendNotifications ? (
                     <th scope="col" className="salary-select-column">
-                      <input
-                        type="checkbox"
-                        aria-label="Chọn tất cả giáo viên có email trên trang này"
-                        checked={data.teachers.items.some((row) => row.emailAvailable)
-                          && data.teachers.items.filter((row) => row.emailAvailable)
-                            .every((row) => Boolean(selectedRecipients[row.teacherId]))}
-                        onChange={(event) => {
-                          const eligible = data.teachers.items.filter((row) => row.emailAvailable);
-                          setSelectedRecipients((current) => {
-                            const next = { ...current };
-                            eligible.forEach((row) => {
-                              if (event.target.checked) next[row.teacherId] = row;
-                              else delete next[row.teacherId];
-                            });
-                            return next;
-                          });
-                        }}
-                      />
+                      Chọn
                     </th>
                   ) : null}
                   <th scope="col">Giáo viên</th>
                   <th scope="col">Giờ / buổi</th>
                   <th scope="col">Tiền dạy</th>
-                  <th scope="col">Cộng hoặc trừ</th>
                   <th scope="col">Đã trả</th>
-                  <th scope="col">Còn lại</th>
                   <th scope="col">Trạng thái</th>
-                  <th scope="col">Email thông báo</th>
                   <th scope="col">Thao tác</th>
                 </tr>
               </thead>
@@ -189,18 +334,12 @@ export const SalaryPayrollPage = () => {
                             checked={Boolean(selectedRecipients[row.teacherId])}
                             disabled={!row.emailAvailable}
                             title={row.emailAvailable ? undefined : "Giáo viên chưa có email"}
-                            onChange={(event) => setSelectedRecipients((current) => {
-                              const next = { ...current };
-                              if (event.target.checked) next[row.teacherId] = row;
-                              else delete next[row.teacherId];
-                              return next;
-                            })}
+                            onChange={(event) => toggleRecipient(row, event.target.checked)}
                           />
                         </td>
                       ) : null}
                       <td data-label="Giáo viên">
                         <strong>{row.teacherName}</strong>
-                        <small>Mã sổ {row.teacherId.slice(0, 8).toUpperCase()}</small>
                       </td>
                       <td data-label="Giờ / buổi">
                         <strong>{hours(row.totalMinutes)} giờ</strong>
@@ -209,46 +348,11 @@ export const SalaryPayrollPage = () => {
                       <td className="money-cell" data-label="Tiền dạy">
                         {formatCurrency(row.accrued)}
                       </td>
-                      <td
-                        className={
-                          row.adjustments < 0 ? "money-cell amount-negative" : "money-cell"
-                        }
-                        data-label="Cộng hoặc trừ"
-                      >
-                        {formatCurrency(row.adjustments)}
-                      </td>
                       <td className="money-cell" data-label="Đã trả">
                         {formatCurrency(row.paid)}
                       </td>
-                      <td
-                        className={
-                          row.outstanding < 0
-                            ? "money-cell amount-negative"
-                            : "money-cell amount-positive"
-                        }
-                        data-label="Còn lại"
-                      >
-                        {formatCurrency(row.outstanding)}
-                      </td>
                       <td data-label="Trạng thái">
                         <Badge tone={meta.tone}>{meta.label}</Badge>
-                      </td>
-                      <td data-label="Email thông báo">
-                        {!row.emailAvailable ? (
-                          <Badge tone="neutral">Chưa có email</Badge>
-                        ) : row.lastNotificationStatus ? (
-                          <span className="salary-notification-status">
-                            <Badge tone={row.lastNotificationStatus === "SENT"
-                              ? "success"
-                              : row.lastNotificationStatus === "FAILED" ? "danger" : "info"}
-                            >
-                              {notificationLabel[row.lastNotificationStatus]}
-                            </Badge>
-                            {row.lastNotificationAt ? <small>{formatDateTime(row.lastNotificationAt)}</small> : null}
-                          </span>
-                        ) : (
-                          <span className="muted-text">Chưa gửi</span>
-                        )}
                       </td>
                       <td data-label="Thao tác">
                         <div className="salary-row-actions">
@@ -258,24 +362,15 @@ export const SalaryPayrollPage = () => {
                           >
                             Xem chi tiết <ArrowUpRight size={14} aria-hidden="true" />
                           </Link>
-                          {canSendNotifications ? (
-                            <Button
-                              variant="secondary"
-                              disabled={!row.emailAvailable}
-                              title={row.emailAvailable ? undefined : "Giáo viên chưa có email"}
-                              onClick={() => setNotificationRecipients([row])}
-                            >
-                              <Mail size={15} aria-hidden="true" /> Gửi email
-                            </Button>
-                          ) : null}
                         </div>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+          )}
           <Pagination
             page={data.teachers.page}
             totalPages={data.teachers.totalPages}
@@ -285,6 +380,66 @@ export const SalaryPayrollPage = () => {
           />
         </>
       )}
+      <Modal
+        open={Boolean(selectedTeacher)}
+        title="Tóm tắt lương"
+        closeLabel="Đóng"
+        className="salary-mobile-summary-modal"
+        onClose={() => setSelectedTeacher(null)}
+      >
+        {selectedTeacher ? (
+          <div className="salary-mobile-summary">
+            <header className="salary-mobile-summary-header">
+              <div>
+                <span>{formatMonth(month)}</span>
+                <h3>{selectedTeacher.teacherName}</h3>
+              </div>
+              <Badge tone={statusMeta[selectedTeacher.status].tone}>
+                {statusMeta[selectedTeacher.status].label}
+              </Badge>
+            </header>
+            <div className="salary-mobile-summary-total">
+              <span>Tổng lương</span>
+              <strong>{formatCurrency(selectedTeacher.due)}</strong>
+            </div>
+            <dl className="salary-mobile-summary-grid">
+              <div><dt>Số buổi</dt><dd>{selectedTeacher.sessionCount}</dd></div>
+              <div><dt>Tổng giờ</dt><dd>{hours(selectedTeacher.totalMinutes)} giờ</dd></div>
+              <div><dt>Tiền dạy</dt><dd>{formatCurrency(selectedTeacher.accrued)}</dd></div>
+              <div><dt>Cộng hoặc trừ</dt><dd className={selectedTeacher.adjustments < 0 ? "amount-negative" : ""}>{formatCurrency(selectedTeacher.adjustments)}</dd></div>
+              <div><dt>Đã trả</dt><dd>{formatCurrency(selectedTeacher.paid)}</dd></div>
+              <div><dt>Còn lại</dt><dd className={selectedTeacher.outstanding < 0 ? "amount-negative" : "amount-positive"}>{formatCurrency(selectedTeacher.outstanding)}</dd></div>
+            </dl>
+            <div className="salary-mobile-summary-email">
+              <span>Email thông báo</span>
+              {!selectedTeacher.emailAvailable ? (
+                <Badge tone="neutral">Chưa có email</Badge>
+              ) : selectedTeacher.lastNotificationStatus ? (
+                <div>
+                  <Badge tone={selectedTeacher.lastNotificationStatus === "SENT"
+                    ? "success"
+                    : selectedTeacher.lastNotificationStatus === "FAILED" ? "danger" : "info"}
+                  >
+                    {notificationLabel[selectedTeacher.lastNotificationStatus]}
+                  </Badge>
+                  {selectedTeacher.lastNotificationAt ? (
+                    <small>{formatDateTime(selectedTeacher.lastNotificationAt)}</small>
+                  ) : null}
+                </div>
+              ) : (
+                <span className="muted-text">Chưa gửi thông báo</span>
+              )}
+            </div>
+            <Link
+              className="button salary-mobile-summary-link"
+              to={`/t/${tenantSlug}/app/finance/salaries/${selectedTeacher.teacherId}?month=${month}`}
+            >
+              Xem chi tiết đầy đủ
+              <ArrowUpRight size={16} aria-hidden="true" />
+            </Link>
+          </div>
+        ) : null}
+      </Modal>
       {notificationRecipients.length ? (
         <SalaryNotificationModal
           open

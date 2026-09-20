@@ -101,6 +101,51 @@ test.beforeEach(async ({ page }) => {
       });
       return;
     }
+    if (path.endsWith("/accounts") && route.request().method() === "GET") {
+      await route.fulfill({
+        json: {
+          items: [
+            {
+              id: "account-responsive-1",
+              profileType: "TEACHER",
+              code: "GV-0099",
+              username: "nguyen.huyen.thuc",
+              displayName: "Nguyễn Hồng Huyền Thục có tên rất dài",
+              email: "huyenthuc@example.com",
+              roles: ["TEACHER"],
+              status: "ACTIVE",
+              passwordState: "READY",
+              parentName: null,
+              parentPhone: null,
+              lastLoginAt: "2026-09-19T08:00:00Z",
+              createdAt: "2026-01-01T08:00:00Z",
+              version: 0,
+            },
+            {
+              id: "account-responsive-2",
+              profileType: "STUDENT",
+              code: "HS-0012",
+              username: "hoc.sinh.12",
+              displayName: "Trần Minh Anh",
+              email: null,
+              roles: ["STUDENT"],
+              status: "ACTIVE",
+              passwordState: "READY",
+              parentName: "Trần Thu Hà",
+              parentPhone: "0900000000",
+              lastLoginAt: null,
+              createdAt: "2026-02-01T08:00:00Z",
+              version: 0,
+            },
+          ],
+          page: 1,
+          pageSize: 20,
+          totalItems: 2,
+          totalPages: 1,
+        },
+      });
+      return;
+    }
     if (path.endsWith("/salary/payroll") && route.request().method() === "GET") {
       await route.fulfill({
         json: {
@@ -133,10 +178,25 @@ test.beforeEach(async ({ page }) => {
                 lastNotificationStatus: null,
                 lastNotificationAt: null,
               },
+              {
+                teacherId: "a2000000-0000-0000-0000-000000000002",
+                teacherName: "Giáo viên chưa cập nhật email",
+                sessionCount: 4,
+                totalMinutes: 360,
+                accrued: 1600000,
+                adjustments: 0,
+                due: 1600000,
+                paid: 1600000,
+                outstanding: 0,
+                status: "SETTLED",
+                emailAvailable: false,
+                lastNotificationStatus: null,
+                lastNotificationAt: null,
+              },
             ],
             page: 1,
             pageSize: 20,
-            totalItems: 1,
+            totalItems: 2,
             totalPages: 1,
           },
         },
@@ -194,6 +254,79 @@ test.beforeEach(async ({ page }) => {
           ],
           adjustments: [],
           payments: [],
+        },
+      });
+      return;
+    }
+    if (path.endsWith("/class-scheduling/options") && route.request().method() === "GET") {
+      await route.fulfill({
+        json: {
+          teachers: [{ id: "teacher-responsive-1", name: "Bảo Ngọc", status: "ACTIVE" }],
+          rooms: [{ id: "room-responsive-1", code: "P.201", status: "ACTIVE" }],
+        },
+      });
+      return;
+    }
+    if (path.endsWith("/schedules/management") && route.request().method() === "GET") {
+      const createSession = (
+        id: string,
+        className: string,
+        ordinal: number,
+        startAt: string,
+        scheduleState: "UPCOMING" | "TAUGHT" | "MISSING_CHECK_IN",
+      ) => ({
+        id,
+        classId: `class-${id}`,
+        classCode: `HSK-${ordinal}`,
+        className,
+        ordinal,
+        startAt,
+        endAt: new Date(Date.parse(startAt) + 90 * 60 * 1000).toISOString(),
+        plannedTeacherId: "teacher-responsive-1",
+        actualTeacherId: "teacher-responsive-1",
+        teacherName: "Bảo Ngọc",
+        mode: "ONLINE",
+        roomId: null,
+        roomName: null,
+        onlineUrl: null,
+        isSubstitution: false,
+        isMakeup: false,
+        status: "SCHEDULED",
+        scheduleState,
+        makeupRootSessionId: null,
+        replacesSessionId: null,
+        replacementSessionId: null,
+        cancellationReason: null,
+        allowedActions: [],
+        version: 0,
+      });
+      await route.fulfill({
+        json: {
+          weekStart: "2026-09-14",
+          weekEnd: "2026-09-20",
+          sessions: [
+            createSession(
+              "schedule-responsive-1",
+              "HSK 1.1",
+              10,
+              "2026-09-16T13:45:00.000Z",
+              "MISSING_CHECK_IN",
+            ),
+            createSession(
+              "schedule-responsive-2",
+              "Giao tiếp sơ cấp",
+              6,
+              "2026-09-18T11:30:00.000Z",
+              "UPCOMING",
+            ),
+            createSession(
+              "schedule-responsive-3",
+              "HSK 1.1",
+              11,
+              "2026-09-19T13:45:00.000Z",
+              "TAUGHT",
+            ),
+          ],
         },
       });
       return;
@@ -282,10 +415,141 @@ test("hồ sơ cá nhân và biểu mẫu đổi mật khẩu thích ứng ở m
   await checkResponsiveShell(page);
 });
 
-test("chọn giáo viên và gửi thông báo lương trên desktop lẫn mobile", async ({ page }) => {
+test("danh sách người dùng giữ bảng ba cột trên mobile", async ({ page }) => {
+  await page.goto("/t/anh-duong/app/accounts");
+
+  const table = page.getByRole("table", { name: "Danh sách người dùng của trung tâm" });
+  await expect(table).toBeVisible();
+  await expect(table.getByRole("columnheader")).toHaveCount(3);
+  await expect(table.getByRole("columnheader", { name: /Tên/ })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: /Chức vụ/ })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Xem" })).toBeVisible();
+  await expect(table.getByText("Giáo viên")).toBeVisible();
+  await expect(table.getByText("Học sinh")).toBeVisible();
+  await expect(table.getByText("GV-0099")).toHaveCount(0);
+
+  const firstRow = table.locator("tbody tr").first();
+  expect(await firstRow.evaluate((element) => getComputedStyle(element).display)).toBe("table-row");
+  await table.getByRole("button", { name: /Xem chi tiết Nguyễn Hồng Huyền Thục/ }).click();
+  await expect(page.getByRole("dialog", { name: "Thông tin người dùng" })).toBeVisible();
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("thời khóa biểu mobile giữ lưới tuần ngang trong vùng cuộn riêng", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/t/anh-duong/app/schedule?week=2026-09-14");
+  await expect(page.getByRole("heading", { name: "Thời khóa biểu toàn trung tâm" })).toBeVisible();
+
+  const calendar = page.getByLabel("Thời khóa biểu tuần, có thể cuộn ngang");
+  await expect(calendar).toBeVisible();
+  await expect(page.getByLabel("Danh sách buổi học theo ngày")).toHaveCount(0);
+
+  if (testInfo.project.name.includes("mobile")) {
+    await expect(page.getByText("Vuốt ngang để xem đủ các ngày trong tuần")).toBeVisible();
+    const dimensions = await calendar.evaluate((element) => ({
+      clientWidth: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    }));
+    expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
+    expect(await calendar.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+    expect(
+      await page
+        .locator(".calendar-time")
+        .first()
+        .evaluate((element) => getComputedStyle(element).position),
+    ).toBe("sticky");
+    await expect(calendar.getByText("Chưa xác nhận", { exact: true })).toBeVisible();
+    expect(
+      await calendar
+        .locator(".calendar-event-teacher")
+        .evaluateAll((elements) =>
+          elements.every((element) => getComputedStyle(element).display === "none"),
+        ),
+    ).toBe(true);
+  }
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("chọn giáo viên và gửi thông báo lương trên desktop lẫn mobile", async ({
+  page,
+}, testInfo) => {
   await page.goto("/t/anh-duong/app/finance/salaries?month=2026-09");
   await expect(page.getByRole("heading", { name: "Lương phát sinh và đã trả" })).toBeVisible();
-  await page.getByLabel("Chọn Nguyễn Thị Huyền có tên rất dài để gửi thông báo lương").check();
+
+  if (testInfo.project.name.includes("mobile")) {
+    const table = page.getByRole("table", { name: "Danh sách lương giáo viên" });
+    await expect(table).toBeVisible();
+    await expect(table.getByRole("columnheader")).toHaveCount(3);
+    await expect(table.getByRole("columnheader", { name: "Giáo viên" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Tổng lương" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Xem" })).toBeVisible();
+    expect(
+      await table
+        .locator("tbody tr")
+        .first()
+        .evaluate((element) => getComputedStyle(element).display),
+    ).toBe("table-row");
+    await expect(
+      page.getByLabel("Chọn Giáo viên chưa cập nhật email để gửi thông báo lương"),
+    ).toBeDisabled();
+
+    await page.getByRole("button", { name: "Chọn tất cả (1)" }).click();
+    await expect(
+      page.getByLabel("Chọn Nguyễn Thị Huyền có tên rất dài để gửi thông báo lương"),
+    ).toBeChecked();
+
+    await table
+      .getByRole("button", {
+        name: "Xem lương của Nguyễn Thị Huyền có tên rất dài",
+      })
+      .click();
+    const summary = page.getByRole("dialog", { name: "Tóm tắt lương" });
+    await expect(summary).toBeVisible();
+    await expect(summary.getByText("Còn phải trả")).toBeVisible();
+    await expect(summary.getByRole("link", { name: "Xem chi tiết đầy đủ" })).toHaveAttribute(
+      "href",
+      "/t/anh-duong/app/finance/salaries/a2000000-0000-0000-0000-000000000001?month=2026-09",
+    );
+    await summary.getByRole("button", { name: "Đóng" }).click();
+  } else {
+    await page.getByLabel("Chọn Nguyễn Thị Huyền có tên rất dài để gửi thông báo lương").check();
+    const desktopTable = page.getByRole("table", { name: "Bảng lương giáo viên" });
+    await expect(desktopTable).toBeVisible();
+    await expect(desktopTable.getByRole("columnheader", { name: "Cộng hoặc trừ" })).toHaveCount(0);
+    await expect(desktopTable.getByRole("columnheader", { name: "Còn lại" })).toHaveCount(0);
+    await expect(desktopTable.getByRole("columnheader", { name: "Email thông báo" })).toHaveCount(
+      0,
+    );
+    expect(
+      await desktopTable
+        .locator("th")
+        .evaluateAll((headers) =>
+          headers.every((header) => getComputedStyle(header).whiteSpace === "nowrap"),
+        ),
+    ).toBe(true);
+    expect(
+      await desktopTable
+        .locator(".salary-row-actions")
+        .first()
+        .evaluate((actions) => getComputedStyle(actions).flexWrap),
+    ).toBe("nowrap");
+
+    const toolbarBox = await page.locator(".salary-bulk-toolbar").boundingBox();
+    const tableBox = await desktopTable.boundingBox();
+    expect(toolbarBox).not.toBeNull();
+    expect(tableBox).not.toBeNull();
+    expect((toolbarBox?.y ?? 0) + (toolbarBox?.height ?? 0)).toBeLessThanOrEqual(tableBox?.y ?? 0);
+  }
+
   await page.getByRole("button", { name: /Gửi thông báo lương/ }).click();
   await expect(page.getByRole("heading", { name: "Gửi thông báo lương" })).toBeVisible();
   await page.getByLabel(/Ngày dự kiến thanh toán/).fill("2026-10-15");

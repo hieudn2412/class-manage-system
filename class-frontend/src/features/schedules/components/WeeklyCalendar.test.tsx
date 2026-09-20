@@ -54,11 +54,10 @@ describe("WeeklyCalendar", () => {
     expect(within(week).getByText("2 lớp cùng ca")).toBeInTheDocument();
     expect(within(week).getByText("1 sắp tới")).toBeInTheDocument();
     expect(within(week).getByText("1 đã dạy")).toBeInTheDocument();
-    expect(within(week).getByText("Chưa xác nhận buổi dạy")).toBeInTheDocument();
+    expect(within(week).getAllByText("Chưa xác nhận")).toHaveLength(2);
 
-    const agenda = screen.getByLabelText("Danh sách buổi học theo ngày");
-    expect(within(agenda).getByText("2 lớp cùng ca")).toBeInTheDocument();
-
+    expect(screen.getByText("Vuốt ngang để xem đủ các ngày trong tuần")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Danh sách buổi học theo ngày")).not.toBeInTheDocument();
     fireEvent.click(within(week).getByRole("button", { name: /Mở 2 lớp cùng ca/ }));
     expect(onSelectSessions).toHaveBeenCalledWith(sessions.slice(0, 2));
   });

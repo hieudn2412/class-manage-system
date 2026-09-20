@@ -10,6 +10,7 @@ import { formatDate } from "../../shared/lib/format";
 import { hasPermission, PERMISSIONS } from "../../shared/lib/permissions";
 import type { CalendarSession } from "../../shared/types/domain";
 import { Button } from "../../shared/ui/Button";
+import { FilterDisclosure } from "../../shared/ui/FilterDisclosure";
 import { Select } from "../../shared/ui/FormField";
 import { PageHeader } from "../../shared/ui/PageHeader";
 import { Skeleton } from "../../shared/ui/Skeleton";
@@ -75,9 +76,13 @@ export const ManagementSchedulePage = () => {
           </Button>
         }
       />
-      <section className="schedule-toolbar" aria-label="Bộ lọc thời khóa biểu">
-        <WeekNavigator weekStart={weekStart} onChange={(value) => updateParam("week", value)} />
-        <div className="schedule-filters">
+      <FilterDisclosure
+        label="Bộ lọc"
+        className="schedule-toolbar"
+        activeCount={[roomId, teacherId].filter(Boolean).length}
+        primary={<WeekNavigator weekStart={weekStart} onChange={(value) => updateParam("week", value)} />}
+      >
+        <div className="filter-collapse-grid schedule-filters">
           <Select
             label="Phòng"
             value={roomId}
@@ -106,7 +111,7 @@ export const ManagementSchedulePage = () => {
             ))}
           </Select>
         </div>
-      </section>
+      </FilterDisclosure>
 
       {scheduleQuery.isPending ? (
         <div role="status" aria-label="Đang tải thời khóa biểu">

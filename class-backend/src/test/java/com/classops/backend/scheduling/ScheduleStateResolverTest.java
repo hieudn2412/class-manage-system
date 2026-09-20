@@ -19,19 +19,29 @@ class ScheduleStateResolverTest {
 
     @Test
     void keepsFutureSessionUpcomingEvenWhenTeacherCheckedInEarly() {
-        assertThat(resolver.resolve(OffsetDateTime.parse("2026-08-04T19:30:00+07:00"), true))
+        assertThat(resolver.resolve(
+            OffsetDateTime.parse("2026-08-04T19:30:00+07:00"), "IN_PROGRESS", true))
             .isEqualTo(UPCOMING);
     }
 
     @Test
     void marksStartedCheckedInSessionAsTaught() {
-        assertThat(resolver.resolve(OffsetDateTime.parse("2026-08-04T18:30:00+07:00"), true))
+        assertThat(resolver.resolve(
+            OffsetDateTime.parse("2026-08-04T18:30:00+07:00"), "IN_PROGRESS", true))
             .isEqualTo(TAUGHT);
     }
 
     @Test
     void marksStartedSessionWithoutCheckInAsMissing() {
-        assertThat(resolver.resolve(OffsetDateTime.parse("2026-08-04T18:30:00+07:00"), false))
+        assertThat(resolver.resolve(
+            OffsetDateTime.parse("2026-08-04T18:30:00+07:00"), "PENDING_CONFIRMATION", false))
             .isEqualTo(MISSING_CHECK_IN);
+    }
+
+    @Test
+    void marksManagerConfirmedSessionAsTaughtWithoutTeacherCheckIn() {
+        assertThat(resolver.resolve(
+            OffsetDateTime.parse("2026-08-04T18:30:00+07:00"), "COMPLETED", false))
+            .isEqualTo(TAUGHT);
     }
 }

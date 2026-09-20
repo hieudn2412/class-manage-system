@@ -2,6 +2,7 @@ package com.classops.backend.identity;
 
 import com.classops.backend.common.ApiException;
 import com.classops.backend.security.CurrentActor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -25,6 +27,71 @@ public class ProfileService {
     @Transactional(readOnly = true)
     public SelfProfile me() {
         return "PLATFORM".equals(actor.scope()) ? platformProfile() : tenantProfile();
+    }
+
+    @Transactional
+    public SelfProfile updateEmail(String email) {
+        return "PLATFORM".equals(actor.scope()) ? updatePlatformEmail(email) : updateTenantEmail(email);
+    }
+
+    private SelfProfile updateTenantEmail(String email) {
+        UUID tenantId = actor.tenantId();
+        UUID userId = actor.userId();
+        String before = jdbc.sql("""
+                SELECT email FROM users
+                WHERE tenant_id=:tenantId AND id=:userId
+                """)
+            .param("tenantId", tenantId)
+            .param("userId", userId)
+            .query((rs, row) -> new EmailValue(rs.getString("email")))
+            .optional()
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND",
+                "Không tìm thấy hồ sơ của bạn."))
+            .email();
+        String next = clean(email);
+        try {
+            jdbc.sql("""
+                    UPDATE users
+                    SET email=:email, version=version+1, updated_at=now()
+                    WHERE tenant_id=:tenantId AND id=:userId
+                    """)
+                .param("email", next)
+                .param("tenantId", tenantId)
+                .param("userId", userId)
+                .update();
+        } catch (DuplicateKeyException ex) {
+            throw duplicateEmail();
+        }
+        auditTenantEmail(tenantId, userId, before, next);
+        return tenantProfile();
+    }
+
+    private SelfProfile updatePlatformEmail(String email) {
+        UUID userId = actor.userId();
+        String before = jdbc.sql("""
+                SELECT email FROM platform_users WHERE id=:userId
+                """)
+            .param("userId", userId)
+            .query((rs, row) -> new EmailValue(rs.getString("email")))
+            .optional()
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROFILE_NOT_FOUND",
+                "Không tìm thấy hồ sơ của bạn."))
+            .email();
+        String next = clean(email);
+        try {
+            jdbc.sql("""
+                    UPDATE platform_users
+                    SET email=:email, version=version+1, updated_at=now()
+                    WHERE id=:userId
+                    """)
+                .param("email", next)
+                .param("userId", userId)
+                .update();
+        } catch (DuplicateKeyException ex) {
+            throw duplicateEmail();
+        }
+        auditPlatformEmail(userId, before, next);
+        return platformProfile();
     }
 
     private SelfProfile tenantProfile() {
@@ -67,13 +134,13 @@ public class ProfileService {
     private SelfProfile platformProfile() {
         UUID userId = actor.userId();
         SelfProfile profile = jdbc.sql("""
-                SELECT id, username, display_name, status, last_login_at, created_at
+                SELECT id, username, display_name, email, status, last_login_at, created_at
                 FROM platform_users WHERE id=:userId
                 """)
             .param("userId", userId)
             .query((rs, row) -> new SelfProfile(
                 "PLATFORM", rs.getObject("id", UUID.class), null, null, null,
-                rs.getString("username"), rs.getString("display_name"), null, List.of(),
+                rs.getString("username"), rs.getString("display_name"), rs.getString("email"), List.of(),
                 rs.getString("status"), null, null,
                 instant(rs.getObject("last_login_at", OffsetDateTime.class)),
                 rs.getObject("created_at", OffsetDateTime.class).toInstant()))
@@ -92,7 +159,51 @@ public class ProfileService {
         return value == null ? null : value.toInstant();
     }
 
+    private ApiException duplicateEmail() {
+        return new ApiException(HttpStatus.CONFLICT, "DUPLICATE_EMAIL",
+            "Email này đã được dùng cho tài khoản khác. Vui lòng nhập email khác.",
+            Map.of(), Map.of("email", "Email này đã được dùng cho tài khoản khác."));
+    }
+
+    private String clean(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private void auditTenantEmail(UUID tenantId, UUID userId, String before, String next) {
+        jdbc.sql("""
+                INSERT INTO audit_events (
+                  id, tenant_id, actor_user_id, actor_type, action, entity_type, entity_id,
+                  old_value, new_value
+                ) VALUES (
+                  :id, :tenantId, :userId, 'USER', 'SELF_EMAIL_UPDATED', 'User', :userId,
+                  jsonb_build_object('email', CAST(:beforeEmail AS text)),
+                  jsonb_build_object('email', CAST(:nextEmail AS text))
+                )
+                """)
+            .param("id", UUID.randomUUID()).param("tenantId", tenantId).param("userId", userId)
+            .param("beforeEmail", before).param("nextEmail", next).update();
+    }
+
+    private void auditPlatformEmail(UUID userId, String before, String next) {
+        jdbc.sql("""
+                INSERT INTO audit_events (
+                  id, tenant_id, actor_type, platform_actor_user_id, action,
+                  entity_type, entity_id, old_value, new_value
+                ) VALUES (
+                  :id, NULL, 'PLATFORM', :userId, 'SELF_EMAIL_UPDATED',
+                  'PlatformUser', :userId,
+                  jsonb_build_object('email', CAST(:beforeEmail AS text)),
+                  jsonb_build_object('email', CAST(:nextEmail AS text))
+                )
+                """)
+            .param("id", UUID.randomUUID()).param("userId", userId)
+            .param("beforeEmail", before).param("nextEmail", next).update();
+    }
+
     public record ProfileTenant(UUID id, String slug, String name) {
+    }
+
+    private record EmailValue(String email) {
     }
 
     public record SelfProfile(String scope, UUID id, ProfileTenant tenant, String profileType,

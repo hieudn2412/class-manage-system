@@ -46,6 +46,7 @@ const apiErrorMessages: Partial<Record<ApiErrorCode, string>> = {
   TEST_SCORE_INVALID: "Điểm kiểm tra chưa hợp lệ. Vui lòng kiểm tra lại.",
   DUPLICATE_TENANT_SLUG: "Đường dẫn trung tâm đã được sử dụng. Vui lòng chọn đường dẫn khác.",
   DUPLICATE_USERNAME: "Tên đăng nhập đã tồn tại trong trung tâm.",
+  DUPLICATE_EMAIL: "Email này đã được dùng cho tài khoản khác. Vui lòng nhập email khác.",
   INVALID_ROLE_COMBINATION: "Các vai trò đã chọn chưa thể dùng cùng nhau. Vui lòng chọn lại.",
   LAST_ACTIVE_ADMIN: "Cần giữ lại ít nhất một quản trị viên trung tâm đang hoạt động.",
   SELF_MANAGEMENT_FORBIDDEN:

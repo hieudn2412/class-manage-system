@@ -74,6 +74,54 @@ const detail: SessionOperationsDetail = {
 };
 
 describe("WF-20 workspace buổi dạy", () => {
+  it("đặt thao tác quản lý phía trên thẻ và ẩn mã lớp", async () => {
+    saveSession(createTestSession(), false);
+    vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
+    vi.spyOn(learningContentRepository, "classHomeworks").mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 50,
+      totalItems: 0,
+      totalPages: 0,
+    });
+    vi.spyOn(teachingRepository, "getSession").mockResolvedValue({
+      ...detail,
+      status: "PENDING_CONFIRMATION",
+      canEdit: false,
+      canCreateHomework: false,
+      canVerify: true,
+      checkInState: "WINDOW_CLOSED",
+      checkIn: null,
+      allowedActions: ["SUBSTITUTE_TEACHER", "CANCEL_SESSION"],
+    });
+
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/t/:tenantSlug/app"
+          element={
+            <TenantProvider>
+              <Outlet />
+            </TenantProvider>
+          }
+        >
+          <Route path="sessions/:sessionId" element={<SessionOperationsPage />} />
+        </Route>
+      </Routes>,
+      ["/t/anh-duong/app/sessions/session-1"],
+    );
+
+    const toolbar = await screen.findByLabelText("Thao tác quản lý buổi học");
+    expect(within(toolbar).getByRole("button", { name: "Xử lý xác nhận" })).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "Thay giáo viên" })).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "Hủy / xếp bù" })).toBeInTheDocument();
+
+    const hero = screen.getByRole("region", { name: "Toán tư duy 4A · Buổi 3" });
+    expect(within(hero).queryByRole("button", { name: "Xử lý xác nhận" })).not.toBeInTheDocument();
+    expect(screen.queryByText("CLS-001")).not.toBeInTheDocument();
+    expect(within(hero).getByText("Nguyễn Thùy Lan")).toBeInTheDocument();
+  });
+
   it("xác nhận giáo viên đã dạy mà không yêu cầu nhập lý do", async () => {
     saveSession(createTestSession(), false);
     vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);

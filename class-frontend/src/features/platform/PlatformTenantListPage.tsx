@@ -6,6 +6,7 @@ import type { PlatformTenant } from "../../shared/types/domain";
 import { ApiError } from "../../shared/types/api";
 import { Badge } from "../../shared/ui/Badge";
 import { Button } from "../../shared/ui/Button";
+import { FilterDisclosure } from "../../shared/ui/FilterDisclosure";
 import { Input } from "../../shared/ui/FormField";
 import { Modal } from "../../shared/ui/Modal";
 import { Pagination } from "../../shared/ui/Pagination";
@@ -94,31 +95,38 @@ export const PlatformTenantListPage = () => {
           Tạo trung tâm
         </Button>
       </header>
-      <div className="filter-bar">
-        <label className="search-box">
-          <Search size={17} aria-hidden="true" />
-          <input
-            value={search}
+      <FilterDisclosure
+        label="Bộ lọc"
+        activeCount={status ? 1 : 0}
+        primary={
+          <label className="search-box">
+            <Search size={17} aria-hidden="true" />
+            <input
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder="Tên hoặc mã đường dẫn…"
+            />
+          </label>
+        }
+      >
+        <div className="filter-collapse-grid">
+          <select
+            value={status}
             onChange={(event) => {
-              setSearch(event.target.value);
+              setStatus(event.target.value);
               setPage(1);
             }}
-            placeholder="Tên hoặc mã đường dẫn…"
-          />
-        </label>
-        <select
-          value={status}
-          onChange={(event) => {
-            setStatus(event.target.value);
-            setPage(1);
-          }}
-          aria-label="Lọc theo trạng thái trung tâm"
-        >
-          <option value="">Mọi trạng thái</option>
-          <option value="ACTIVE">Đang hoạt động</option>
-          <option value="LOCKED">Đã khóa</option>
-        </select>
-      </div>
+            aria-label="Lọc theo trạng thái trung tâm"
+          >
+            <option value="">Mọi trạng thái</option>
+            <option value="ACTIVE">Đang hoạt động</option>
+            <option value="LOCKED">Đã khóa</option>
+          </select>
+        </div>
+      </FilterDisclosure>
       {tenants.isError ? (
         <StatePanel
           kind="error"

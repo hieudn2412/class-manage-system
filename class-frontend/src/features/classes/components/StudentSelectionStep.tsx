@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Check, Search, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { useTenant } from "../../../app/providers/TenantProvider";
 import { classRepository } from "../../../services/repositories/classRepository";
@@ -17,20 +17,11 @@ export const StudentSelectionStep = () => {
   const selectedIds = watch("studentIds");
   const capacity = watch("capacity");
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1);
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
   const query = useQuery({
-    queryKey: ["students", tenant.id, debouncedSearch, page],
-    queryFn: () => classRepository.listStudents(tenant.slug, debouncedSearch, page, 8),
+    queryKey: ["students", tenant.id, search, page],
+    queryFn: () => classRepository.listStudents(tenant.slug, search, page, 8),
     placeholderData: (previous) => previous,
   });
 
@@ -60,7 +51,10 @@ export const StudentSelectionStep = () => {
           label="Tìm theo tên hoặc mã học sinh"
           type="search"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
           placeholder="Ví dụ: Nguyễn Minh Anh hoặc HS-0142"
         />
         <Search size={19} aria-hidden="true" />

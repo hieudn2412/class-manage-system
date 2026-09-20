@@ -6,12 +6,13 @@ import { useTenant } from "../../app/providers/TenantProvider";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { classRepository } from "../../services/repositories/classRepository";
 import { formatCurrency, formatDate, formatDateTime, formatPercent } from "../../shared/lib/format";
-import { Badge } from "../../shared/ui/Badge";
+import { hasPermission, PERMISSIONS } from "../../shared/lib/permissions";
+import type { ClassSessionSummary } from "../../shared/types/domain";
+import { Badge, type BadgeTone } from "../../shared/ui/Badge";
 import { PageHeader } from "../../shared/ui/PageHeader";
 import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { classStatusLabels, classStatusTones } from "./classPresentation";
-import { hasPermission, PERMISSIONS } from "../../shared/lib/permissions";
 import { EnrollmentPanel } from "./components/EnrollmentPanel";
 import { LifecycleActions } from "./components/LifecycleActions";
 import { HourlyRatePanel } from "./components/HourlyRatePanel";
@@ -20,11 +21,27 @@ import { ClassHomeworksPanel } from "../content/ClassHomeworksPanel";
 
 type Tab = "overview" | "sessions" | "students" | "homeworks" | "materials";
 
+const sessionRecordPresentation = (
+  session: ClassSessionSummary,
+  currentTime: number,
+): { label: string; tone: BadgeTone; upcoming: boolean } => {
+  const upcoming = Date.parse(session.startAt) > currentTime;
+  if (upcoming) return { label: "Sắp tới", tone: "info", upcoming: true };
+  if (!session.lessonName.trim() || !session.recordUrl) {
+    return { label: "Thiếu bản ghi buổi học", tone: "warning", upcoming: false };
+  }
+  if (session.recordStatus === "COMPLETE") {
+    return { label: "Đủ hồ sơ", tone: "success", upcoming: false };
+  }
+  return { label: "Hồ sơ chưa đầy đủ", tone: "warning", upcoming: false };
+};
+
 export const ClassDetailPage = () => {
   const tenant = useTenant();
   const { session } = useAuth();
   const { classId = "" } = useParams<{ classId: string }>();
   const [tab, setTab] = useState<Tab>("overview");
+  const [currentTime] = useState(() => Date.now());
   const query = useQuery({
     queryKey: ["class-detail", tenant.id, classId],
     queryFn: () => classRepository.getClass(tenant.slug, classId),
@@ -157,7 +174,7 @@ export const ClassDetailPage = () => {
               <p className="metric-detail">{item.scheduleSummary}</p>
             </article>
           </section>
-          <div className="detail-grid">
+          <div className="class-overview-stack">
             <section className="panel-flat section-panel">
               <h2 className="section-title">Thông tin vận hành</h2>
               <dl className="definition-grid">
@@ -172,7 +189,8 @@ export const ClassDetailPage = () => {
                 <div className="definition-item">
                   <dt>Phòng / hình thức</dt>
                   <dd>
-                    {item.room} · {item.deliveryMode === "Online" ? "Trực tuyến" : item.deliveryMode}
+                    {item.room} ·{" "}
+                    {item.deliveryMode === "Online" ? "Trực tuyến" : item.deliveryMode}
                   </dd>
                 </div>
                 <div className="definition-item">
@@ -181,45 +199,55 @@ export const ClassDetailPage = () => {
                 </div>
               </dl>
             </section>
-            <section className="panel-flat section-panel">
-              <h2 className="section-title">Hồ sơ buổi gần đây</h2>
+            <HourlyRatePanel classId={item.id} />
+            <section className="panel-flat section-panel class-session-records">
+              <h2 className="section-title">Hồ sơ buổi học</h2>
               {item.sessions.length ? (
-                <ul className="record-list">
-                  {item.sessions.map((session) => (
-                    <li key={session.id}>
-                      <span>
-                        <strong>
-                          Buổi {session.ordinal} · {session.lessonName || "Chưa nhập tên bài học"}
-                        </strong>
-                        <small>
-                          {formatDateTime(session.startAt)} · {session.teacherName}
-                        </small>
-                      </span>
-                      <span className="record-actions">
-                        <Badge tone={session.recordStatus === "COMPLETE" ? "success" : "warning"}>
-                          {session.recordStatus === "COMPLETE" ? "Đủ hồ sơ" : "Thiếu bản ghi buổi học"}
-                        </Badge>
-                        {session.recordUrl ? (
-                          <a
-                            className="record-link"
-                            href={session.recordUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Mở record
-                            <ExternalLink size={15} aria-hidden="true" />
-                          </a>
-                        ) : null}
-                      </span>
-                    </li>
-                  ))}
+                <ul
+                  className="record-list"
+                  tabIndex={0}
+                  aria-label="Danh sách hồ sơ buổi học, có thể cuộn"
+                >
+                  {item.sessions.map((session) => {
+                    const presentation = sessionRecordPresentation(session, currentTime);
+                    return (
+                      <li key={session.id}>
+                        <span>
+                          <strong>
+                            Buổi {session.ordinal}
+                            {session.lessonName
+                              ? ` · ${session.lessonName}`
+                              : presentation.upcoming
+                                ? ""
+                                : " · Chưa nhập tên bài học"}
+                          </strong>
+                          <small>
+                            {formatDateTime(session.startAt)} · {session.teacherName}
+                          </small>
+                        </span>
+                        <span className="record-actions">
+                          <Badge tone={presentation.tone}>{presentation.label}</Badge>
+                          {session.recordUrl ? (
+                            <a
+                              className="record-link"
+                              href={session.recordUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Mở bản ghi
+                              <ExternalLink size={15} aria-hidden="true" />
+                            </a>
+                          ) : null}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
                 <p className="text-muted">Chưa có hồ sơ buổi để hiển thị.</p>
               )}
             </section>
           </div>
-          <HourlyRatePanel classId={item.id} />
         </>
       ) : null}
 
@@ -239,37 +267,41 @@ export const ClassDetailPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {item.sessions.map((session) => (
-                  <tr key={session.id}>
-                    <td data-label="Buổi">#{session.ordinal}</td>
-                    <td data-label="Thời gian">{formatDateTime(session.startAt)}</td>
-                    <td data-label="Bài học">{session.lessonName || "Chưa nhập tên bài học"}</td>
-                    <td data-label="Giáo viên">{session.teacherName}</td>
-                    <td data-label="Chuyên cần">
-                      {session.attendanceRate === null
-                        ? "Chưa điểm danh"
-                        : formatPercent(session.attendanceRate)}
-                    </td>
-                    <td data-label="Bản ghi buổi học">
-                      <span className="record-actions">
-                        <Badge tone={session.recordStatus === "COMPLETE" ? "success" : "warning"}>
-                          {session.recordStatus === "COMPLETE" ? "Đã có" : "Còn thiếu"}
-                        </Badge>
-                        {session.recordUrl ? (
-                          <a
-                            className="record-link"
-                            href={session.recordUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Mở record
-                            <ExternalLink size={15} aria-hidden="true" />
-                          </a>
-                        ) : null}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {item.sessions.map((session) => {
+                  const presentation = sessionRecordPresentation(session, currentTime);
+                  return (
+                    <tr key={session.id}>
+                      <td data-label="Buổi">#{session.ordinal}</td>
+                      <td data-label="Thời gian">{formatDateTime(session.startAt)}</td>
+                      <td data-label="Bài học">
+                        {session.lessonName ||
+                          (presentation.upcoming ? "Chưa diễn ra" : "Chưa nhập tên bài học")}
+                      </td>
+                      <td data-label="Giáo viên">{session.teacherName}</td>
+                      <td data-label="Chuyên cần">
+                        {session.attendanceRate === null
+                          ? "Chưa điểm danh"
+                          : formatPercent(session.attendanceRate)}
+                      </td>
+                      <td data-label="Bản ghi buổi học">
+                        <span className="record-actions">
+                          <Badge tone={presentation.tone}>{presentation.label}</Badge>
+                          {session.recordUrl ? (
+                            <a
+                              className="record-link"
+                              href={session.recordUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Mở bản ghi
+                              <ExternalLink size={15} aria-hidden="true" />
+                            </a>
+                          ) : null}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -291,10 +323,18 @@ export const ClassDetailPage = () => {
       ) : null}
 
       {tab === "materials" ? (
-        <ClassMaterialsPanel tenantSlug={tenant.slug} classId={item.id} canManage={canManageMaterials} />
+        <ClassMaterialsPanel
+          tenantSlug={tenant.slug}
+          classId={item.id}
+          canManage={canManageMaterials}
+        />
       ) : null}
       {tab === "homeworks" ? (
-        <ClassHomeworksPanel tenantSlug={tenant.slug} classId={item.id} canManage={canManageHomeworks} />
+        <ClassHomeworksPanel
+          tenantSlug={tenant.slug}
+          classId={item.id}
+          canManage={canManageHomeworks}
+        />
       ) : null}
     </>
   );
