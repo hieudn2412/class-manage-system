@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatCurrency, formatDate, formatMonth } from "../../shared/lib/format";
 import type {
-  SalaryAccrualItem,
+  SalaryAccrualLine,
   SalaryAdjustment,
   SalaryPayment,
   TeacherPayrollDetail,
@@ -44,7 +44,7 @@ export const SalaryDetailSections = ({
 
   // Group accruals by sessionDate
   const accrualsByDate = useMemo(() => {
-    const map = new Map<string, SalaryAccrualItem[]>();
+    const map = new Map<string, SalaryAccrualLine[]>();
     for (const accrual of detail.accruals) {
       const list = map.get(accrual.sessionDate) ?? [];
       list.push(accrual);
@@ -66,7 +66,7 @@ export const SalaryDetailSections = ({
     const days: {
       dayNumber: number;
       dateString: string;
-      sessions: SalaryAccrualItem[];
+      sessions: SalaryAccrualLine[];
       totalAmount: number;
     }[] = [];
 
