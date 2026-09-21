@@ -222,6 +222,82 @@
     border-radius: var(--radius-xl);
   }
 
+  .salary-detail-hero {
+    padding: var(--space-5);
+  }
+
+  .salary-detail-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    width: 100%;
+  }
+
+  .salary-detail-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  .salary-detail-buttons .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .salary-mini-calendar {
+    margin: 12px;
+    border-radius: var(--radius-lg);
+  }
+
+  .salary-mini-calendar-head {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .salary-mini-calendar-summary {
+    font-size: 0.8rem;
+  }
+
+  .salary-mini-calendar-body {
+    padding: 10px 12px;
+  }
+
+  .salary-calendar-grid,
+  .salary-calendar-weekdays {
+    gap: 4px;
+  }
+
+  .salary-calendar-day {
+    min-height: 42px;
+    border-radius: 8px;
+    padding: 3px 1px;
+  }
+
+  .salary-day-number {
+    font-size: 0.78rem;
+  }
+
+  .salary-calendar-dot {
+    width: 5px;
+    height: 5px;
+    flex: 0 0 5px;
+  }
+
+  .salary-active-filter-bar {
+    margin: 0 12px 12px;
+    padding: 8px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .salary-clear-filter-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   .salary-bulk-actions {
     grid-template-columns: minmax(0, 1fr) repeat(2, auto);
     align-items: center;
@@ -285,5 +361,23 @@
     width: 100%;
     min-width: 0;
     padding-inline: 0.6rem;
+  }
+
+  .salary-detail-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .salary-mini-calendar-summary {
+    font-size: 0.75rem;
+  }
+
+  .salary-calendar-toggle-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .salary-calendar-legend {
+    gap: 8px;
+    font-size: 0.7rem;
   }
 }

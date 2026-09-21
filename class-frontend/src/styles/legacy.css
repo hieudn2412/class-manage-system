@@ -6081,19 +6081,25 @@ textarea.control {
 .salary-detail-actions {
   display: flex;
   align-items: flex-end;
-  gap: 9px;
+  gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+.salary-detail-actions .salary-month-field,
 .salary-detail-actions label,
 .month-control {
   display: grid;
-  gap: 4px;
+  gap: 5px;
   color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 750;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.salary-detail-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .salary-balance-card,
@@ -6186,6 +6192,241 @@ textarea.control {
   font-size: 0.76rem;
   font-weight: 750;
 }
+
+/* Mini Calendar in Salary Details */
+.salary-mini-calendar {
+  margin: 14px 16px 16px;
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-xl, 14px);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.salary-mini-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, var(--primary-50), var(--surface));
+  border-bottom: 1px solid var(--primary-100);
+}
+
+.salary-mini-calendar-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary-900);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.salary-mini-calendar-summary svg {
+  color: var(--primary-600);
+  flex: 0 0 auto;
+}
+
+.salary-calendar-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface);
+  color: var(--primary-700);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.salary-calendar-toggle-btn:hover {
+  border-color: var(--primary-300);
+  background: var(--primary-50);
+}
+
+.salary-mini-calendar-body {
+  padding: 12px 16px 14px;
+}
+
+.salary-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.salary-calendar-weekday {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 0;
+}
+
+.salary-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.salary-calendar-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 10px);
+  background: var(--surface);
+  color: var(--text-muted);
+  padding: 4px 2px;
+  cursor: default;
+  transition: all 140ms ease;
+}
+
+.salary-calendar-day.empty {
+  border-color: transparent;
+  background: transparent;
+  visibility: hidden;
+}
+
+.salary-calendar-day.has-sessions {
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text-primary);
+  border-color: var(--primary-200);
+  font-weight: 700;
+}
+
+.salary-calendar-day.has-sessions:hover {
+  border-color: var(--primary-400);
+  background: var(--primary-50);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-xs);
+}
+
+.salary-calendar-day.is-selected {
+  border-color: var(--primary-600) !important;
+  background: var(--primary-600) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px var(--primary-a24);
+}
+
+.salary-calendar-day.is-selected .salary-calendar-dot {
+  outline: 1.5px solid #fff;
+}
+
+.salary-calendar-day.is-selected .salary-calendar-dot-more {
+  color: #fff;
+}
+
+.salary-day-number {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.salary-calendar-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.salary-calendar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: 0 0 6px;
+}
+
+.salary-dot-1 {
+  background: #2563eb;
+}
+
+.salary-dot-2 {
+  background: #f59e0b;
+}
+
+.salary-dot-3 {
+  background: #10b981;
+}
+
+.salary-dot-4 {
+  background: #8b5cf6;
+}
+
+.salary-calendar-dot-more {
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--primary-700);
+  margin-left: 1px;
+}
+
+.salary-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.salary-legend-title {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.salary-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+/* Active Date Filter Bar */
+.salary-active-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 16px 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-lg, 10px);
+  background: var(--primary-50);
+  color: var(--primary-900);
+}
+
+.salary-active-filter-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.salary-active-filter-info svg {
+  color: var(--primary-600);
+  flex: 0 0 auto;
+}
+
+.salary-clear-filter-btn {
+  min-height: 32px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .salary-line-list {
   display: grid;
 }
@@ -6482,13 +6723,30 @@ textarea.control {
   .salary-header,
   .salary-detail-hero {
     flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
   }
   .salary-header .button,
   .salary-detail-actions {
     width: 100%;
   }
+  .salary-detail-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
   .salary-detail-actions > * {
-    flex: 1 1 140px;
+    width: 100%;
+  }
+  .salary-detail-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+  .salary-detail-buttons .button {
+    width: 100%;
+    justify-content: center;
   }
   .salary-period-strip {
     align-items: flex-start;

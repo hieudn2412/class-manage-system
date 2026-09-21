@@ -50,16 +50,16 @@ export const SalaryTeacherDetailPage = () => {
   return (
     <section className="salary-page">
       <Link className="back-link" to={`/t/${tenantSlug}/app/finance/salaries?month=${month}`}>
-        <ArrowLeft size={17} /> Quay lại bảng lương
+        <ArrowLeft size={17} aria-hidden="true" /> Quay lại bảng lương
       </Link>
       <header className="salary-detail-hero">
-        <div>
+        <div className="salary-detail-hero-content">
           <p className="eyebrow">CHI TIẾT LƯƠNG · {month}</p>
           <h1>{detail.teacherName}</h1>
           <p>Mỗi khoản đều có thông tin về buổi dạy, kỳ lương và giao dịch liên quan.</p>
         </div>
         <div className="salary-detail-actions">
-          <label>
+          <label className="salary-month-field">
             <span>Kỳ lương</span>
             <input
               type="month"
@@ -67,12 +67,14 @@ export const SalaryTeacherDetailPage = () => {
               onChange={(event) => setParams({ month: event.target.value })}
             />
           </label>
-          <Button variant="secondary" onClick={() => setEditor({ kind: "adjustment" })}>
-            <CirclePlus size={17} /> Cộng hoặc trừ
-          </Button>
-          <Button onClick={() => setEditor({ kind: "payment" })}>
-            <CreditCard size={17} /> Ghi thanh toán
-          </Button>
+          <div className="salary-detail-buttons">
+            <Button variant="secondary" onClick={() => setEditor({ kind: "adjustment" })}>
+              <CirclePlus size={17} aria-hidden="true" /> Cộng hoặc trừ
+            </Button>
+            <Button onClick={() => setEditor({ kind: "payment" })}>
+              <CreditCard size={17} aria-hidden="true" /> Ghi thanh toán
+            </Button>
+          </div>
         </div>
       </header>
       <div className="salary-balance-card">
