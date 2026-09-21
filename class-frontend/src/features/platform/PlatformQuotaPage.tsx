@@ -33,7 +33,8 @@ export const PlatformQuotaPage = () => {
       await client.invalidateQueries({ queryKey: ["platform-quota", tenantId] });
       showToast("Đã cập nhật hạn mức dung lượng.");
     },
-    onError: (error) => showToast(error instanceof Error ? error.message : "Không thể cập nhật hạn mức dung lượng."),
+    onError: (error) =>
+      showToast(error instanceof Error ? error.message : "Không thể cập nhật hạn mức dung lượng."),
   });
   return (
     <section className="management-page">
@@ -43,20 +44,56 @@ export const PlatformQuotaPage = () => {
         subtitle="Xem dung lượng đã dùng và điều chỉnh mức lưu trữ cho từng trung tâm."
       />
       <div className="filter-bar">
-        <Input label="Mã trung tâm" value={tenantId} onChange={(event) => setTenantId(event.target.value)} />
-        <Input label="Hạn mức mới (GB)" type="number" min="1" value={quotaGb} onChange={(event) => setQuotaGb(event.target.value)} />
-        <Button disabled={!query.data} loading={mutation.isPending} onClick={() => mutation.mutate()}>
+        <Input
+          label="Mã trung tâm"
+          value={tenantId}
+          onChange={(event) => setTenantId(event.target.value)}
+        />
+        <Input
+          label="Hạn mức mới (GB)"
+          type="number"
+          min="1"
+          value={quotaGb}
+          onChange={(event) => setQuotaGb(event.target.value)}
+        />
+        <Button
+          disabled={!query.data}
+          loading={mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
           <DatabaseZap size={16} /> Cập nhật
         </Button>
       </div>
       {query.isPending ? <PageSkeleton /> : null}
-      {tenantId && query.isError ? <StatePanel kind="error" title="Không tải được hạn mức dung lượng" description="Vui lòng kiểm tra mã trung tâm hoặc quyền quản trị hệ thống." /> : null}
+      {tenantId && query.isError ? (
+        <StatePanel
+          kind="error"
+          title="Không tải được hạn mức dung lượng"
+          description="Vui lòng kiểm tra mã trung tâm hoặc quyền quản trị hệ thống."
+        />
+      ) : null}
       {query.data ? (
         <section className="salary-metric-grid" aria-label="Dung lượng của trung tâm">
-          <article><span>Hạn mức</span><strong>{formatBytes(query.data.quotaBytes)}</strong><small>Dung lượng tối đa</small></article>
-          <article><span>Đã dùng</span><strong>{formatBytes(query.data.usedBytes)}</strong><small>Gồm cả tệp đang chờ xử lý</small></article>
-          <article><span>Còn lại</span><strong>{formatBytes(query.data.remainingBytes)}</strong><small>Dung lượng có thể sử dụng</small></article>
-          <article><span>Đang chờ xử lý</span><strong>{formatBytes(query.data.stagingBytes)}</strong><small>Tự hết hạn sau 24 giờ</small></article>
+          <article>
+            <span>Hạn mức</span>
+            <strong>{formatBytes(query.data.quotaBytes)}</strong>
+            <small>Dung lượng tối đa</small>
+          </article>
+          <article>
+            <span>Đã dùng</span>
+            <strong>{formatBytes(query.data.usedBytes)}</strong>
+            <small>Gồm cả tệp đang chờ xử lý</small>
+          </article>
+          <article>
+            <span>Còn lại</span>
+            <strong>{formatBytes(query.data.remainingBytes)}</strong>
+            <small>Dung lượng có thể sử dụng</small>
+          </article>
+          <article>
+            <span>Đang chờ xử lý</span>
+            <strong>{formatBytes(query.data.stagingBytes)}</strong>
+            <small>Tự hết hạn sau 24 giờ</small>
+          </article>
         </section>
       ) : null}
     </section>

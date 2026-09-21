@@ -54,42 +54,75 @@ export const CompletionCorrectionModal = ({
     return null;
   }, [endAt, reason, startAt, teacherId]);
   const mutation = useMutation({
-    mutationFn: () => salaryRepository.correctCompletion(tenantSlug, detail.id, {
-      startAt: withVietnamOffset(startAt),
-      endAt: withVietnamOffset(endAt),
-      actualTeacherId: teacherId,
-      reason: reason.trim(),
-      version: detail.version,
-    }),
+    mutationFn: () =>
+      salaryRepository.correctCompletion(tenantSlug, detail.id, {
+        startAt: withVietnamOffset(startAt),
+        endAt: withVietnamOffset(endAt),
+        actualTeacherId: teacherId,
+        reason: reason.trim(),
+        version: detail.version,
+      }),
     onSuccess: onSaved,
-    onError: (cause) => setError(
-      cause instanceof Error ? cause.message : "Không thể sửa buổi đã hoàn tất.",
-    ),
+    onError: (cause) =>
+      setError(cause instanceof Error ? cause.message : "Không thể sửa buổi đã hoàn tất."),
   });
 
   return (
     <Modal open title="Sửa dữ liệu buổi đã hoàn tất" onClose={onClose}>
       <div className="form-stack completion-correction-form">
         <p className="form-note">
-          Thao tác này sẽ tính lại lương, có thể chuyển kỳ hoặc chuyển người hưởng lương.
-          Thông tin trước khi sửa vẫn được giữ trong lịch sử thay đổi.
+          Thao tác này sẽ tính lại lương, có thể chuyển kỳ hoặc chuyển người hưởng lương. Thông tin
+          trước khi sửa vẫn được giữ trong lịch sử thay đổi.
         </p>
         <div className="form-grid two-columns">
-          <Input label="Bắt đầu" type="datetime-local" value={startAt} onChange={(event) => setStartAt(event.target.value)} />
-          <Input label="Kết thúc" type="datetime-local" value={endAt} onChange={(event) => setEndAt(event.target.value)} />
+          <Input
+            label="Bắt đầu"
+            type="datetime-local"
+            value={startAt}
+            onChange={(event) => setStartAt(event.target.value)}
+          />
+          <Input
+            label="Kết thúc"
+            type="datetime-local"
+            value={endAt}
+            onChange={(event) => setEndAt(event.target.value)}
+          />
         </div>
-        <Select label="Giáo viên thực tế" value={teacherId} onChange={(event) => setTeacherId(event.target.value)} disabled={teachers.isPending}>
-          {teachers.data?.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}
+        <Select
+          label="Giáo viên thực tế"
+          value={teacherId}
+          onChange={(event) => setTeacherId(event.target.value)}
+          disabled={teachers.isPending}
+        >
+          {teachers.data?.map((teacher) => (
+            <option key={teacher.id} value={teacher.id}>
+              {teacher.name}
+            </option>
+          ))}
         </Select>
-        <Textarea label="Lý do sửa" rows={3} value={reason} onChange={(event) => setReason(event.target.value)} />
-        {error ? <p className="field-error" role="alert">{error}</p> : null}
+        <Textarea
+          label="Lý do sửa"
+          rows={3}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        />
+        {error ? (
+          <p className="field-error" role="alert">
+            {error}
+          </p>
+        ) : null}
         <div className="modal-actions">
-          <Button type="button" variant="secondary" onClick={onClose}>Hủy</Button>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
           <Button
             type="button"
             disabled={Boolean(clientError) || mutation.isPending || teachers.isError}
             title={clientError ?? undefined}
-            onClick={() => { setError(null); mutation.mutate(); }}
+            onClick={() => {
+              setError(null);
+              mutation.mutate();
+            }}
           >
             {mutation.isPending ? "Đang tính lại…" : "Lưu và tính lại lương"}
           </Button>

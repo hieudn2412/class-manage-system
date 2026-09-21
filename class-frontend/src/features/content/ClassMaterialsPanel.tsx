@@ -27,13 +27,20 @@ export const ClassMaterialsPanel = ({
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ["class-materials", tenantSlug, classId],
-    queryFn: () => learningContentRepository.materials(tenantSlug, classId, { page: 1, pageSize: 100 }),
+    queryFn: () =>
+      learningContentRepository.materials(tenantSlug, classId, { page: 1, pageSize: 100 }),
   });
   const invalidate = async () =>
     client.invalidateQueries({ queryKey: ["class-materials", tenantSlug, classId] });
   if (query.isPending) return <PageSkeleton />;
   if (query.isError) {
-    return <StatePanel kind="error" title="Không tải được tài liệu" description="Vui lòng thử lại sau." />;
+    return (
+      <StatePanel
+        kind="error"
+        title="Không tải được tài liệu"
+        description="Vui lòng thử lại sau."
+      />
+    );
   }
   return (
     <section className="content-panel">
@@ -49,7 +56,11 @@ export const ClassMaterialsPanel = ({
         ) : null}
       </header>
       {!query.data?.items.length ? (
-        <StatePanel kind="empty" title="Chưa có tài liệu" description="Tài liệu lớp và buổi sẽ xuất hiện tại đây." />
+        <StatePanel
+          kind="empty"
+          title="Chưa có tài liệu"
+          description="Tài liệu lớp và buổi sẽ xuất hiện tại đây."
+        />
       ) : (
         <div className="content-card-grid">
           {query.data.items.map((item) => (
@@ -62,15 +73,24 @@ export const ClassMaterialsPanel = ({
                 <Badge tone="success">Đang sử dụng</Badge>
               </header>
               <p>{item.description || "Không có mô tả."}</p>
-              <a className="record-link" href={fileHref(item.file)} target="_blank" rel="noreferrer">
-                <Download size={15} /> {item.file.originalFilename} · {formatBytes(item.file.sizeBytes)}
+              <a
+                className="record-link"
+                href={fileHref(item.file)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Download size={15} /> {item.file.originalFilename} ·{" "}
+                {formatBytes(item.file.sizeBytes)}
               </a>
               {canManage ? (
                 <div className="row-actions">
                   <Button variant="secondary" onClick={() => setEditing(item)}>
                     Sửa
                   </Button>
-                  <Button variant="danger" onClick={() => setEditing({ ...item, status: "REMOVED" })}>
+                  <Button
+                    variant="danger"
+                    onClick={() => setEditing({ ...item, status: "REMOVED" })}
+                  >
                     <Trash2 size={15} /> Gỡ
                   </Button>
                 </div>
@@ -137,15 +157,20 @@ const MaterialModal = ({
       onClose();
       showToast("Tài liệu đã được cập nhật.");
     },
-    onError: (error) => showToast(error instanceof Error ? error.message : "Không thể lưu tài liệu."),
+    onError: (error) =>
+      showToast(error instanceof Error ? error.message : "Không thể lưu tài liệu."),
   });
   return (
     <Modal
       open={open}
-      title={material?.status === "REMOVED" ? "Gỡ tài liệu" : material ? "Sửa tài liệu" : "Thêm tài liệu"}
+      title={
+        material?.status === "REMOVED" ? "Gỡ tài liệu" : material ? "Sửa tài liệu" : "Thêm tài liệu"
+      }
       onClose={onClose}
       confirmLabel={material?.status === "REMOVED" ? "Gỡ" : "Lưu"}
-      confirmDisabled={material?.status !== "REMOVED" && (!title.trim() || (!material && !files[0]?.token))}
+      confirmDisabled={
+        material?.status !== "REMOVED" && (!title.trim() || (!material && !files[0]?.token))
+      }
       confirmLoading={mutation.isPending}
       onConfirm={() => mutation.mutate()}
     >
@@ -154,8 +179,18 @@ const MaterialModal = ({
       ) : (
         <div className="content-form">
           <Input label="Tiêu đề" value={title} onChange={(event) => setTitle(event.target.value)} />
-          <Textarea label="Mô tả" value={description} onChange={(event) => setDescription(event.target.value)} />
-          <FileTokenPicker tenantSlug={tenantSlug} purpose="MATERIAL" files={files} onChange={setFiles} maxFiles={1} />
+          <Textarea
+            label="Mô tả"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+          <FileTokenPicker
+            tenantSlug={tenantSlug}
+            purpose="MATERIAL"
+            files={files}
+            onChange={setFiles}
+            maxFiles={1}
+          />
         </div>
       )}
     </Modal>

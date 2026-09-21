@@ -5,10 +5,7 @@ import { useTenant } from "../../app/providers/TenantProvider";
 import { salaryRepository } from "../../services/repositories/salaryRepository";
 import { formatCurrency, formatDateTime, formatMonth } from "../../shared/lib/format";
 import { ApiError } from "../../shared/types/api";
-import type {
-  PayrollTeacherRow,
-  SendSalaryNotificationsResult,
-} from "../../shared/types/domain";
+import type { PayrollTeacherRow, SendSalaryNotificationsResult } from "../../shared/types/domain";
 import { Badge } from "../../shared/ui/Badge";
 import { Modal } from "../../shared/ui/Modal";
 import { useToast } from "../../shared/ui/Toast";
@@ -40,49 +37,55 @@ const readDuplicates = (error: ApiError): DuplicateDetail[] => {
   return value.filter((item): item is DuplicateDetail => {
     if (!item || typeof item !== "object") return false;
     const candidate = item as Partial<DuplicateDetail>;
-    return typeof candidate.teacherId === "string" && typeof candidate.teacherName === "string"
-      && (candidate.status === "QUEUED" || candidate.status === "SENT")
-      && typeof candidate.sentAt === "string";
+    return (
+      typeof candidate.teacherId === "string" &&
+      typeof candidate.teacherName === "string" &&
+      (candidate.status === "QUEUED" || candidate.status === "SENT") &&
+      typeof candidate.sentAt === "string"
+    );
   });
 };
 
-const hours = (minutes: number) => new Intl.NumberFormat("vi-VN", {
-  maximumFractionDigits: 1,
-}).format(minutes / 60);
+const hours = (minutes: number) =>
+  new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 1,
+  }).format(minutes / 60);
 
-export const SalaryNotificationModal = ({
-  open,
-  month,
-  recipients,
-  onClose,
-  onSent,
-}: Props) => {
+export const SalaryNotificationModal = ({ open, month, recipients, onClose, onSent }: Props) => {
   const tenant = useTenant();
   const { showToast } = useToast();
   const [paymentDate, setPaymentDate] = useState("");
   const [contactNote, setContactNote] = useState("");
   const [validationMessage, setValidationMessage] = useState("");
   const [duplicates, setDuplicates] = useState<DuplicateDetail[]>([]);
-  const knownDuplicates = useMemo(() => recipients
-    .filter((recipient) => recipient.lastNotificationStatus === "QUEUED"
-      || recipient.lastNotificationStatus === "SENT")
-    .map((recipient) => ({
-      teacherId: recipient.teacherId,
-      teacherName: recipient.teacherName,
-      status: recipient.lastNotificationStatus as "QUEUED" | "SENT",
-      sentAt: recipient.lastNotificationAt ?? "",
-    })), [recipients]);
+  const knownDuplicates = useMemo(
+    () =>
+      recipients
+        .filter(
+          (recipient) =>
+            recipient.lastNotificationStatus === "QUEUED" ||
+            recipient.lastNotificationStatus === "SENT",
+        )
+        .map((recipient) => ({
+          teacherId: recipient.teacherId,
+          teacherName: recipient.teacherName,
+          status: recipient.lastNotificationStatus as "QUEUED" | "SENT",
+          sentAt: recipient.lastNotificationAt ?? "",
+        })),
+    [recipients],
+  );
   const resendWarnings = duplicates.length ? duplicates : knownDuplicates;
   const preview = recipients[0];
 
   const mutation = useMutation({
-    mutationFn: (confirmResend: boolean) => salaryRepository.sendNotifications(tenant.slug, {
-      month,
-      teacherIds: recipients.map((recipient) => recipient.teacherId),
-      paymentDate,
-      contactNote: contactNote.trim() || undefined,
-      confirmResend,
-    }),
+    mutationFn: (confirmResend: boolean) =>
+      salaryRepository.sendNotifications(tenant.slug, {
+        month,
+        teacherIds: recipients.map((recipient) => recipient.teacherId),
+        paymentDate,
+        contactNote: contactNote.trim() || undefined,
+        confirmResend,
+      }),
     onSuccess: (result) => {
       const skippedMessage = result.skipped.length
         ? ` ${result.skipped.length} giáo viên chưa có email nên được bỏ qua.`
@@ -95,9 +98,9 @@ export const SalaryNotificationModal = ({
         setDuplicates(readDuplicates(error));
         return;
       }
-      showToast(error instanceof Error
-        ? error.message
-        : "Chưa thể gửi thông báo lương. Vui lòng thử lại.");
+      showToast(
+        error instanceof Error ? error.message : "Chưa thể gửi thông báo lương. Vui lòng thử lại.",
+      );
     },
   });
 
@@ -113,9 +116,11 @@ export const SalaryNotificationModal = ({
   return (
     <Modal
       open={open}
-      title={recipients.length > 1
-        ? `Gửi thông báo cho ${recipients.length} giáo viên`
-        : "Gửi thông báo lương"}
+      title={
+        recipients.length > 1
+          ? `Gửi thông báo cho ${recipients.length} giáo viên`
+          : "Gửi thông báo lương"
+      }
       onClose={onClose}
       className="salary-notification-modal"
       confirmLabel={resendWarnings.length ? "Xác nhận gửi lại" : "Gửi thông báo"}
@@ -171,7 +176,9 @@ export const SalaryNotificationModal = ({
             ) : null}
           </label>
           <label className="field">
-            <span>Ghi chú liên hệ <small>(không bắt buộc)</small></span>
+            <span>
+              Ghi chú liên hệ <small>(không bắt buộc)</small>
+            </span>
             <textarea
               rows={3}
               maxLength={500}
@@ -186,16 +193,29 @@ export const SalaryNotificationModal = ({
         {preview ? (
           <section className="salary-email-preview" aria-label="Xem trước nội dung email">
             <header>
-              <span><Mail size={17} aria-hidden="true" /> Xem trước email</span>
+              <span>
+                <Mail size={17} aria-hidden="true" /> Xem trước email
+              </span>
               <Badge tone="info">{formatMonth(month)}</Badge>
             </header>
             <div className="salary-email-preview-body">
               <small>EDU OPS · {tenant.name}</small>
               <h3>Thông báo bảng lương</h3>
-              <p>Kính gửi Thầy/Cô <strong>{preview.teacherName}</strong>,</p>
+              <p>
+                Kính gửi Thầy/Cô <strong>{preview.teacherName}</strong>,
+              </p>
               <p>
                 Trung tâm gửi thông tin bảng lương {formatMonth(month).toLowerCase()}.
-                {paymentDate ? <> Ngày dự kiến thanh toán: <strong>{new Date(`${paymentDate}T00:00:00`).toLocaleDateString("vi-VN")}</strong>.</> : null}
+                {paymentDate ? (
+                  <>
+                    {" "}
+                    Ngày dự kiến thanh toán:{" "}
+                    <strong>
+                      {new Date(`${paymentDate}T00:00:00`).toLocaleDateString("vi-VN")}
+                    </strong>
+                    .
+                  </>
+                ) : null}
               </p>
               <div className="salary-email-preview-table-wrap">
                 <table className="salary-email-preview-table">
@@ -206,9 +226,13 @@ export const SalaryNotificationModal = ({
                       <th scope="col">Tổng giờ dạy</th>
                       <th scope="col">Tiền dạy</th>
                       <th scope="col">Cộng hoặc trừ</th>
-                      <th scope="col" className="preview-total">Tổng lương</th>
+                      <th scope="col" className="preview-total">
+                        Tổng lương
+                      </th>
                       <th scope="col">Đã thanh toán</th>
-                      <th scope="col" className="preview-total">Còn lại</th>
+                      <th scope="col" className="preview-total">
+                        Còn lại
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -224,7 +248,9 @@ export const SalaryNotificationModal = ({
                   </tbody>
                 </table>
               </div>
-              {contactNote.trim() ? <p className="salary-preview-note">{contactNote.trim()}</p> : null}
+              {contactNote.trim() ? (
+                <p className="salary-preview-note">{contactNote.trim()}</p>
+              ) : null}
               <small>Đây là email tự động. Giáo viên sẽ có nút mở bảng lương cá nhân.</small>
             </div>
           </section>

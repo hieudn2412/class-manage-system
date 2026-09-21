@@ -80,7 +80,9 @@ export const ManagementSchedulePage = () => {
         label="Bộ lọc"
         className="schedule-toolbar"
         activeCount={[roomId, teacherId].filter(Boolean).length}
-        primary={<WeekNavigator weekStart={weekStart} onChange={(value) => updateParam("week", value)} />}
+        primary={
+          <WeekNavigator weekStart={weekStart} onChange={(value) => updateParam("week", value)} />
+        }
       >
         <div className="filter-collapse-grid schedule-filters">
           <Select

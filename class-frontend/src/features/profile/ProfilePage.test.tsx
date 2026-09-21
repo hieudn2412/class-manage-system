@@ -48,7 +48,8 @@ describe("hồ sơ cá nhân", () => {
     expect(screen.getByText("Nguyễn Văn An")).toBeVisible();
     expect(screen.getByText("0909000000")).toBeVisible();
 
-    const emailInput = screen.getByLabelText("Email");
+    await user.click(screen.getByRole("button", { name: "Chỉnh sửa email" }));
+    const emailInput = screen.getByLabelText("Email mới");
     await user.clear(emailInput);
     await user.type(emailInput, "minh.anh@example.vn");
     await user.click(screen.getByRole("button", { name: "Lưu email" }));
@@ -58,6 +59,7 @@ describe("hồ sơ cá nhân", () => {
     });
     expect(await screen.findByText("Đã cập nhật email liên hệ.")).toBeVisible();
 
+    await user.click(screen.getByRole("button", { name: "Đổi mật khẩu" }));
     await user.type(screen.getByLabelText("Mật khẩu hiện tại"), "123456");
     await user.type(screen.getByLabelText("Mật khẩu mới"), "Student@2026");
     await user.type(screen.getByLabelText("Nhập lại mật khẩu mới"), "Student@2026");
@@ -70,7 +72,7 @@ describe("hồ sơ cá nhân", () => {
     expect(
       await screen.findByText("Đã đổi mật khẩu. Các phiên đăng nhập cũ đã được đăng xuất."),
     ).toBeVisible();
-    expect(screen.getByLabelText("Mật khẩu hiện tại")).toHaveValue("");
+    expect(screen.queryByLabelText("Mật khẩu hiện tại")).not.toBeInTheDocument();
   });
 
   it("đưa lỗi mật khẩu hiện tại về đúng trường nhập", async () => {
@@ -86,6 +88,7 @@ describe("hồ sơ cá nhân", () => {
 
     renderWithProviders(<ProfilePage />);
     await screen.findByRole("heading", { name: "Hồ sơ cá nhân" });
+    await user.click(screen.getByRole("button", { name: "Đổi mật khẩu" }));
     await user.type(screen.getByLabelText("Mật khẩu hiện tại"), "mat-khau-sai");
     await user.type(screen.getByLabelText("Mật khẩu mới"), "Student@2026");
     await user.type(screen.getByLabelText("Nhập lại mật khẩu mới"), "Student@2026");

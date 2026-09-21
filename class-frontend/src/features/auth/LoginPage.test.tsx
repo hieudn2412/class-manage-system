@@ -58,7 +58,7 @@ describe("WF-01 đăng nhập", () => {
     expect(await screen.findByText("Trang ứng dụng đã đăng nhập")).toBeInTheDocument();
   });
 
-  it("cổng mặc định chuyển theo slug và có lối sang platform", async () => {
+  it("cổng mặc định giới thiệu hệ thống rồi chuyển theo slug", async () => {
     const user = userEvent.setup();
     renderWithProviders(
       <Routes>
@@ -68,17 +68,29 @@ describe("WF-01 đăng nhập", () => {
       </Routes>,
       ["/"],
     );
-    await user.type(screen.getByLabelText("Mã đường dẫn trung tâm"), "Anh-Duong");
+
+    expect(screen.getByRole("heading", { name: "Quản lý lớp học dễ dàng hơn." })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Giới thiệu" })).toHaveAttribute("href", "/about");
+    expect(screen.getByRole("link", { name: "Quyền riêng tư" })).toHaveAttribute(
+      "href",
+      "/privacy",
+    );
+    expect(screen.getByRole("link", { name: "Điều khoản" })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("button", { name: "Tiếp tục đăng nhập" })).toBeDisabled();
+
+    await user.type(screen.getByLabelText("Mã đường dẫn trung tâm"), "danxi");
     await user.click(screen.getByRole("button", { name: "Tiếp tục đăng nhập" }));
     expect(await screen.findByText("Login tenant đã chọn")).toBeInTheDocument();
   });
 
-  it("trang đăng nhập trung tâm có liên kết đến khu vực quản trị hệ thống", async () => {
+  it("trang đăng nhập trung tâm có liên kết đến khu vực quản trị hệ thống và không còn hero giới thiệu", async () => {
     renderWithProviders(<AuthTestRoutes />, ["/t/anh-duong/login"]);
-    expect(await screen.findByRole("link", { name: "Đăng nhập quản trị hệ thống" })).toHaveAttribute(
-      "href",
-      "/platform/login",
-    );
+    expect(
+      await screen.findByRole("link", { name: "Đăng nhập quản trị hệ thống" }),
+    ).toHaveAttribute("href", "/platform/login");
+    expect(
+      screen.queryByRole("heading", { name: "Quản lý lớp học dễ dàng hơn." }),
+    ).not.toBeInTheDocument();
   });
 
   it("hiển thị lỗi đăng nhập mà không tiết lộ tài khoản", async () => {

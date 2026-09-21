@@ -103,7 +103,9 @@ export const learningContentRepository = {
       { tenantSlug },
     ),
   studentHomeworks: (tenantSlug: string, query = {}) =>
-    apiRequest<Page<StudentHomeworkSummary>>(`students/me/homeworks?${params(query)}`, { tenantSlug }),
+    apiRequest<Page<StudentHomeworkSummary>>(`students/me/homeworks?${params(query)}`, {
+      tenantSlug,
+    }),
   homework: (tenantSlug: string, homeworkId: string) =>
     apiRequest<HomeworkDetail>(`homeworks/${homeworkId}`, { tenantSlug }),
   studentHomework: (tenantSlug: string, homeworkId: string) =>
@@ -153,7 +155,12 @@ export const learningContentRepository = {
     tenantSlug: string,
     homeworkId: string,
     submissionId: string,
-    input: { status: "REVIEWED" | "REVISION_REQUESTED"; comment: string; fileTokens: string[]; submissionVersion: number },
+    input: {
+      status: "REVIEWED" | "REVISION_REQUESTED";
+      comment: string;
+      fileTokens: string[];
+      submissionVersion: number;
+    },
   ) =>
     apiRequest(`homeworks/${homeworkId}/submissions/${submissionId}/reviews`, {
       tenantSlug,
@@ -170,14 +177,21 @@ export const learningContentRepository = {
       headers: { "Idempotency-Key": idempotencyKey() },
       body: JSON.stringify(input),
     }),
-  updateMaterial: (tenantSlug: string, materialId: string, input: Omit<MaterialInput, "fileToken"> & { fileToken?: string; version: number }) =>
+  updateMaterial: (
+    tenantSlug: string,
+    materialId: string,
+    input: Omit<MaterialInput, "fileToken"> & { fileToken?: string; version: number },
+  ) =>
     apiRequest<Material>(`materials/${materialId}`, {
       tenantSlug,
       method: "PATCH",
       body: JSON.stringify(input),
     }),
   removeMaterial: (tenantSlug: string, materialId: string, version: number) =>
-    apiRequest<void>(`materials/${materialId}?version=${version}`, { tenantSlug, method: "DELETE" }),
+    apiRequest<void>(`materials/${materialId}?version=${version}`, {
+      tenantSlug,
+      method: "DELETE",
+    }),
   report: (tenantSlug: string, query = {}) =>
     apiRequest<Page<HomeworkReportRow>>(`homework-reports?${params(query)}`, { tenantSlug }),
   notifications: (tenantSlug: string, query = {}) =>
@@ -189,9 +203,12 @@ export const learningContentRepository = {
   markAllRead: (tenantSlug: string) =>
     apiRequest<void>("notifications/read-all", { tenantSlug, method: "PATCH" }),
   timeline: (tenantSlug: string, entityType: string, entityId: string) =>
-    apiRequest<AuditTimelineItem[]>(`audit-timeline?${params({ entityType, entityId })}`, { tenantSlug }),
+    apiRequest<AuditTimelineItem[]>(`audit-timeline?${params({ entityType, entityId })}`, {
+      tenantSlug,
+    }),
   usage: (tenantSlug: string) => apiRequest<TenantStorageUsage>("storage/usage", { tenantSlug }),
-  platformUsage: (tenantId: string) => apiRequest<TenantStorageUsage>(`platform/tenants/${tenantId}/quota`),
+  platformUsage: (tenantId: string) =>
+    apiRequest<TenantStorageUsage>(`platform/tenants/${tenantId}/quota`),
   updatePlatformQuota: (tenantId: string, quotaBytes: number, version: number) =>
     apiRequest<TenantStorageUsage>(`platform/tenants/${tenantId}/quota`, {
       method: "PATCH",

@@ -137,7 +137,9 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
           <h2 className="section-title" id="enrollment-heading">
             Danh sách học sinh
           </h2>
-          <p className="text-muted">Mỗi lần học sinh tham gia lại sẽ tạo một lượt ghi danh và khoản học phí ban đầu mới.</p>
+          <p className="text-muted">
+            Mỗi lần học sinh tham gia lại sẽ tạo một lượt ghi danh và khoản học phí ban đầu mới.
+          </p>
         </div>
         {canManage ? (
           <Button onClick={() => setAddOpen(true)}>
@@ -347,6 +349,7 @@ export const EnrollmentPanel = ({ classId, classVersion, canManage }: Enrollment
           setError("");
         }}
         confirmLabel="Xác nhận"
+        confirmVariant="accent"
         onConfirm={() => endMutation.mutate()}
         confirmDisabled={!reason.trim()}
         confirmLoading={endMutation.isPending}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type PropsWithChildren } from "react";
-import { Button } from "./Button";
+import { Button, type ButtonVariant } from "./Button";
 
 interface ModalProps {
   open: boolean;
@@ -11,6 +11,7 @@ interface ModalProps {
   onConfirm?: () => void;
   confirmDisabled?: boolean;
   confirmLoading?: boolean;
+  confirmVariant?: ButtonVariant;
 }
 
 export const Modal = ({
@@ -23,6 +24,7 @@ export const Modal = ({
   onConfirm,
   confirmDisabled = false,
   confirmLoading = false,
+  confirmVariant = "primary",
   children,
 }: PropsWithChildren<ModalProps>) => {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -94,7 +96,12 @@ export const Modal = ({
             {closeLabel}
           </Button>
           {confirmLabel && onConfirm ? (
-            <Button onClick={onConfirm} disabled={confirmDisabled} loading={confirmLoading}>
+            <Button
+              variant={confirmVariant}
+              onClick={onConfirm}
+              disabled={confirmDisabled}
+              loading={confirmLoading}
+            >
               {confirmLabel}
             </Button>
           ) : null}

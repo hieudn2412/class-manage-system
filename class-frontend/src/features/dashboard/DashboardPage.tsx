@@ -5,6 +5,7 @@ import { useTenant } from "../../app/providers/TenantProvider";
 import { dashboardRepository } from "../../services/repositories/dashboardRepository";
 import { formatDate } from "../../shared/lib/format";
 import { Button } from "../../shared/ui/Button";
+import { Card } from "../../shared/ui/Card";
 import { PageHeader } from "../../shared/ui/PageHeader";
 import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
@@ -59,7 +60,7 @@ export const DashboardPage = () => {
       {dashboard.kpis.length ? (
         <section className="metrics-grid" aria-label="Chỉ số vận hành">
           {dashboard.kpis.map((kpi) => (
-            <article className="panel metric-card" key={kpi.id}>
+            <Card as="article" className="metric-card" key={kpi.id}>
               {kpi.id === "verify" ? (
                 <button
                   type="button"
@@ -90,7 +91,7 @@ export const DashboardPage = () => {
                   <p className="metric-detail">{kpi.detail}</p>
                 </>
               )}
-            </article>
+            </Card>
           ))}
         </section>
       ) : (
@@ -102,7 +103,7 @@ export const DashboardPage = () => {
       )}
 
       <div className="dashboard-lower">
-        <section className="panel-flat section-panel" aria-labelledby="attention-title">
+        <Card className="section-panel" aria-labelledby="attention-title">
           <h2 className="section-title" id="attention-title">
             Việc cần xử lý
           </h2>
@@ -142,8 +143,8 @@ export const DashboardPage = () => {
               description="Các hồ sơ cần theo dõi sẽ xuất hiện tại đây."
             />
           )}
-        </section>
-        <section className="panel-flat section-panel" aria-labelledby="class-state-title">
+        </Card>
+        <Card className="section-panel" aria-labelledby="class-state-title">
           <h2 className="section-title" id="class-state-title">
             Trạng thái lớp
           </h2>
@@ -171,7 +172,7 @@ export const DashboardPage = () => {
               </div>
             );
           })}
-        </section>
+        </Card>
       </div>
     </>
   );

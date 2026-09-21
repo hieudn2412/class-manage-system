@@ -195,23 +195,30 @@ describe("FL-12 salary pages", () => {
     expect(within(table).getByRole("columnheader", { name: "Xem" })).toBeVisible();
     expect(within(table).getAllByRole("row")).toHaveLength(4);
     expect(within(table).queryByText("Có thể gửi email")).not.toBeInTheDocument();
-    expect(within(table).getAllByText(textEqualsIgnoringCurrencySpaces("300.000 ₫")).length)
-      .toBeGreaterThan(0);
+    expect(
+      within(table).getAllByText(textEqualsIgnoringCurrencySpaces("300.000 ₫")).length,
+    ).toBeGreaterThan(0);
 
     const missingEmailCheckbox = screen.getByRole("checkbox", {
       name: "Chọn Cô Mai để gửi thông báo lương",
     });
     expect(missingEmailCheckbox).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Chọn tất cả (2)" }));
-    expect(screen.getByRole("checkbox", {
-      name: "Chọn Cô Lan để gửi thông báo lương",
-    })).toBeChecked();
-    expect(screen.getByRole("checkbox", {
-      name: "Chọn Cô An để gửi thông báo lương",
-    })).toBeChecked();
-    expect(screen.getByRole("button", {
-      name: "Gửi thông báo lương cho 2 giáo viên đã chọn",
-    })).toBeEnabled();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Chọn Cô Lan để gửi thông báo lương",
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Chọn Cô An để gửi thông báo lương",
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("button", {
+        name: "Gửi thông báo lương cho 2 giáo viên đã chọn",
+      }),
+    ).toBeEnabled();
     expect(screen.getByRole("button", { name: "Bỏ chọn trang này" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Xem lương của Cô Lan" }));
@@ -236,9 +243,11 @@ describe("FL-12 salary pages", () => {
     await user.click(within(dialog).getByRole("button", { name: "Đóng" }));
 
     await user.click(screen.getByRole("button", { name: "Bỏ chọn trang này" }));
-    expect(screen.getByRole("checkbox", {
-      name: "Chọn Cô Lan để gửi thông báo lương",
-    })).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Chọn Cô Lan để gửi thông báo lương",
+      }),
+    ).not.toBeChecked();
   });
 
   it("WF-15 hiển thị trả thừa và giữ kỳ trên URL", async () => {
@@ -255,12 +264,13 @@ describe("FL-12 salary pages", () => {
       screen.getAllByText(textEqualsIgnoringCurrencySpaces("-100.000 ₫")).length,
     ).toBeGreaterThan(0);
     const table = screen.getByRole("table", { name: "Bảng lương giáo viên" });
-    expect(within(table).queryByRole("columnheader", { name: "Cộng hoặc trừ" }))
-      .not.toBeInTheDocument();
-    expect(within(table).queryByRole("columnheader", { name: "Còn lại" }))
-      .not.toBeInTheDocument();
-    expect(within(table).queryByRole("columnheader", { name: "Email thông báo" }))
-      .not.toBeInTheDocument();
+    expect(
+      within(table).queryByRole("columnheader", { name: "Cộng hoặc trừ" }),
+    ).not.toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Còn lại" })).not.toBeInTheDocument();
+    expect(
+      within(table).queryByRole("columnheader", { name: "Email thông báo" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Chọn tất cả (1)" })).toBeVisible();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Bộ lọc/ }));
@@ -384,9 +394,11 @@ describe("FL-12 salary pages", () => {
 
     await screen.findByRole("heading", { name: "Lương phát sinh và đã trả" });
     await userEvent.setup().click(screen.getByLabelText("Chọn Cô Lan để gửi thông báo lương"));
-    await userEvent.setup().click(screen.getByRole("button", {
-      name: "Gửi thông báo lương cho 1 giáo viên đã chọn",
-    }));
+    await userEvent.setup().click(
+      screen.getByRole("button", {
+        name: "Gửi thông báo lương cho 1 giáo viên đã chọn",
+      }),
+    );
     expect(screen.getByText("Thông báo của kỳ này đã được tạo trước đó")).toBeVisible();
     await userEvent.setup().type(screen.getByLabelText(/Ngày dự kiến thanh toán/), "2026-09-15");
     await userEvent.setup().click(screen.getByRole("button", { name: "Xác nhận gửi lại" }));
@@ -511,5 +523,94 @@ describe("FL-12 salary pages", () => {
     expect(document.querySelector(".salary-ledger-personal")).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "Sửa" }));
     expect(onEditAdjustment).toHaveBeenCalledWith(adjustment);
+  });
+
+  it("hiển thị cuốn lịch mini, chấm màu và lọc buổi dạy theo ngày", async () => {
+    const multiSessionDetail: TeacherPayrollDetail = {
+      ...ownSalary,
+      accruals: [
+        {
+          id: "accrual-1",
+          sessionId: "session-1",
+          classCode: "TOAN-4A",
+          className: "Toán tư duy 4A",
+          ordinal: 3,
+          sessionDate: "2026-08-05",
+          scheduledMinutes: 90,
+          hourlyRate: 200000,
+          amount: 300000,
+          revision: 1,
+          status: "ACTIVE",
+          substitution: false,
+        },
+        {
+          id: "accrual-2",
+          sessionId: "session-2",
+          classCode: "TOAN-5B",
+          className: "Toán tư duy 5B",
+          ordinal: 4,
+          sessionDate: "2026-08-05",
+          scheduledMinutes: 90,
+          hourlyRate: 200000,
+          amount: 300000,
+          revision: 1,
+          status: "ACTIVE",
+          substitution: false,
+        },
+        {
+          id: "accrual-3",
+          sessionId: "session-3",
+          classCode: "VAN-6A",
+          className: "Văn học 6A",
+          ordinal: 1,
+          sessionDate: "2026-08-12",
+          scheduledMinutes: 90,
+          hourlyRate: 200000,
+          amount: 300000,
+          revision: 1,
+          status: "ACTIVE",
+          substitution: false,
+        },
+      ],
+    };
+
+    renderWithProviders(
+      <SalaryDetailSections
+        detail={multiSessionDetail}
+        basePath="/t/anh-duong/app"
+      />,
+    );
+
+    // Mini calendar renders with summary
+    expect(screen.getByText(/Lịch dạy Tháng 08\/2026/)).toBeVisible();
+    expect(screen.getByText(/2 ngày dạy/)).toBeVisible();
+    expect(screen.getByText(/3 buổi/)).toBeVisible();
+
+    // All 3 accruals shown initially
+    expect(screen.getByText("Toán tư duy 4A")).toBeVisible();
+    expect(screen.getByText("Toán tư duy 5B")).toBeVisible();
+    expect(screen.getByText("Văn học 6A")).toBeVisible();
+
+    const user = userEvent.setup();
+
+    // Click on date 5 (has 2 sessions)
+    const day5Button = screen.getByRole("button", { name: /Ngày 5\/08, 2 buổi dạy/i });
+    await user.click(day5Button);
+
+    // Active filter bar appears
+    expect(screen.getByText(/Đang xem ngày/)).toBeVisible();
+    expect(screen.getByText("Toán tư duy 4A")).toBeVisible();
+    expect(screen.getByText("Toán tư duy 5B")).toBeVisible();
+    expect(screen.queryByText("Văn học 6A")).not.toBeInTheDocument();
+
+    // Clear filter
+    await user.click(screen.getByRole("button", { name: /Xem tất cả 3 buổi/i }));
+    expect(screen.getByText("Văn học 6A")).toBeVisible();
+
+    // Toggle collapse
+    await user.click(screen.getByRole("button", { name: "Thu gọn lịch" }));
+    expect(screen.queryByRole("grid", { name: "Lịch dạy trong tháng" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Mở cuốn lịch/i }));
+    expect(screen.getByRole("grid", { name: "Lịch dạy trong tháng" })).toBeVisible();
   });
 });

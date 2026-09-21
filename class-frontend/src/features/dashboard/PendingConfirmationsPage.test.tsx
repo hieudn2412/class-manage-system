@@ -63,13 +63,11 @@ describe("các buổi chờ xác nhận đã dạy", () => {
     });
 
     renderWithProviders(routes(<DashboardPage />), ["/t/anh-duong/app/dashboard"]);
-    await userEvent.setup().click(
-      await screen.findByRole("button", { name: /Chờ xác nhận đã dạy: 04/ }),
-    );
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: /Chờ xác nhận đã dạy: 04/ }));
 
-    expect(
-      await screen.findByRole("heading", { name: "Buổi chờ xác nhận đã dạy" }),
-    ).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Buổi chờ xác nhận đã dạy" })).toBeVisible();
   });
 
   it("sắp xếp bằng nút cạnh tên cột và mở buổi đã chọn", async () => {

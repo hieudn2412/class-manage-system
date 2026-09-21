@@ -34,7 +34,10 @@ const groupHomeworks = (items: StudentHomeworkSummary[]) => {
     .sort((left, right) => {
       if (left.deadlineState === "OVERDUE" && right.deadlineState !== "OVERDUE") return -1;
       if (right.deadlineState === "OVERDUE" && left.deadlineState !== "OVERDUE") return 1;
-      return new Date(left.deadlineAt ?? "9999-12-31").getTime() - new Date(right.deadlineAt ?? "9999-12-31").getTime();
+      return (
+        new Date(left.deadlineAt ?? "9999-12-31").getTime() -
+        new Date(right.deadlineAt ?? "9999-12-31").getTime()
+      );
     });
   return [
     { key: "todo", title: "Cần làm", icon: Clock3, items: need },
@@ -42,7 +45,12 @@ const groupHomeworks = (items: StudentHomeworkSummary[]) => {
       key: "submitted",
       title: "Đã nộp",
       icon: FileCheck2,
-      items: items.filter((item) => item.status === "PUBLISHED" && item.latestSubmissionAt && item.mySubmissionStatus !== "REVIEWED"),
+      items: items.filter(
+        (item) =>
+          item.status === "PUBLISHED" &&
+          item.latestSubmissionAt &&
+          item.mySubmissionStatus !== "REVIEWED",
+      ),
     },
     {
       key: "reviewed",
@@ -63,7 +71,8 @@ export const StudentHomeworksPage = () => {
   const tenant = useTenant();
   const query = useQuery({
     queryKey: ["student-homeworks", tenant.slug],
-    queryFn: () => learningContentRepository.studentHomeworks(tenant.slug, { page: 1, pageSize: 100 }),
+    queryFn: () =>
+      learningContentRepository.studentHomeworks(tenant.slug, { page: 1, pageSize: 100 }),
   });
   return (
     <section className="content-page">
@@ -73,9 +82,19 @@ export const StudentHomeworksPage = () => {
         subtitle="Nộp ảnh bài làm, xem nhận xét và gửi lại khi bài còn mở."
       />
       {query.isPending ? <PageSkeleton /> : null}
-      {query.isError ? <StatePanel kind="error" title="Không tải được bài tập" description="Vui lòng kiểm tra kết nối và thử lại." /> : null}
+      {query.isError ? (
+        <StatePanel
+          kind="error"
+          title="Không tải được bài tập"
+          description="Vui lòng kiểm tra kết nối và thử lại."
+        />
+      ) : null}
       {query.data?.items.length === 0 ? (
-        <StatePanel kind="empty" title="Chưa có bài tập" description="Bài tập được giao sẽ xuất hiện tại đây." />
+        <StatePanel
+          kind="empty"
+          title="Chưa có bài tập"
+          description="Bài tập được giao sẽ xuất hiện tại đây."
+        />
       ) : (
         <div className="student-homework-board">
           {groupHomeworks(query.data?.items ?? []).map((group) => {
@@ -111,7 +130,9 @@ export const StudentHomeworksPage = () => {
                           </small>
                         </span>
                         <span className="student-homework-meta">
-                          {item.deadlineAt ? `Hạn nộp ${formatDateTime(item.deadlineAt)}` : "Không có hạn nộp"}
+                          {item.deadlineAt
+                            ? `Hạn nộp ${formatDateTime(item.deadlineAt)}`
+                            : "Không có hạn nộp"}
                         </span>
                         {item.latestSubmissionAt ? (
                           <span className="student-homework-meta">

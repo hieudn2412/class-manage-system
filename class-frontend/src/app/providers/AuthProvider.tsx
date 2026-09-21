@@ -46,12 +46,15 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     setSession(nextSession);
   }, []);
 
-  const platformLogin = useCallback(async (username: string, password: string, remember: boolean) => {
-    const nextSession = await authRepository.platformLogin(username, password);
-    saveSession(nextSession, remember);
-    setSession(nextSession);
-    return nextSession;
-  }, []);
+  const platformLogin = useCallback(
+    async (username: string, password: string, remember: boolean) => {
+      const nextSession = await authRepository.platformLogin(username, password);
+      saveSession(nextSession, remember);
+      setSession(nextSession);
+      return nextSession;
+    },
+    [],
+  );
 
   const logout = useCallback(() => {
     clearSession();

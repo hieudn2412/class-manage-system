@@ -70,8 +70,7 @@ export const PendingConfirmationsPage = () => {
     mode: (searchParams.get("mode") as PendingConfirmationParams["mode"] | null) ?? "",
     from: searchParams.get("from") ?? "",
     to: searchParams.get("to") ?? "",
-    sort:
-      (searchParams.get("sort") as PendingConfirmationSort | null) ?? "startAt",
+    sort: (searchParams.get("sort") as PendingConfirmationSort | null) ?? "startAt",
     direction: searchParams.get("direction") === "desc" ? "desc" : "asc",
     page: readPositiveInt(searchParams.get("page"), 1),
     pageSize: 15,
@@ -206,11 +205,10 @@ export const PendingConfirmationsPage = () => {
               <caption className="sr-only">Danh sách buổi chờ xác nhận đã dạy</caption>
               <thead>
                 <tr>
-                  <th scope="col"><span className="sr-only">Chọn buổi</span></th>
-                  <th
-                    scope="col"
-                    aria-sort={ariaSort("className", params.sort, params.direction)}
-                  >
+                  <th scope="col">
+                    <span className="sr-only">Chọn buổi</span>
+                  </th>
+                  <th scope="col" aria-sort={ariaSort("className", params.sort, params.direction)}>
                     <SortHeader
                       label="Lớp học"
                       column="className"
@@ -219,10 +217,7 @@ export const PendingConfirmationsPage = () => {
                       onSort={sortBy}
                     />
                   </th>
-                  <th
-                    scope="col"
-                    aria-sort={ariaSort("startAt", params.sort, params.direction)}
-                  >
+                  <th scope="col" aria-sort={ariaSort("startAt", params.sort, params.direction)}>
                     <SortHeader
                       label="Thời gian"
                       column="startAt"
@@ -243,10 +238,7 @@ export const PendingConfirmationsPage = () => {
                       onSort={sortBy}
                     />
                   </th>
-                  <th
-                    scope="col"
-                    aria-sort={ariaSort("mode", params.sort, params.direction)}
-                  >
+                  <th scope="col" aria-sort={ariaSort("mode", params.sort, params.direction)}>
                     <SortHeader
                       label="Hình thức"
                       column="mode"
@@ -256,7 +248,9 @@ export const PendingConfirmationsPage = () => {
                     />
                   </th>
                   <th scope="col">Trạng thái</th>
-                  <th scope="col"><span className="sr-only">Thao tác</span></th>
+                  <th scope="col">
+                    <span className="sr-only">Thao tác</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -273,7 +267,9 @@ export const PendingConfirmationsPage = () => {
                     </td>
                     <td data-label="Lớp học">
                       <span className="table-primary">{item.className}</span>
-                      <span className="table-secondary">{item.classCode} · Buổi {item.ordinal}</span>
+                      <span className="table-secondary">
+                        {item.classCode} · Buổi {item.ordinal}
+                      </span>
                     </td>
                     <td data-label="Thời gian">
                       <span className="table-primary">{formatDateTime(item.startAt)}</span>
@@ -285,7 +281,9 @@ export const PendingConfirmationsPage = () => {
                         {item.mode === "ONLINE" ? "Trực tuyến" : "Tại trung tâm"}
                       </span>
                       <span className="table-secondary">
-                        {item.mode === "ONLINE" ? "Đường dẫn học trực tuyến" : item.roomName ?? "Chưa có phòng"}
+                        {item.mode === "ONLINE"
+                          ? "Đường dẫn học trực tuyến"
+                          : (item.roomName ?? "Chưa có phòng")}
                       </span>
                     </td>
                     <td data-label="Trạng thái">

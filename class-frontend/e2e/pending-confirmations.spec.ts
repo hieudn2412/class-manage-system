@@ -93,9 +93,11 @@ test("mở danh sách từ Tổng quan, lọc và sắp xếp bằng tiêu đề
 
   const sortedRequest = page.waitForRequest((request) => {
     const url = new URL(request.url());
-    return url.pathname.endsWith("/dashboard/pending-confirmations")
-      && url.searchParams.get("sort") === "className"
-      && url.searchParams.get("direction") === "asc";
+    return (
+      url.pathname.endsWith("/dashboard/pending-confirmations") &&
+      url.searchParams.get("sort") === "className" &&
+      url.searchParams.get("direction") === "asc"
+    );
   });
   await page.getByRole("button", { name: /Lớp học: nhấn để sắp xếp/ }).click();
   await sortedRequest;

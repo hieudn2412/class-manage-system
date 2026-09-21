@@ -100,10 +100,13 @@ export const SessionMutationModal = ({
   const warnings = preview?.conflicts.filter((item) => item.severity === "WARNING") ?? [];
   const warningIds = warnings.map((item) => item.id);
   const needsMakeupPreview = action === "CREATE_MAKEUP" || createMakeupNow;
-  const hasReplacementTeacher = action !== "SUBSTITUTE_TEACHER"
-    || (teacherId !== "" && teacherId !== session.actualTeacherId);
-  const canConfirmPreview = Boolean(preview) && blockers.length === 0
-    && (warnings.length === 0 || acknowledged) && hasReplacementTeacher;
+  const hasReplacementTeacher =
+    action !== "SUBSTITUTE_TEACHER" || (teacherId !== "" && teacherId !== session.actualTeacherId);
+  const canConfirmPreview =
+    Boolean(preview) &&
+    blockers.length === 0 &&
+    (warnings.length === 0 || acknowledged) &&
+    hasReplacementTeacher;
 
   const invalidateRelated = async () => {
     await Promise.all([
@@ -195,7 +198,8 @@ export const SessionMutationModal = ({
   });
 
   const confirmLabel = useMemo(() => {
-    if (action === "SUBSTITUTE_TEACHER") return preview ? "Xác nhận thay giáo viên" : "Kiểm tra lịch";
+    if (action === "SUBSTITUTE_TEACHER")
+      return preview ? "Xác nhận thay giáo viên" : "Kiểm tra lịch";
     if (action === "CREATE_MAKEUP") return preview ? "Tạo buổi bù" : "Kiểm tra lịch bù";
     if (!createMakeupNow) return "Xác nhận hủy buổi";
     return preview ? "Hủy và tạo bù" : "Kiểm tra lịch bù";
@@ -229,9 +233,9 @@ export const SessionMutationModal = ({
       confirmLabel={confirmLabel}
       onConfirm={handleConfirm}
       confirmDisabled={
-        !hasReplacementTeacher
-        || (Boolean(preview) && blockers.length > 0)
-        || (warnings.length > 0 && !acknowledged)
+        !hasReplacementTeacher ||
+        (Boolean(preview) && blockers.length > 0) ||
+        (warnings.length > 0 && !acknowledged)
       }
       confirmLoading={previewMutation.isPending || saveMutation.isPending}
     >

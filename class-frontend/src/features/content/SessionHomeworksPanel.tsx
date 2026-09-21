@@ -20,7 +20,10 @@ export const SessionHomeworksPanel = ({
   onCreate,
 }: SessionHomeworksPanelProps) => {
   return (
-    <section className="panel-flat section-panel session-homework-panel" aria-labelledby="session-homework-title">
+    <section
+      className="panel-flat section-panel session-homework-panel"
+      aria-labelledby="session-homework-title"
+    >
       <div className="section-heading-row">
         <span className="section-title-block">
           <span className="section-title-icon">

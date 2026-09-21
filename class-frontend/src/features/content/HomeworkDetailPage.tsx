@@ -63,16 +63,22 @@ export const HomeworkDetailPage = () => {
   const { session } = useAuth();
   const { homeworkId = "" } = useParams<{ homeworkId: string }>();
   const [editOpen, setEditOpen] = useState(false);
-  const canManage = Boolean(session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_HOMEWORK));
-  const canSubmit = Boolean(session && hasPermission(session.user.roles, PERMISSIONS.SUBMIT_HOMEWORK));
-  const canReview = Boolean(session && hasPermission(session.user.roles, PERMISSIONS.REVIEW_HOMEWORK));
+  const canManage = Boolean(
+    session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_HOMEWORK),
+  );
+  const canSubmit = Boolean(
+    session && hasPermission(session.user.roles, PERMISSIONS.SUBMIT_HOMEWORK),
+  );
+  const canReview = Boolean(
+    session && hasPermission(session.user.roles, PERMISSIONS.REVIEW_HOMEWORK),
+  );
   const client = useQueryClient();
   const query = useQuery<HomeworkPageDetail>({
     queryKey: ["homework-detail", tenant.slug, homeworkId],
     queryFn: async () =>
-      (canSubmit
+      canSubmit
         ? learningContentRepository.studentHomework(tenant.slug, homeworkId)
-        : learningContentRepository.homework(tenant.slug, homeworkId)),
+        : learningContentRepository.homework(tenant.slug, homeworkId),
     retry: false,
   });
   const { showToast } = useToast();
@@ -81,20 +87,38 @@ export const HomeworkDetailPage = () => {
   const action = useMutation({
     mutationFn: async (kind: "publish" | "close" | "reopen") => {
       if (!query.data) return null;
-      if (kind === "publish") return learningContentRepository.publishHomework(tenant.slug, homeworkId, query.data.version);
-      if (kind === "close") return learningContentRepository.closeHomework(tenant.slug, homeworkId, query.data.version);
-      return learningContentRepository.reopenHomework(tenant.slug, homeworkId, "Mở lại theo yêu cầu học vụ", query.data.version);
+      if (kind === "publish")
+        return learningContentRepository.publishHomework(
+          tenant.slug,
+          homeworkId,
+          query.data.version,
+        );
+      if (kind === "close")
+        return learningContentRepository.closeHomework(tenant.slug, homeworkId, query.data.version);
+      return learningContentRepository.reopenHomework(
+        tenant.slug,
+        homeworkId,
+        "Mở lại theo yêu cầu học vụ",
+        query.data.version,
+      );
     },
     onSuccess: async () => {
       await invalidate();
       showToast("Đã cập nhật trạng thái bài tập.");
     },
-    onError: (error) => showToast(error instanceof Error ? error.message : "Không thể cập nhật bài tập."),
+    onError: (error) =>
+      showToast(error instanceof Error ? error.message : "Không thể cập nhật bài tập."),
   });
 
   if (query.isPending) return <PageSkeleton />;
   if (query.isError || !query.data) {
-    return <StatePanel kind="error" title="Không tải được bài tập" description="Bài tập không tồn tại hoặc bạn không còn quyền truy cập." />;
+    return (
+      <StatePanel
+        kind="error"
+        title="Không tải được bài tập"
+        description="Bài tập không tồn tại hoặc bạn không còn quyền truy cập."
+      />
+    );
   }
   const item = query.data;
   const managementItem = item as HomeworkDetail;
@@ -102,7 +126,8 @@ export const HomeworkDetailPage = () => {
   const currentByStudent = new Map<string, HomeworkSubmission>();
   submissions.forEach((submission) => {
     const current = currentByStudent.get(submission.studentId);
-    if (!current || submission.attemptNo > current.attemptNo) currentByStudent.set(submission.studentId, submission);
+    if (!current || submission.attemptNo > current.attemptNo)
+      currentByStudent.set(submission.studentId, submission);
   });
   const currentSubmissions = Array.from(currentByStudent.values()).sort((a, b) => {
     const statusDiff = reviewSortRank[a.reviewStatus] - reviewSortRank[b.reviewStatus];
@@ -124,7 +149,9 @@ export const HomeworkDetailPage = () => {
       <PageHeader
         eyebrow={`${item.classCode}${item.sessionOrdinal ? ` · Buổi ${item.sessionOrdinal}` : ""}`}
         title={item.title}
-        subtitle={item.deadlineAt ? `Hạn nộp: ${formatDateTime(item.deadlineAt)}` : "Không có hạn nộp"}
+        subtitle={
+          item.deadlineAt ? `Hạn nộp: ${formatDateTime(item.deadlineAt)}` : "Không có hạn nộp"
+        }
         actions={
           <>
             <Badge tone={homeworkStatusTone[item.status]}>{homeworkStatusLabel[item.status]}</Badge>
@@ -133,9 +160,21 @@ export const HomeworkDetailPage = () => {
                 <Pencil size={16} /> Sửa đề bài
               </Button>
             ) : null}
-            {canManage && item.status === "DRAFT" ? <Button onClick={() => action.mutate("publish")}><Send size={16} /> Giao bài</Button> : null}
-            {canManage && item.status === "PUBLISHED" ? <Button variant="secondary" onClick={() => action.mutate("close")}><XCircle size={16} /> Đóng</Button> : null}
-            {canManage && item.status === "CLOSED" ? <Button variant="secondary" onClick={() => action.mutate("reopen")}><RotateCcw size={16} /> Mở lại</Button> : null}
+            {canManage && item.status === "DRAFT" ? (
+              <Button variant="accent" onClick={() => action.mutate("publish")}>
+                <Send size={16} /> Giao bài
+              </Button>
+            ) : null}
+            {canManage && item.status === "PUBLISHED" ? (
+              <Button variant="secondary" onClick={() => action.mutate("close")}>
+                <XCircle size={16} /> Đóng
+              </Button>
+            ) : null}
+            {canManage && item.status === "CLOSED" ? (
+              <Button variant="secondary" onClick={() => action.mutate("reopen")}>
+                <RotateCcw size={16} /> Mở lại
+              </Button>
+            ) : null}
           </>
         }
       />
@@ -148,9 +187,18 @@ export const HomeworkDetailPage = () => {
         <aside className="panel section-panel homework-side-panel">
           <h2 className="section-title">Tiến độ</h2>
           <dl className="content-stats large">
-            <div><dt>Người nhận</dt><dd>{item.recipientCount}</dd></div>
-            <div><dt>Đã nộp</dt><dd>{rate(item.submittedCount, item.recipientCount)}</dd></div>
-            <div><dt>Đã nhận xét</dt><dd>{rate(item.reviewedCount, item.recipientCount)}</dd></div>
+            <div>
+              <dt>Người nhận</dt>
+              <dd>{item.recipientCount}</dd>
+            </div>
+            <div>
+              <dt>Đã nộp</dt>
+              <dd>{rate(item.submittedCount, item.recipientCount)}</dd>
+            </div>
+            <div>
+              <dt>Đã nhận xét</dt>
+              <dd>{rate(item.reviewedCount, item.recipientCount)}</dd>
+            </div>
           </dl>
           {canSubmit ? (
             <div className="student-homework-personal-state">
@@ -181,9 +229,18 @@ export const HomeworkDetailPage = () => {
       ) : null}
       {canReview || canManage ? (
         <section className="content-panel">
-          <header className="content-section-head"><div><p className="eyebrow">BÀI ĐÃ NỘP</p><h2>Học sinh đã nộp bài</h2></div></header>
+          <header className="content-section-head">
+            <div>
+              <p className="eyebrow">BÀI ĐÃ NỘP</p>
+              <h2>Học sinh đã nộp bài</h2>
+            </div>
+          </header>
           {!currentSubmissions.length ? (
-            <StatePanel kind="empty" title="Chưa có học sinh nộp bài" description="Khi học sinh nộp bài, danh sách chờ nhận xét sẽ hiện ở đây." />
+            <StatePanel
+              kind="empty"
+              title="Chưa có học sinh nộp bài"
+              description="Khi học sinh nộp bài, danh sách chờ nhận xét sẽ hiện ở đây."
+            />
           ) : (
             <SubmissionTable
               tenantSlug={tenant.slug}
@@ -242,13 +299,11 @@ const HomeworkResourcePanel = ({
               type="button"
               className="homework-image-tile"
               key={id}
-              onClick={() => setActiveImageIndex(imageResources.findIndex((resource) => resource.id === id))}
+              onClick={() =>
+                setActiveImageIndex(imageResources.findIndex((resource) => resource.id === id))
+              }
             >
-              <PrivateFileImage
-                file={file}
-                tenantSlug={tenantSlug}
-                alt={file.originalFilename}
-              />
+              <PrivateFileImage file={file} tenantSlug={tenantSlug} alt={file.originalFilename} />
               <span className="homework-image-caption">
                 <Maximize2 size={15} aria-hidden="true" />
                 {file.originalFilename}
@@ -290,13 +345,7 @@ const HomeworkResourcePanel = ({
   );
 };
 
-const PrivateDownloadButton = ({
-  tenantSlug,
-  file,
-}: {
-  tenantSlug: string;
-  file: StoredFile;
-}) => {
+const PrivateDownloadButton = ({ tenantSlug, file }: { tenantSlug: string; file: StoredFile }) => {
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
   return (
@@ -317,7 +366,8 @@ const PrivateDownloadButton = ({
         })();
       }}
     >
-      <Download size={15} aria-hidden="true" /> {file.originalFilename} · {formatBytes(file.sizeBytes)}
+      <Download size={15} aria-hidden="true" /> {file.originalFilename} ·{" "}
+      {formatBytes(file.sizeBytes)}
     </button>
   );
 };
@@ -351,14 +401,21 @@ const HomeworkImageLightbox = ({
   if (!file) return null;
   return (
     <div className="homework-lightbox" role="dialog" aria-modal="true" aria-label="Xem ảnh bài tập">
-      <button className="homework-lightbox-backdrop" type="button" onClick={onClose} aria-label="Đóng" />
+      <button
+        className="homework-lightbox-backdrop"
+        type="button"
+        onClick={onClose}
+        aria-label="Đóng"
+      />
       <div className="homework-lightbox-frame">
         <PrivateFileImage file={file} tenantSlug={tenantSlug} alt={file.originalFilename} />
         <div className="homework-lightbox-toolbar">
           <Button variant="secondary" onClick={previous} disabled={images.length < 2}>
             Trước
           </Button>
-          <span>{index + 1}/{images.length}</span>
+          <span>
+            {index + 1}/{images.length}
+          </span>
           <Button variant="secondary" onClick={next} disabled={images.length < 2}>
             Sau
           </Button>
@@ -436,7 +493,9 @@ const HomeworkEditModalContent = ({
         description,
         deadlineAt: deadlineAt ? new Date(deadlineAt).toISOString() : null,
         fileIds: files.filter((file) => !file.token).map((file) => file.id),
-        fileTokens: files.map((file) => file.token).filter((token): token is string => Boolean(token)),
+        fileTokens: files
+          .map((file) => file.token)
+          .filter((token): token is string => Boolean(token)),
         links: link.trim() ? [{ label: "Link học tập", url: link.trim() }] : [],
         version: homework.version,
       }),
@@ -445,7 +504,8 @@ const HomeworkEditModalContent = ({
       onClose();
       showToast("Đã cập nhật bài tập.");
     },
-    onError: (error) => showToast(error instanceof Error ? error.message : "Không thể cập nhật bài tập."),
+    onError: (error) =>
+      showToast(error instanceof Error ? error.message : "Không thể cập nhật bài tập."),
   });
 
   return (
@@ -478,7 +538,12 @@ const HomeworkEditModalContent = ({
           error={linkInvalid ? "Link phải bắt đầu bằng http:// hoặc https://." : undefined}
           onChange={(event) => setLink(event.target.value)}
         />
-        <FileTokenPicker tenantSlug={tenantSlug} purpose="HOMEWORK_ATTACHMENT" files={files} onChange={setFiles} />
+        <FileTokenPicker
+          tenantSlug={tenantSlug}
+          purpose="HOMEWORK_ATTACHMENT"
+          files={files}
+          onChange={setFiles}
+        />
       </div>
     </Modal>
   );
@@ -517,10 +582,27 @@ const SubmitPanel = ({
   return (
     <section className="panel section-panel submit-panel">
       <h2 className="section-title">Nộp bài</h2>
-      {!open ? <p className="text-muted">Bài tập đang đóng nên bạn chỉ có thể xem lịch sử.</p> : null}
-      <Textarea label="Ghi chú" value={note} disabled={!open} onChange={(event) => setNote(event.target.value)} />
-      <FileTokenPicker tenantSlug={tenantSlug} purpose="SUBMISSION_IMAGE" files={files} onChange={setFiles} maxFiles={10} />
-      <Button disabled={!open || files.length === 0} loading={mutation.isPending} onClick={() => mutation.mutate()}>
+      {!open ? (
+        <p className="text-muted">Bài tập đang đóng nên bạn chỉ có thể xem lịch sử.</p>
+      ) : null}
+      <Textarea
+        label="Ghi chú"
+        value={note}
+        disabled={!open}
+        onChange={(event) => setNote(event.target.value)}
+      />
+      <FileTokenPicker
+        tenantSlug={tenantSlug}
+        purpose="SUBMISSION_IMAGE"
+        files={files}
+        onChange={setFiles}
+        maxFiles={10}
+      />
+      <Button
+        disabled={!open || files.length === 0}
+        loading={mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
         <Send size={16} /> Nộp lượt mới
       </Button>
     </section>
@@ -591,7 +673,10 @@ const SubmissionRow = ({
       </td>
       <td data-label="Lượt nộp">
         <strong>Lượt {submission.attemptNo}</strong>
-        <small>{formatDateTime(submission.submittedAt)}{submission.late ? " · Trễ" : ""}</small>
+        <small>
+          {formatDateTime(submission.submittedAt)}
+          {submission.late ? " · Trễ" : ""}
+        </small>
       </td>
       <td data-label="File bài làm">
         <SubmissionFileList tenantSlug={tenantSlug} files={submission.files} />
@@ -600,7 +685,15 @@ const SubmissionRow = ({
         <span className="submission-note-cell">{submission.note || "Không có ghi chú."}</span>
       </td>
       <td data-label="Trạng thái">
-        <Badge tone={submission.reviewStatus === "REVIEWED" ? "success" : submission.reviewStatus === "REVISION_REQUESTED" ? "warning" : "neutral"}>
+        <Badge
+          tone={
+            submission.reviewStatus === "REVIEWED"
+              ? "success"
+              : submission.reviewStatus === "REVISION_REQUESTED"
+                ? "warning"
+                : "neutral"
+          }
+        >
           {reviewLabels[submission.reviewStatus]}
         </Badge>
         {submission.review ? (
@@ -612,7 +705,11 @@ const SubmissionRow = ({
       </td>
       <td data-label="Thao tác">
         <div className="row-actions submission-row-actions">
-          {canReview ? <Button variant="secondary" onClick={() => setReviewOpen(true)}>Nhận xét bài làm</Button> : null}
+          {canReview ? (
+            <Button variant="secondary" onClick={() => setReviewOpen(true)}>
+              Nhận xét bài làm
+            </Button>
+          ) : null}
         </div>
         <ReviewModal
           tenantSlug={tenantSlug}
@@ -627,13 +724,7 @@ const SubmissionRow = ({
   );
 };
 
-const SubmissionFileList = ({
-  tenantSlug,
-  files,
-}: {
-  tenantSlug: string;
-  files: StoredFile[];
-}) => {
+const SubmissionFileList = ({ tenantSlug, files }: { tenantSlug: string; files: StoredFile[] }) => {
   const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
   const imageFiles = files.filter(isPreviewableImageFile);
   if (!files.length) return <span className="text-muted">Không có file</span>;
@@ -695,7 +786,9 @@ const ReviewModal = ({
       learningContentRepository.reviewSubmission(tenantSlug, homeworkId, submission.id, {
         status,
         comment,
-        fileTokens: files.map((file) => file.token).filter((token): token is string => Boolean(token)),
+        fileTokens: files
+          .map((file) => file.token)
+          .filter((token): token is string => Boolean(token)),
         submissionVersion: submission.version,
       }),
     onSuccess: async () => {
@@ -703,20 +796,43 @@ const ReviewModal = ({
       onClose();
       showToast("Đã lưu nhận xét.");
     },
-    onError: (error) => showToast(error instanceof Error ? error.message : "Không thể lưu nhận xét. Vui lòng thử lại."),
+    onError: (error) =>
+      showToast(
+        error instanceof Error ? error.message : "Không thể lưu nhận xét. Vui lòng thử lại.",
+      ),
   });
   return (
-    <Modal open={open} title={`Nhận xét bài của ${submission.studentName}`} onClose={onClose} confirmLabel="Lưu nhận xét" confirmLoading={mutation.isPending} onConfirm={() => mutation.mutate()}>
+    <Modal
+      open={open}
+      title={`Nhận xét bài của ${submission.studentName}`}
+      onClose={onClose}
+      confirmLabel="Lưu nhận xét"
+      confirmLoading={mutation.isPending}
+      onConfirm={() => mutation.mutate()}
+    >
       <div className="content-form">
         <label className="field">
           <span className="field-label">Kết quả</span>
-          <select className="control" value={status} onChange={(event) => setStatus(event.target.value as "REVIEWED" | "REVISION_REQUESTED")}>
+          <select
+            className="control"
+            value={status}
+            onChange={(event) => setStatus(event.target.value as "REVIEWED" | "REVISION_REQUESTED")}
+          >
             <option value="REVIEWED">Đã nhận xét</option>
             <option value="REVISION_REQUESTED">Yêu cầu làm lại</option>
           </select>
         </label>
-        <Textarea label="Nhận xét tùy chọn" value={comment} onChange={(event) => setComment(event.target.value)} />
-        <FileTokenPicker tenantSlug={tenantSlug} purpose="REVIEW_ATTACHMENT" files={files} onChange={setFiles} />
+        <Textarea
+          label="Nhận xét tùy chọn"
+          value={comment}
+          onChange={(event) => setComment(event.target.value)}
+        />
+        <FileTokenPicker
+          tenantSlug={tenantSlug}
+          purpose="REVIEW_ATTACHMENT"
+          files={files}
+          onChange={setFiles}
+        />
       </div>
     </Modal>
   );
