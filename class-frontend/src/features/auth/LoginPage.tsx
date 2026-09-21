@@ -64,7 +64,7 @@ export const LoginPage = () => {
   });
 
   return (
-    <AuthLayout>
+    <AuthLayout variant="compact">
       <section className="auth-card" aria-labelledby="login-title">
         <div className="tenant-label">
           <Building2 size={15} aria-hidden="true" />

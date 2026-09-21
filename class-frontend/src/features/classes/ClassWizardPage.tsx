@@ -380,6 +380,7 @@ export const ClassWizardPage = () => {
         title="Xác nhận công bố lớp"
         onClose={() => setPublishConfirmOpen(false)}
         confirmLabel="Công bố lớp"
+        confirmVariant="accent"
         onConfirm={() => publishMutation.mutate(getValues())}
       >
         <div className="confirmation-summary">

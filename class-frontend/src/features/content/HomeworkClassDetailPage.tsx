@@ -99,7 +99,9 @@ export const HomeworkClassDetailPage = () => {
                             {item.sessionOrdinal ? `Buổi ${item.sessionOrdinal}` : item.classCode}
                           </span>
                         </td>
-                        <td data-label="Hạn nộp">{item.deadlineAt ? formatDateTime(item.deadlineAt) : "Không đặt"}</td>
+                        <td data-label="Hạn nộp">
+                          {item.deadlineAt ? formatDateTime(item.deadlineAt) : "Không đặt"}
+                        </td>
                         <td data-label="Trạng thái">
                           <Badge tone={homeworkStatusTone[item.status]}>
                             {homeworkStatusLabel[item.status]}

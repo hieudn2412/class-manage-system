@@ -93,7 +93,8 @@ export const HomeworkCreateModal = ({
   };
 
   const linkInvalid = Boolean(link.trim()) && !/^https?:\/\/\S+$/i.test(link.trim());
-  const selectedAudienceInvalid = audienceType === "SELECTED" && validSelectedStudentIds.length === 0;
+  const selectedAudienceInvalid =
+    audienceType === "SELECTED" && validSelectedStudentIds.length === 0;
   const confirmDisabled =
     !title.trim() ||
     linkInvalid ||
@@ -109,7 +110,9 @@ export const HomeworkCreateModal = ({
         deadlineAt: deadlineAt ? new Date(deadlineAt).toISOString() : null,
         audienceType,
         studentIds: audienceType === "SELECTED" ? validSelectedStudentIds : [],
-        fileTokens: files.map((file) => file.token).filter((token): token is string => Boolean(token)),
+        fileTokens: files
+          .map((file) => file.token)
+          .filter((token): token is string => Boolean(token)),
         links: link.trim() ? [{ label: "Link học tập", url: link.trim() }] : [],
       }),
     onSuccess: async (homework) => {
@@ -147,6 +150,7 @@ export const HomeworkCreateModal = ({
       className="homework-create-modal"
       onClose={handleClose}
       confirmLabel="Giao bài tập"
+      confirmVariant="accent"
       confirmDisabled={confirmDisabled}
       confirmLoading={mutation.isPending}
       onConfirm={() => mutation.mutate()}
@@ -157,7 +161,9 @@ export const HomeworkCreateModal = ({
             <CheckCircle2 size={18} aria-hidden="true" />
             <span>
               <strong>{className ?? "Lớp đang chọn"}</strong>
-              <small>Buổi {sessionOrdinal ?? ""} · Bài sẽ được giao ngay và gắn cố định với buổi này</small>
+              <small>
+                Buổi {sessionOrdinal ?? ""} · Bài sẽ được giao ngay và gắn cố định với buổi này
+              </small>
             </span>
           </div>
         ) : null}
@@ -186,7 +192,8 @@ export const HomeworkCreateModal = ({
             <span>
               <strong>Người nhận</strong>
               <small>
-                Toàn lớp sẽ chụp danh sách học sinh active ngay khi giao; chọn riêng sẽ giao cho đúng danh sách đã chọn.
+                Toàn lớp sẽ chụp danh sách học sinh active ngay khi giao; chọn riêng sẽ giao cho
+                đúng danh sách đã chọn.
               </small>
             </span>
             {rosterQuery.isFetching ? (
@@ -196,7 +203,11 @@ export const HomeworkCreateModal = ({
               </span>
             ) : null}
           </div>
-          <div className="homework-audience-switch" role="group" aria-label="Chọn người nhận bài tập">
+          <div
+            className="homework-audience-switch"
+            role="group"
+            aria-label="Chọn người nhận bài tập"
+          >
             <Button
               type="button"
               variant={audienceType === "CLASS" ? "primary" : "secondary"}
@@ -238,10 +249,17 @@ export const HomeworkCreateModal = ({
           ) : null}
         </div>
 
-        <FileTokenPicker tenantSlug={tenantSlug} purpose="HOMEWORK_ATTACHMENT" files={files} onChange={setFiles} />
+        <FileTokenPicker
+          tenantSlug={tenantSlug}
+          purpose="HOMEWORK_ATTACHMENT"
+          files={files}
+          onChange={setFiles}
+        />
         {mutation.isError ? (
           <p className="field-error" role="alert">
-            {mutation.error instanceof Error ? mutation.error.message : "Không thể tạo bài tập về nhà."}
+            {mutation.error instanceof Error
+              ? mutation.error.message
+              : "Không thể tạo bài tập về nhà."}
           </p>
         ) : null}
       </div>

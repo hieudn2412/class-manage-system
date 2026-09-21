@@ -47,7 +47,9 @@ export const MyClassSessionsPage = () => {
   const navigate = useNavigate();
   const { classId = "" } = useParams<{ classId: string }>();
   const [params, setParams] = useSearchParams();
-  const [homeworkSession, setHomeworkSession] = useState<{ id: string; ordinal: number } | null>(null);
+  const [homeworkSession, setHomeworkSession] = useState<{ id: string; ordinal: number } | null>(
+    null,
+  );
   const status = params.get("status") ?? "";
   const homeworkIntent = params.get("intent") === "homework";
   const page = Math.max(Number(params.get("page") ?? "1"), 1);
@@ -136,14 +138,18 @@ export const MyClassSessionsPage = () => {
       </section>
 
       {homeworkIntent ? (
-        <section className="panel-flat homework-teacher-guide" aria-label="Hướng dẫn giao bài tập theo buổi">
+        <section
+          className="panel-flat homework-teacher-guide"
+          aria-label="Hướng dẫn giao bài tập theo buổi"
+        >
           <span className="section-title-icon">
             <ClipboardPlus size={20} aria-hidden="true" />
           </span>
           <div>
             <strong>Chọn buổi để giao bài tập</strong>
             <p>
-              Nút <b>Giao bài tập</b> chỉ xuất hiện ở buổi bạn đang phụ trách. Bạn không thể tạo bài mới cho buổi đã hủy hoặc lớp đã kết thúc.
+              Nút <b>Giao bài tập</b> chỉ xuất hiện ở buổi bạn đang phụ trách. Bạn không thể tạo bài
+              mới cho buổi đã hủy hoặc lớp đã kết thúc.
             </p>
           </div>
         </section>
@@ -235,7 +241,8 @@ export const MyClassSessionsPage = () => {
                           {item.homework.deadlineAt
                             ? `Hạn nộp ${formatDateTime(item.homework.deadlineAt)}`
                             : "Không có hạn nộp"}{" "}
-                          · Đã nộp {rate(item.homework.submittedCount, item.homework.recipientCount)}
+                          · Đã nộp{" "}
+                          {rate(item.homework.submittedCount, item.homework.recipientCount)}
                         </small>
                       </span>
                       <Badge tone={homeworkStatusTone[item.homework.status]}>

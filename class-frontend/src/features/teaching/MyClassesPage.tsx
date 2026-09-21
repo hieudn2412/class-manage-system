@@ -108,7 +108,10 @@ export const MyClassesPage = () => {
             </Select>
             {hasFilters ? (
               <div className="filter-collapse-actions">
-                <Button variant="ghost" onClick={() => setParams(new URLSearchParams({ page: "1" }))}>
+                <Button
+                  variant="ghost"
+                  onClick={() => setParams(new URLSearchParams({ page: "1" }))}
+                >
                   <FilterX size={16} aria-hidden="true" />
                   Xóa bộ lọc
                 </Button>

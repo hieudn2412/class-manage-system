@@ -1,16 +1,23 @@
 import type { ReactNode } from "react";
 
 interface PageHeaderProps {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  compact?: boolean;
 }
 
-export const PageHeader = ({ eyebrow, title, subtitle, actions }: PageHeaderProps) => (
-  <header className="page-header">
+export const PageHeader = ({
+  eyebrow,
+  title,
+  subtitle,
+  actions,
+  compact = false,
+}: PageHeaderProps) => (
+  <header className={compact ? "page-header page-header-compact" : "page-header"}>
     <div>
-      <p className="eyebrow">{eyebrow}</p>
+      {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
       <h1 className="page-title">{title}</h1>
       {subtitle ? <p className="subtitle">{subtitle}</p> : null}
     </div>

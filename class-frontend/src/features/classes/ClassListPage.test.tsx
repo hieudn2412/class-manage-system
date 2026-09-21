@@ -11,7 +11,7 @@ import { createTestSession, tenantAnhDuong } from "../../test/fixtures";
 import type { ClassListItem } from "../../shared/types/domain";
 import { ClassListPage } from "./ClassListPage";
 
-const originalMatchMedia = window.matchMedia;
+const originalMatchMedia = window.matchMedia?.bind(window);
 
 const mockMobileViewport = () => {
   Object.defineProperty(window, "matchMedia", {
@@ -119,27 +119,27 @@ describe("WF-04 danh sách lớp", () => {
 
     await user.click(within(table).getByRole("button", { name: "Tên lớp: đang tăng dần" }));
     await waitFor(() => {
-      expect(classRepository.listClasses).toHaveBeenLastCalledWith(
+      expect(vi.mocked(classRepository).listClasses.mock.calls.at(-1)).toEqual([
         "anh-duong",
         expect.objectContaining({ sort: "name,desc" }),
-      );
+      ]);
     });
 
     await user.click(within(table).getByRole("button", { name: "Tiến độ: nhấn để sắp xếp" }));
     await waitFor(() => {
-      expect(classRepository.listClasses).toHaveBeenLastCalledWith(
+      expect(vi.mocked(classRepository).listClasses.mock.calls.at(-1)).toEqual([
         "anh-duong",
         expect.objectContaining({ sort: "progress,asc" }),
-      );
+      ]);
     });
     await user.click(
       within(table).getByRole("button", { name: "Kết thúc dự kiến: nhấn để sắp xếp" }),
     );
     await waitFor(() => {
-      expect(classRepository.listClasses).toHaveBeenLastCalledWith(
+      expect(vi.mocked(classRepository).listClasses.mock.calls.at(-1)).toEqual([
         "anh-duong",
         expect.objectContaining({ sort: "expectedEndDate,asc" }),
-      );
+      ]);
     });
 
     const search = screen.getByLabelText("Tìm kiếm");

@@ -169,8 +169,8 @@ export const SchedulePreviewStep = ({
             <div>
               <strong>Sẵn sàng công bố?</strong>
               <p>
-                Lịch sẽ xuất hiện ngay với giáo viên; lượt ghi danh và khoản học phí được tạo cùng giao
-                dịch.
+                Lịch sẽ xuất hiện ngay với giáo viên; lượt ghi danh và khoản học phí được tạo cùng
+                giao dịch.
               </p>
             </div>
             <Button

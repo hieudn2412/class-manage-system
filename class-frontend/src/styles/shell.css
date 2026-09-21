@@ -1,0 +1,133 @@
+.page-grid,
+.platform-grid {
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+.app-sidebar {
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.brand {
+  color: var(--color-text-primary);
+}
+
+.brand-mark {
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-lg);
+  background: var(--primary-50);
+  box-shadow: var(--shadow-sm);
+}
+
+.brand-name {
+  color: var(--primary-900);
+}
+
+.brand-version,
+.nav-section-label {
+  color: var(--color-text-muted);
+}
+
+.tenant-chip {
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-lg);
+  background: var(--primary-50);
+}
+
+.tenant-chip span {
+  color: var(--primary-600);
+}
+
+.tenant-chip strong {
+  color: var(--primary-900);
+}
+
+.sidebar-nav {
+  gap: 0.25rem;
+}
+
+.nav-link,
+.nav-planned {
+  min-height: var(--control-height);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.nav-link:hover {
+  transform: translateX(2px);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.nav-link.active {
+  background: var(--primary-100);
+  color: var(--primary-700);
+  box-shadow: inset 3px 0 0 var(--primary-600);
+}
+
+.nav-link.active svg {
+  color: var(--primary-600);
+}
+
+.sidebar-user {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.avatar {
+  border: 1px solid var(--primary-200);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.app-column {
+  min-width: 0;
+  background: var(--color-bg);
+}
+
+.app-topbar {
+  min-height: 72px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--white-a94);
+  box-shadow: var(--shadow-xs);
+  backdrop-filter: blur(12px);
+}
+
+.breadcrumbs {
+  color: var(--color-text-secondary);
+}
+
+.breadcrumbs span:last-child,
+.mobile-page-label {
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.notification-button {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.notification-count {
+  border: 2px solid var(--color-surface);
+  background: var(--primary-600);
+  color: var(--white);
+}
+
+.app-main {
+  width: 100%;
+  max-width: 1540px;
+  margin-inline: auto;
+  padding: clamp(1.5rem, 3vw, 2.75rem);
+}
+
+.mobile-backdrop {
+  background: var(--overlay-backdrop);
+  backdrop-filter: blur(2px);
+}

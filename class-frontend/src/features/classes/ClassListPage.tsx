@@ -208,7 +208,13 @@ export const ClassListPage = () => {
       />
       <FilterDisclosure
         label="Bộ lọc"
-        activeCount={[params.status, params.month !== getCurrentMonth() ? params.month : "", params.teacherId].filter(Boolean).length}
+        activeCount={
+          [
+            params.status,
+            params.month !== getCurrentMonth() ? params.month : "",
+            params.teacherId,
+          ].filter(Boolean).length
+        }
         primary={
           <Input
             label="Tìm kiếm"

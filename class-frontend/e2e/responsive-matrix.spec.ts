@@ -404,22 +404,38 @@ test("menu quản trị hệ thống thích ứng ở mọi kích thước", asy
 test("hồ sơ cá nhân và biểu mẫu đổi mật khẩu thích ứng ở mọi kích thước", async ({ page }) => {
   await page.goto("/t/anh-duong/app/profile");
   await expect(page.getByRole("heading", { name: "Hồ sơ cá nhân" })).toBeVisible();
-  await expect(page.getByText("admin@anhduong.vn")).toBeVisible();
+  await expect(page.getByText("admin@anhduong.vn").first()).toBeVisible();
 
+  await page.getByRole("button", { name: "Đổi mật khẩu" }).click();
+  const passwordDialog = page.getByRole("dialog", { name: "Đổi mật khẩu" });
+  await expect(passwordDialog).toBeVisible();
   await page.getByLabel("Mật khẩu hiện tại").fill("Demo@123");
   await page.getByLabel("Mật khẩu mới", { exact: true }).fill("NewDemo@2026");
   await page.getByLabel("Nhập lại mật khẩu mới").fill("NewDemo@2026");
-  await page.getByRole("button", { name: "Đổi mật khẩu" }).click();
+  await passwordDialog.getByRole("button", { name: "Đổi mật khẩu" }).click();
   await expect(page.getByText(/Các phiên đăng nhập cũ đã được đăng xuất/)).toBeVisible();
 
   await checkResponsiveShell(page);
 });
 
-test("danh sách người dùng giữ bảng ba cột trên mobile", async ({ page }) => {
+test("danh sách người dùng giữ bảng ba cột trên mobile", async ({ page }, testInfo) => {
   await page.goto("/t/anh-duong/app/accounts");
 
   const table = page.getByRole("table", { name: "Danh sách người dùng của trung tâm" });
   await expect(table).toBeVisible();
+  if (!testInfo.project.name.includes("mobile")) {
+    await expect(table.getByRole("columnheader")).toHaveCount(4);
+    await expect(table.getByRole("columnheader", { name: /Tên/ })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: /Chức vụ/ })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: /Ngày tạo/ })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Xem" })).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+    return;
+  }
+
   await expect(table.getByRole("columnheader")).toHaveCount(3);
   await expect(table.getByRole("columnheader", { name: /Tên/ })).toBeVisible();
   await expect(table.getByRole("columnheader", { name: /Chức vụ/ })).toBeVisible();
@@ -456,14 +472,16 @@ test("thời khóa biểu mobile giữ lưới tuần ngang trong vùng cuộn r
       scrollWidth: element.scrollWidth,
     }));
     expect(dimensions.scrollWidth).toBeGreaterThan(dimensions.clientWidth);
-    expect(await calendar.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+    expect(await calendar.evaluate((element) => element.scrollLeft)).toBe(0);
     expect(
       await page
         .locator(".calendar-time")
         .first()
         .evaluate((element) => getComputedStyle(element).position),
     ).toBe("sticky");
-    await expect(calendar.getByText("Chưa xác nhận", { exact: true })).toBeVisible();
+    await expect(
+      calendar.locator(".calendar-event-mobile-state", { hasText: "Chưa xác nhận" }).first(),
+    ).toBeVisible();
     expect(
       await calendar
         .locator(".calendar-event-teacher")

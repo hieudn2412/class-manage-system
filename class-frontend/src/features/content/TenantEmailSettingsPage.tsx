@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, Clock3, Mail, Plug, RefreshCw, Send, ShieldCheck, Unplug } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  Mail,
+  Plug,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  Unplug,
+} from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { tenantEmailRepository } from "../../services/repositories/tenantEmailRepository";
 import { ApiError } from "../../shared/types/api";
@@ -14,13 +24,16 @@ import { useToast } from "../../shared/ui/Toast";
 
 const callbackMessages: Record<string, string> = {
   success: "Đã kết nối Gmail để gửi thông báo cho trung tâm.",
-  GMAIL_SCOPE_MISSING: "Gmail chưa cấp quyền gửi email. Vui lòng kết nối lại và chấp nhận quyền gửi thư.",
+  GMAIL_SCOPE_MISSING:
+    "Gmail chưa cấp quyền gửi email. Vui lòng kết nối lại và chấp nhận quyền gửi thư.",
   GMAIL_EMAIL_UNVERIFIED: "Địa chỉ Gmail này chưa được xác minh. Vui lòng chọn tài khoản khác.",
   GMAIL_OAUTH_STATE_EXPIRED: "Phiên kết nối đã hết hạn. Vui lòng bắt đầu lại.",
   GMAIL_OAUTH_STATE_USED: "Phiên kết nối này đã được dùng.",
-  GMAIL_VERSION_CONFLICT: "Kết nối Gmail vừa được quản trị viên khác thay đổi. Trang đã được tải lại.",
+  GMAIL_VERSION_CONFLICT:
+    "Kết nối Gmail vừa được quản trị viên khác thay đổi. Trang đã được tải lại.",
   GMAIL_REAUTH_REQUIRED: "Kết nối Gmail chưa hoàn tất. Vui lòng kết nối lại.",
-  GMAIL_SEND_FAILED: "Không thể hoàn tất kết nối với Google. Vui lòng kiểm tra cấu hình hoặc thử lại.",
+  GMAIL_SEND_FAILED:
+    "Không thể hoàn tất kết nối với Google. Vui lòng kiểm tra cấu hình hoặc thử lại.",
   GMAIL_SEND_TIMEOUT: "Google chưa phản hồi kịp thời. Vui lòng thử lại sau.",
   GMAIL_RATE_LIMITED: "Google đang giới hạn tạm thời. Vui lòng thử lại sau.",
   FORBIDDEN: "Tài khoản của bạn không còn quyền quản lý Gmail của trung tâm.",
@@ -45,7 +58,11 @@ export const TenantEmailSettingsPage = () => {
     const result = params.get("gmailResult");
     if (!result) return;
     const code = params.get("code");
-    showToast(result === "success" ? "Đã kết nối Gmail để gửi thông báo cho trung tâm." : callbackMessages[code ?? ""] ?? "Không thể hoàn tất kết nối Gmail. Vui lòng thử lại.");
+    showToast(
+      result === "success"
+        ? "Đã kết nối Gmail để gửi thông báo cho trung tâm."
+        : (callbackMessages[code ?? ""] ?? "Không thể hoàn tất kết nối Gmail. Vui lòng thử lại."),
+    );
     void client.invalidateQueries({ queryKey: ["tenant-email-connection", tenantSlug] });
     void navigate(`/t/${tenantSlug}/app/settings/email`, { replace: true });
   }, [client, navigate, params, showToast, tenantSlug]);
@@ -55,14 +72,17 @@ export const TenantEmailSettingsPage = () => {
     onSuccess: (response) => {
       window.location.assign(response.authorizationUrl);
     },
-    onError: (error) => showToast(error instanceof Error ? error.message : "Không thể tạo phiên kết nối Gmail."),
+    onError: (error) =>
+      showToast(error instanceof Error ? error.message : "Không thể tạo phiên kết nối Gmail."),
   });
 
   const testMutation = useMutation({
     mutationFn: () => tenantEmailRepository.test(tenantSlug, recipientEmail),
     onSuccess: async (response) => {
       setTestOpen(false);
-      showToast(`Đã gửi email thử${response.gmailMessageId ? ` (${response.gmailMessageId})` : ""}.`);
+      showToast(
+        `Đã gửi email thử${response.gmailMessageId ? ` (${response.gmailMessageId})` : ""}.`,
+      );
       await client.invalidateQueries({ queryKey: ["tenant-email-connection", tenantSlug] });
     },
     onError: async (error) => {
@@ -82,14 +102,21 @@ export const TenantEmailSettingsPage = () => {
       showToast("Đã ngắt kết nối Gmail của trung tâm.");
       await client.invalidateQueries({ queryKey: ["tenant-email-connection", tenantSlug] });
     },
-    onError: (error) => showToast(error instanceof Error ? error.message : "Không thể ngắt kết nối Gmail."),
+    onError: (error) =>
+      showToast(error instanceof Error ? error.message : "Không thể ngắt kết nối Gmail."),
   });
 
   const connection = query.data;
   const statusTone = useMemo(() => statusMeta(connection), [connection]);
 
   if (query.isLoading) {
-    return <StatePanel kind="empty" title="Đang tải Gmail thông báo" description="Đang kiểm tra trạng thái kết nối." />;
+    return (
+      <StatePanel
+        kind="empty"
+        title="Đang tải Gmail thông báo"
+        description="Đang kiểm tra trạng thái kết nối."
+      />
+    );
   }
   if (query.isError || !connection) {
     return (
@@ -117,7 +144,7 @@ export const TenantEmailSettingsPage = () => {
       {!connection.oauthConfigured ? (
         <StatePanel
           kind="error"
-        title="Gmail chưa được thiết lập"
+          title="Gmail chưa được thiết lập"
           description="Quản trị viên hệ thống cần hoàn tất cấu hình Google trước khi trung tâm có thể kết nối Gmail."
         />
       ) : (
@@ -142,7 +169,11 @@ export const TenantEmailSettingsPage = () => {
               </div>
               <div>
                 <dt>Lần gửi thành công</dt>
-                <dd>{connection.lastSuccessfulSendAt ? formatDate(connection.lastSuccessfulSendAt) : "Chưa gửi"}</dd>
+                <dd>
+                  {connection.lastSuccessfulSendAt
+                    ? formatDate(connection.lastSuccessfulSendAt)
+                    : "Chưa gửi"}
+                </dd>
               </div>
               <div>
                 <dt>Email đang chờ</dt>
@@ -171,7 +202,9 @@ export const TenantEmailSettingsPage = () => {
               <Button
                 variant="danger"
                 onClick={() => setDisconnectOpen(true)}
-                disabled={connection.status === "NOT_CONNECTED" || connection.status === "DISCONNECTED"}
+                disabled={
+                  connection.status === "NOT_CONNECTED" || connection.status === "DISCONNECTED"
+                }
               >
                 <Unplug size={17} />
                 Ngắt kết nối
@@ -196,7 +229,10 @@ export const TenantEmailSettingsPage = () => {
               </li>
               <li>
                 <Clock3 size={18} />
-                <span>Email chưa gửi được sẽ được thử lại trong tối đa 72 giờ; thông báo trong ứng dụng vẫn xuất hiện ngay.</span>
+                <span>
+                  Email chưa gửi được sẽ được thử lại trong tối đa 72 giờ; thông báo trong ứng dụng
+                  vẫn xuất hiện ngay.
+                </span>
               </li>
             </ul>
           </section>
@@ -232,8 +268,8 @@ export const TenantEmailSettingsPage = () => {
         onConfirm={() => disconnectMutation.mutate()}
       >
         <p>
-          Thao tác này chỉ ngắt Gmail khỏi trung tâm hiện tại. Các trung tâm khác đang dùng cùng tài khoản Gmail
-          sẽ không bị ảnh hưởng.
+          Thao tác này chỉ ngắt Gmail khỏi trung tâm hiện tại. Các trung tâm khác đang dùng cùng tài
+          khoản Gmail sẽ không bị ảnh hưởng.
         </p>
       </Modal>
     </section>

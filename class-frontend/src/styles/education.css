@@ -1,0 +1,814 @@
+/* Public and authentication */
+.landing-page,
+.public-trust-page,
+.auth-page {
+  background: var(--gradient-page);
+  color: var(--color-text-primary);
+}
+
+.landing-nav,
+.public-trust-nav {
+  max-width: 1240px;
+}
+
+.landing-brand,
+.public-trust-brand,
+.auth-compact-brand {
+  color: var(--primary-900);
+}
+
+.landing-brand .brand-mark,
+.public-trust-logo,
+.auth-compact-brand .brand-mark {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+  box-shadow: var(--shadow-sm);
+}
+
+.landing-nav a:not(.landing-brand),
+.public-trust-nav a:not(.public-trust-brand) {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.landing-nav a:not(.landing-brand):hover,
+.public-trust-nav a:not(.public-trust-brand):hover {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.landing-hero {
+  max-width: 1240px;
+  gap: clamp(2rem, 5vw, 5rem);
+}
+
+.landing-copy {
+  border: 1px solid var(--primary-100);
+  border-radius: var(--radius-2xl);
+  background: var(--gradient-hero);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.landing-copy::before {
+  background: var(--yellow-500);
+}
+
+.landing-copy h1,
+.auth-aside .display-title {
+  color: var(--primary-900);
+}
+
+.landing-copy > p:not(.eyebrow),
+.auth-description,
+.auth-meta {
+  color: var(--color-text-secondary);
+}
+
+.landing-highlight-grid article,
+.auth-benefits li {
+  border-color: var(--primary-100);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.landing-highlight-grid svg,
+.auth-benefits svg {
+  color: var(--primary-600);
+}
+
+.landing-access-card,
+.auth-card,
+.public-trust-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.landing-access-card::before {
+  background: var(--yellow-500);
+}
+
+.auth-aside {
+  border-right: 1px solid var(--primary-100);
+  background: var(--gradient-hero);
+  color: var(--color-text-primary);
+}
+
+.auth-aside::before,
+.auth-aside::after {
+  border-color: var(--primary-100);
+  background: var(--primary-50);
+  opacity: 0.7;
+}
+
+.auth-aside .brand-name,
+.auth-aside .brand-version {
+  color: var(--primary-900);
+}
+
+.auth-page-compact .auth-main {
+  background: var(--gradient-page);
+}
+
+.tenant-label,
+.scope-pill,
+.public-trust-updated {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.form-alert {
+  border-color: var(--color-danger-border);
+  border-radius: var(--radius-md);
+  background: var(--color-danger-soft);
+  color: var(--color-danger-strong);
+}
+
+.form-success {
+  border-color: var(--color-success-border);
+  background: var(--color-success-soft);
+  color: var(--color-success-strong);
+}
+
+/* Management and dashboard */
+.management-page,
+.content-page,
+.salary-page,
+.profile-page,
+.learning-page,
+.teacher-page {
+  color: var(--color-text-primary);
+}
+
+.metric-card {
+  overflow: hidden;
+  padding: var(--space-6);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-card::before {
+  top: 0;
+  right: auto;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  height: auto;
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+  background: var(--primary-500);
+}
+
+.metric-card-head {
+  min-height: auto;
+  margin: 0 0 var(--space-4);
+}
+
+.metric-card-button {
+  min-height: 100%;
+}
+
+.metric-card:nth-child(4n + 2)::before {
+  background: var(--color-success);
+}
+
+.metric-card:nth-child(4n + 3)::before {
+  background: var(--yellow-500);
+}
+
+.metric-card:nth-child(4n + 4)::before {
+  background: var(--primary-300);
+}
+
+.metric-label,
+.metric-detail {
+  color: var(--color-text-secondary);
+}
+
+.metric-value {
+  color: var(--primary-900);
+}
+
+.metric-card-button {
+  color: inherit;
+}
+
+.metric-card-link {
+  color: var(--primary-700);
+}
+
+.section-panel,
+.content-section,
+.content-panel,
+.learning-section,
+.salary-ledger-section,
+.profile-card,
+.tenant-email-card {
+  border-color: var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.content-panel,
+.content-section,
+.learning-section {
+  padding: var(--space-6);
+}
+
+.content-section-head,
+.learning-section-heading,
+.section-heading {
+  margin: 0 0 var(--space-5);
+  padding: 0;
+}
+
+.content-section-head > div,
+.learning-section-heading > div,
+.section-heading > div {
+  min-width: 0;
+}
+
+.content-section-head .eyebrow,
+.learning-section-heading .eyebrow,
+.section-heading .eyebrow {
+  display: block;
+  margin: 0 0 var(--space-2);
+  line-height: 1.25;
+}
+
+.section-title,
+.section-heading h2,
+.content-section-head h2,
+.learning-section-heading h2,
+.profile-section-heading h2 {
+  margin: 0;
+  color: var(--primary-900);
+  line-height: 1.2;
+}
+
+.content-panel > .table-shell,
+.content-section > .table-shell,
+.learning-section > .table-shell {
+  margin-top: 0;
+}
+
+.section-title-icon,
+.content-section-icon,
+.profile-security-icon {
+  border-radius: var(--radius-md);
+  background: var(--primary-100);
+  color: var(--primary-700);
+}
+
+.attention-item {
+  border-color: var(--color-border);
+}
+
+.attention-item:hover {
+  background: var(--primary-50);
+}
+
+.severity-mark.warning {
+  background: var(--yellow-500);
+}
+
+.severity-mark.danger {
+  background: var(--color-danger);
+}
+
+.progress-track {
+  background: var(--primary-100);
+}
+
+.progress-value {
+  background: var(--primary-600);
+}
+
+.definition-item,
+.preview-summary article,
+.profile-info-item,
+.operation-fact,
+.salary-summary-item {
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+}
+
+.definition-item dt,
+.profile-info-item dt,
+.session-detail-label,
+.salary-line-label {
+  color: var(--color-text-secondary);
+}
+
+.definition-item dd,
+.profile-info-item dd {
+  color: var(--color-text-primary);
+}
+
+.tabs {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.tab {
+  color: var(--color-text-secondary);
+}
+
+.tab:hover {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.tab.active {
+  color: var(--primary-700);
+}
+
+.tab.active::after {
+  background: var(--primary-600);
+}
+
+/* Class wizard and forms */
+.wizard-stepper,
+.wizard-panel,
+.publish-bar,
+.slot-card,
+.preview-summary article {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.wizard-stepper button {
+  color: var(--color-text-secondary);
+}
+
+.wizard-stepper .active button,
+.wizard-stepper button:hover {
+  color: var(--primary-700);
+}
+
+.wizard-step-number,
+.slot-index {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.wizard-stepper .active .wizard-step-number {
+  border-color: var(--primary-600);
+  background: var(--primary-600);
+  color: var(--white);
+}
+
+.student-option {
+  border-color: var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.student-option:hover {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+}
+
+.student-option.selected {
+  border-color: var(--primary-500);
+  background: var(--primary-100);
+}
+
+.student-avatar {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.holiday-strip,
+.schedule-notice,
+.detail-alert,
+.status-note {
+  border-color: var(--color-info-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-info-soft);
+  color: var(--color-info-strong);
+}
+
+.conflict-warning,
+.warning-acknowledgement,
+.overpayment-confirm,
+.salary-resend-warning {
+  border-color: var(--color-warning-border);
+  background: var(--color-warning-soft);
+  color: var(--color-warning-strong);
+}
+
+.conflict-blocking,
+.override-result-error {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-soft);
+  color: var(--color-danger-strong);
+}
+
+.override-result-success {
+  border-color: var(--color-success-border);
+  background: var(--color-success-soft);
+  color: var(--color-success-strong);
+}
+
+/* Teacher and student learning */
+.learning-class-card,
+.teacher-class-card,
+.teacher-session-card,
+.learning-session-card,
+.student-homework-card,
+.homework-card,
+.notification-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--transition-standard),
+    border-color var(--transition-standard),
+    box-shadow var(--transition-standard);
+}
+
+.learning-class-card:hover,
+.teacher-class-card:hover,
+.student-homework-card:hover,
+.homework-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-200);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.learning-card-icon,
+.teacher-class-identity,
+.teacher-session-time,
+.learning-session-index {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.learning-card-link,
+.teacher-class-action,
+.record-link {
+  color: var(--primary-700);
+}
+
+.teacher-class-progress .progress-value,
+.learning-progress .progress-value {
+  background: var(--primary-600);
+}
+
+.teacher-session-result,
+.teacher-session-homework-strip {
+  border-color: var(--primary-100);
+  background: var(--primary-50);
+}
+
+.upload-drop {
+  border-color: var(--primary-200);
+  border-radius: var(--radius-xl);
+  background: var(--primary-50);
+}
+
+.upload-drop:hover,
+.upload-drop:focus-within {
+  border-color: var(--primary-500);
+  background: var(--primary-100);
+}
+
+/* Calendar and timetable */
+.schedule-toolbar,
+.calendar-board,
+.session-detail-card,
+.week-range-highlight {
+  border-color: var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.week-range-highlight {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+}
+
+.week-range-highlight svg,
+.week-range-highlight strong {
+  color: var(--primary-700);
+}
+
+.calendar-scroll {
+  border-radius: var(--radius-xl);
+  scrollbar-color: var(--primary-200) transparent;
+}
+
+.calendar-corner,
+.calendar-day-head,
+.calendar-time,
+.calendar-cell {
+  border-color: var(--color-border);
+}
+
+.calendar-corner,
+.calendar-day-head {
+  background: var(--primary-50);
+}
+
+.calendar-day-head.is-today {
+  background: var(--primary-100);
+  box-shadow: inset 0 -4px 0 var(--primary-500);
+}
+
+.calendar-day-head span,
+.calendar-day-head.is-today strong {
+  color: var(--primary-700);
+}
+
+.calendar-time {
+  background: var(--color-surface-subtle);
+}
+
+.calendar-time span {
+  color: var(--primary-600);
+}
+
+.calendar-event {
+  border-color: var(--primary-200);
+  border-left: 4px solid var(--primary-500);
+  border-radius: var(--radius-md);
+  background: var(--primary-50);
+  color: var(--color-text-primary);
+  box-shadow: none;
+}
+
+.calendar-event:hover {
+  border-color: var(--primary-400);
+  background: var(--primary-100);
+  box-shadow: var(--shadow-sm);
+}
+
+.calendar-event.is-selected,
+.calendar-event[aria-current="true"] {
+  border-color: var(--primary-600);
+  background: var(--primary-600);
+  color: var(--white);
+}
+
+.calendar-event.is-selected :where(strong, small, span),
+.calendar-event[aria-current="true"] :where(strong, small, span) {
+  color: var(--white);
+}
+
+.calendar-event.is-completed {
+  border-color: var(--color-success-border);
+  border-left-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.calendar-event.is-cancelled {
+  border-color: var(--color-danger-border);
+  border-left-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger-strong);
+}
+
+.calendar-event-tags span {
+  border-color: var(--primary-100);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.session-overview-card,
+.session-context-card,
+.session-form-section {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Salary */
+.salary-period-strip,
+.salary-detail-hero,
+.salary-summary-card,
+.salary-statement-hero {
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-2xl);
+  background: var(--gradient-hero);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-card);
+}
+
+.salary-period-strip::before,
+.salary-detail-hero::before,
+.salary-statement-hero::before {
+  background: var(--yellow-500);
+}
+
+.salary-period-strip :where(h1, h2, strong),
+.salary-detail-hero :where(h1, h2, strong),
+.salary-statement-hero :where(h1, h2, strong) {
+  color: var(--primary-900);
+}
+
+.salary-period-strip :where(p, small, span),
+.salary-detail-hero :where(p, small, span),
+.salary-statement-hero :where(p, small, span) {
+  color: var(--color-text-secondary);
+}
+
+.salary-period-mark,
+.salary-summary-icon {
+  border-color: var(--primary-200);
+  background: var(--primary-100);
+  color: var(--primary-700);
+}
+
+.salary-metric-grid,
+.salary-personal-metrics {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.salary-metric-grid article,
+.salary-personal-metrics article {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.salary-metric-grid article::before,
+.salary-personal-metrics article::before {
+  background: var(--primary-500);
+}
+
+.salary-metric-grid article:nth-child(2)::before,
+.salary-personal-metrics article:nth-child(2)::before {
+  background: var(--color-success);
+}
+
+.salary-metric-grid article:nth-child(3)::before,
+.salary-personal-metrics article:nth-child(3)::before {
+  background: var(--yellow-500);
+}
+
+.salary-metric-grid article:nth-child(4)::before,
+.salary-personal-metrics article:nth-child(4)::before {
+  background: var(--primary-300);
+}
+
+.salary-filter-panel,
+.salary-bulk-actions,
+.salary-mobile-summary,
+.salary-email-preview,
+.salary-notification-fields {
+  border-color: var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.salary-bulk-actions {
+  border-left: 4px solid var(--primary-500);
+  background: var(--primary-50);
+}
+
+.salary-table thead,
+.salary-email-preview-table thead {
+  background: var(--primary-50);
+  color: var(--primary-900);
+}
+
+.salary-balance.owed,
+.salary-balance.is-owed {
+  color: var(--color-warning-strong);
+}
+
+.salary-balance.settled,
+.salary-balance.is-settled {
+  color: var(--color-success-strong);
+}
+
+.salary-balance.overpaid,
+.salary-balance.is-overpaid {
+  color: var(--color-danger-strong);
+}
+
+.salary-email-preview {
+  overflow-x: auto;
+}
+
+/* Profile, platform and notifications */
+.profile-hero,
+.platform-tenant-card,
+.quota-card,
+.email-status-card,
+.notification-list li {
+  border-color: var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-avatar,
+.tenant-avatar,
+.notification-icon {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.profile-section-heading-with-action {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.profile-section-heading-copy {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.profile-section-heading-copy > svg {
+  flex: 0 0 auto;
+  margin-top: 3px;
+  color: var(--primary-600);
+}
+
+.profile-section-heading-copy h2,
+.profile-section-heading-copy h3 {
+  margin: 0;
+  color: var(--primary-900);
+  line-height: 1.25;
+}
+
+.profile-section-heading-copy h2 {
+  font-size: 1.25rem;
+}
+
+.profile-section-heading-copy h3 {
+  font-size: 1rem;
+}
+
+.profile-section-heading-copy p {
+  margin: 3px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.profile-section-heading-with-action > .button {
+  flex: 0 0 auto;
+}
+
+.profile-contact-value {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+  padding: var(--space-4);
+}
+
+.profile-contact-value span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.profile-contact-value strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.profile-modal-form {
+  margin-top: 0;
+}
+
+.profile-security-card {
+  border-color: var(--primary-200);
+  background: var(--primary-50);
+}
+
+.pagination {
+  color: var(--color-text-secondary);
+}
+
+.pagination .button {
+  min-width: var(--control-height);
+}

@@ -8,7 +8,13 @@ const ModalWithInlineClose = () => {
   const [value, setValue] = useState("");
 
   return (
-    <Modal open title="Nhập dữ liệu" onClose={() => undefined} confirmLabel="Lưu" onConfirm={() => undefined}>
+    <Modal
+      open
+      title="Nhập dữ liệu"
+      onClose={() => undefined}
+      confirmLabel="Lưu"
+      onConfirm={() => undefined}
+    >
       <Input label="Nội dung" value={value} onChange={(event) => setValue(event.target.value)} />
     </Modal>
   );

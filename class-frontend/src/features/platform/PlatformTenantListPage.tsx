@@ -23,9 +23,7 @@ export const PlatformTenantListPage = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [action, setAction] = useState<Action>(null);
   const [reason, setReason] = useState("");
-  const [credential, setCredential] = useState<{ username: string; password: string } | null>(
-    null,
-  );
+  const [credential, setCredential] = useState<{ username: string; password: string } | null>(null);
   const client = useQueryClient();
   const { showToast } = useToast();
   const query = new URLSearchParams({
@@ -168,9 +166,7 @@ export const PlatformTenantListPage = () => {
                           <strong>{tenant.initialAdmin.displayName}</strong>
                           <small>
                             @{tenant.initialAdmin.username} ·{" "}
-                            {tenant.initialAdmin.status === "ACTIVE"
-                              ? "Đang hoạt động"
-                              : "Đã khóa"}
+                            {tenant.initialAdmin.status === "ACTIVE" ? "Đang hoạt động" : "Đã khóa"}
                           </small>
                         </>
                       ) : (
@@ -326,7 +322,11 @@ const CreateTenantModal = ({
     >
       <div className="form-grid">
         {error ? <div className="form-alert full">{error}</div> : null}
-        <Input label="Tên trung tâm" value={name} onChange={(event) => setName(event.target.value)} />
+        <Input
+          label="Tên trung tâm"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
         <Input
           label="Mã đường dẫn"
           hint="Mã này được dùng trong địa chỉ đăng nhập và không thể đổi sau khi tạo."

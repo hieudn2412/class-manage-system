@@ -23,13 +23,20 @@ export const ClassHomeworksPanel = ({
   const client = useQueryClient();
   const query = useQuery({
     queryKey: ["class-homeworks", tenantSlug, classId],
-    queryFn: () => learningContentRepository.classHomeworks(tenantSlug, classId, { page: 1, pageSize: 100 }),
+    queryFn: () =>
+      learningContentRepository.classHomeworks(tenantSlug, classId, { page: 1, pageSize: 100 }),
   });
   const invalidate = async () =>
     client.invalidateQueries({ queryKey: ["class-homeworks", tenantSlug, classId] });
   if (query.isPending) return <PageSkeleton />;
   if (query.isError) {
-    return <StatePanel kind="error" title="Không tải được bài tập về nhà" description="Vui lòng kiểm tra kết nối và thử lại." />;
+    return (
+      <StatePanel
+        kind="error"
+        title="Không tải được bài tập về nhà"
+        description="Vui lòng kiểm tra kết nối và thử lại."
+      />
+    );
   }
   return (
     <section className="content-panel">
@@ -45,7 +52,11 @@ export const ClassHomeworksPanel = ({
         ) : null}
       </header>
       {!query.data?.items.length ? (
-        <StatePanel kind="empty" title="Chưa có bài tập về nhà" description="Giáo viên hoặc quản lý học vụ có thể tạo bài mới từ đây." />
+        <StatePanel
+          kind="empty"
+          title="Chưa có bài tập về nhà"
+          description="Giáo viên hoặc quản lý học vụ có thể tạo bài mới từ đây."
+        />
       ) : (
         <div className="table-shell responsive-table-wrap">
           <table className="data-table content-table responsive-card-table">
@@ -68,7 +79,11 @@ export const ClassHomeworksPanel = ({
                       {item.sessionOrdinal ? `Buổi ${item.sessionOrdinal}` : "Cấp lớp"}
                     </span>
                   </td>
-                  <td data-label="Trạng thái"><Badge tone={homeworkStatusTone[item.status]}>{homeworkStatusLabel[item.status]}</Badge></td>
+                  <td data-label="Trạng thái">
+                    <Badge tone={homeworkStatusTone[item.status]}>
+                      {homeworkStatusLabel[item.status]}
+                    </Badge>
+                  </td>
                   <td data-label="Lượt nộp">{rate(item.submittedCount, item.recipientCount)}</td>
                   <td data-label="Đã nhận xét">{rate(item.reviewedCount, item.recipientCount)}</td>
                   <td data-label="Thao tác">

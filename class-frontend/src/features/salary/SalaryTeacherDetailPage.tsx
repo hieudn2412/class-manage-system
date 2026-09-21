@@ -20,16 +20,126 @@ export const SalaryTeacherDetailPage = () => {
   const month = params.get("month") ?? getCurrentMonth();
   const [editor, setEditor] = useState<SalaryEditor | null>(null);
   const client = useQueryClient();
-  const query = useQuery({ queryKey: ["teacher-payroll", tenant.id, teacherId, month], queryFn: () => salaryRepository.teacherPayroll(tenant.slug, teacherId, month), enabled: Boolean(teacherId) });
-  const teachers = useQuery({ queryKey: ["teachers", tenant.id], queryFn: () => classRepository.listTeachers(tenant.slug) });
+  const query = useQuery({
+    queryKey: ["teacher-payroll", tenant.id, teacherId, month],
+    queryFn: () => salaryRepository.teacherPayroll(tenant.slug, teacherId, month),
+    enabled: Boolean(teacherId),
+  });
+  const teachers = useQuery({
+    queryKey: ["teachers", tenant.id],
+    queryFn: () => classRepository.listTeachers(tenant.slug),
+  });
   if (query.isLoading || teachers.isLoading) return <PageSkeleton />;
-  if (query.isError || !query.data) return <StatePanel kind="error" title="Không tải được chi tiết lương" description="Dữ liệu không thuộc trung tâm này hoặc kết nối đang tạm gián đoạn." actionLabel="Thử lại" onAction={() => void query.refetch()} />;
+  if (query.isError || !query.data)
+    return (
+      <StatePanel
+        kind="error"
+        title="Không tải được chi tiết lương"
+        description="Dữ liệu không thuộc trung tâm này hoặc kết nối đang tạm gián đoạn."
+        actionLabel="Thử lại"
+        onAction={() => void query.refetch()}
+      />
+    );
   const detail = query.data;
-  const tone = detail.metrics.status === "OVERPAID" ? "danger" : detail.metrics.status === "OWED" ? "warning" : "success";
-  return <section className="salary-page"><Link className="back-link" to={`/t/${tenantSlug}/app/finance/salaries?month=${month}`}><ArrowLeft size={17} /> Quay lại bảng lương</Link>
-    <header className="salary-detail-hero"><div><p className="eyebrow">CHI TIẾT LƯƠNG · {month}</p><h1>{detail.teacherName}</h1><p>Mỗi khoản đều có thông tin về buổi dạy, kỳ lương và giao dịch liên quan.</p></div><div className="salary-detail-actions"><label><span>Kỳ lương</span><input type="month" value={month} onChange={(event) => setParams({ month: event.target.value })} /></label><Button variant="secondary" onClick={() => setEditor({ kind: "adjustment" })}><CirclePlus size={17} /> Cộng hoặc trừ</Button><Button onClick={() => setEditor({ kind: "payment" })}><CreditCard size={17} /> Ghi thanh toán</Button></div></header>
-    <div className="salary-balance-card"><div><span>{formatMonth(month)}</span><Badge tone={tone}>{detail.metrics.status === "OWED" ? "Còn phải trả" : detail.metrics.status === "OVERPAID" ? "Trả thừa" : "Đã cân bằng"}</Badge></div><strong className={detail.metrics.outstanding < 0 ? "amount-negative" : ""}>{formatCurrency(detail.metrics.outstanding)}</strong><dl><div><dt>Tiền dạy</dt><dd>{formatCurrency(detail.metrics.accrued)}</dd></div><div><dt>Cộng hoặc trừ</dt><dd>{formatCurrency(detail.metrics.adjustments)}</dd></div><div><dt>Đã trả</dt><dd>{formatCurrency(detail.metrics.paid)}</dd></div><div><dt>Giờ dạy</dt><dd>{(detail.metrics.totalMinutes / 60).toLocaleString("vi-VN", { maximumFractionDigits: 1 })}</dd></div></dl>{detail.metrics.status === "OVERPAID" ? <p><CircleMinus size={16} /> Hệ thống sẽ cảnh báo khoản trả thừa và không tự bù sang kỳ sau.</p> : null}</div>
-    <SalaryDetailSections detail={detail} basePath={`/t/${tenantSlug}/app`} editable onEditAdjustment={(item) => setEditor({ kind: "adjustment", item })} onEditPayment={(item) => setEditor({ kind: "payment", item })} />
-    <SalaryTransactionModal key={`${editor?.kind}-${editor && "item" in editor ? editor.item?.id ?? "new" : "closed"}`} editor={editor} teacherId={teacherId} month={month} teachers={teachers.data ?? []} outstanding={detail.metrics.outstanding} onClose={() => setEditor(null)} onSaved={() => { void client.invalidateQueries({ queryKey: ["teacher-payroll", tenant.id, teacherId, month] }); void client.invalidateQueries({ queryKey: ["salary-payroll", tenant.id] }); }} />
-  </section>;
+  const tone =
+    detail.metrics.status === "OVERPAID"
+      ? "danger"
+      : detail.metrics.status === "OWED"
+        ? "warning"
+        : "success";
+  return (
+    <section className="salary-page">
+      <Link className="back-link" to={`/t/${tenantSlug}/app/finance/salaries?month=${month}`}>
+        <ArrowLeft size={17} /> Quay lại bảng lương
+      </Link>
+      <header className="salary-detail-hero">
+        <div>
+          <p className="eyebrow">CHI TIẾT LƯƠNG · {month}</p>
+          <h1>{detail.teacherName}</h1>
+          <p>Mỗi khoản đều có thông tin về buổi dạy, kỳ lương và giao dịch liên quan.</p>
+        </div>
+        <div className="salary-detail-actions">
+          <label>
+            <span>Kỳ lương</span>
+            <input
+              type="month"
+              value={month}
+              onChange={(event) => setParams({ month: event.target.value })}
+            />
+          </label>
+          <Button variant="secondary" onClick={() => setEditor({ kind: "adjustment" })}>
+            <CirclePlus size={17} /> Cộng hoặc trừ
+          </Button>
+          <Button onClick={() => setEditor({ kind: "payment" })}>
+            <CreditCard size={17} /> Ghi thanh toán
+          </Button>
+        </div>
+      </header>
+      <div className="salary-balance-card">
+        <div>
+          <span>{formatMonth(month)}</span>
+          <Badge tone={tone}>
+            {detail.metrics.status === "OWED"
+              ? "Còn phải trả"
+              : detail.metrics.status === "OVERPAID"
+                ? "Trả thừa"
+                : "Đã cân bằng"}
+          </Badge>
+        </div>
+        <strong className={detail.metrics.outstanding < 0 ? "amount-negative" : ""}>
+          {formatCurrency(detail.metrics.outstanding)}
+        </strong>
+        <dl>
+          <div>
+            <dt>Tiền dạy</dt>
+            <dd>{formatCurrency(detail.metrics.accrued)}</dd>
+          </div>
+          <div>
+            <dt>Cộng hoặc trừ</dt>
+            <dd>{formatCurrency(detail.metrics.adjustments)}</dd>
+          </div>
+          <div>
+            <dt>Đã trả</dt>
+            <dd>{formatCurrency(detail.metrics.paid)}</dd>
+          </div>
+          <div>
+            <dt>Giờ dạy</dt>
+            <dd>
+              {(detail.metrics.totalMinutes / 60).toLocaleString("vi-VN", {
+                maximumFractionDigits: 1,
+              })}
+            </dd>
+          </div>
+        </dl>
+        {detail.metrics.status === "OVERPAID" ? (
+          <p>
+            <CircleMinus size={16} /> Hệ thống sẽ cảnh báo khoản trả thừa và không tự bù sang kỳ
+            sau.
+          </p>
+        ) : null}
+      </div>
+      <SalaryDetailSections
+        detail={detail}
+        basePath={`/t/${tenantSlug}/app`}
+        editable
+        onEditAdjustment={(item) => setEditor({ kind: "adjustment", item })}
+        onEditPayment={(item) => setEditor({ kind: "payment", item })}
+      />
+      <SalaryTransactionModal
+        key={`${editor?.kind}-${editor && "item" in editor ? (editor.item?.id ?? "new") : "closed"}`}
+        editor={editor}
+        teacherId={teacherId}
+        month={month}
+        teachers={teachers.data ?? []}
+        outstanding={detail.metrics.outstanding}
+        onClose={() => setEditor(null)}
+        onSaved={() => {
+          void client.invalidateQueries({
+            queryKey: ["teacher-payroll", tenant.id, teacherId, month],
+          });
+          void client.invalidateQueries({ queryKey: ["salary-payroll", tenant.id] });
+        }}
+      />
+    </section>
+  );
 };

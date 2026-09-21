@@ -195,23 +195,30 @@ describe("FL-12 salary pages", () => {
     expect(within(table).getByRole("columnheader", { name: "Xem" })).toBeVisible();
     expect(within(table).getAllByRole("row")).toHaveLength(4);
     expect(within(table).queryByText("Có thể gửi email")).not.toBeInTheDocument();
-    expect(within(table).getAllByText(textEqualsIgnoringCurrencySpaces("300.000 ₫")).length)
-      .toBeGreaterThan(0);
+    expect(
+      within(table).getAllByText(textEqualsIgnoringCurrencySpaces("300.000 ₫")).length,
+    ).toBeGreaterThan(0);
 
     const missingEmailCheckbox = screen.getByRole("checkbox", {
       name: "Chọn Cô Mai để gửi thông báo lương",
     });
     expect(missingEmailCheckbox).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Chọn tất cả (2)" }));
-    expect(screen.getByRole("checkbox", {
-      name: "Chọn Cô Lan để gửi thông báo lương",
-    })).toBeChecked();
-    expect(screen.getByRole("checkbox", {
-      name: "Chọn Cô An để gửi thông báo lương",
-    })).toBeChecked();
-    expect(screen.getByRole("button", {
-      name: "Gửi thông báo lương cho 2 giáo viên đã chọn",
-    })).toBeEnabled();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Chọn Cô Lan để gửi thông báo lương",
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Chọn Cô An để gửi thông báo lương",
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("button", {
+        name: "Gửi thông báo lương cho 2 giáo viên đã chọn",
+      }),
+    ).toBeEnabled();
     expect(screen.getByRole("button", { name: "Bỏ chọn trang này" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Xem lương của Cô Lan" }));
@@ -236,9 +243,11 @@ describe("FL-12 salary pages", () => {
     await user.click(within(dialog).getByRole("button", { name: "Đóng" }));
 
     await user.click(screen.getByRole("button", { name: "Bỏ chọn trang này" }));
-    expect(screen.getByRole("checkbox", {
-      name: "Chọn Cô Lan để gửi thông báo lương",
-    })).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Chọn Cô Lan để gửi thông báo lương",
+      }),
+    ).not.toBeChecked();
   });
 
   it("WF-15 hiển thị trả thừa và giữ kỳ trên URL", async () => {
@@ -255,12 +264,13 @@ describe("FL-12 salary pages", () => {
       screen.getAllByText(textEqualsIgnoringCurrencySpaces("-100.000 ₫")).length,
     ).toBeGreaterThan(0);
     const table = screen.getByRole("table", { name: "Bảng lương giáo viên" });
-    expect(within(table).queryByRole("columnheader", { name: "Cộng hoặc trừ" }))
-      .not.toBeInTheDocument();
-    expect(within(table).queryByRole("columnheader", { name: "Còn lại" }))
-      .not.toBeInTheDocument();
-    expect(within(table).queryByRole("columnheader", { name: "Email thông báo" }))
-      .not.toBeInTheDocument();
+    expect(
+      within(table).queryByRole("columnheader", { name: "Cộng hoặc trừ" }),
+    ).not.toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: "Còn lại" })).not.toBeInTheDocument();
+    expect(
+      within(table).queryByRole("columnheader", { name: "Email thông báo" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Chọn tất cả (1)" })).toBeVisible();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Bộ lọc/ }));
@@ -384,9 +394,11 @@ describe("FL-12 salary pages", () => {
 
     await screen.findByRole("heading", { name: "Lương phát sinh và đã trả" });
     await userEvent.setup().click(screen.getByLabelText("Chọn Cô Lan để gửi thông báo lương"));
-    await userEvent.setup().click(screen.getByRole("button", {
-      name: "Gửi thông báo lương cho 1 giáo viên đã chọn",
-    }));
+    await userEvent.setup().click(
+      screen.getByRole("button", {
+        name: "Gửi thông báo lương cho 1 giáo viên đã chọn",
+      }),
+    );
     expect(screen.getByText("Thông báo của kỳ này đã được tạo trước đó")).toBeVisible();
     await userEvent.setup().type(screen.getByLabelText(/Ngày dự kiến thanh toán/), "2026-09-15");
     await userEvent.setup().click(screen.getByRole("button", { name: "Xác nhận gửi lại" }));

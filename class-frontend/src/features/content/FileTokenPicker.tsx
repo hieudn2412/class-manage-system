@@ -58,7 +58,9 @@ export const FileTokenPicker = ({
         setLocalPreviews((current) => ({ ...current, ...previews }));
       }
     } catch (error) {
-      showToast(error instanceof Error ? error.message : "Không thể tải tệp lên. Vui lòng thử lại.");
+      showToast(
+        error instanceof Error ? error.message : "Không thể tải tệp lên. Vui lòng thử lại.",
+      );
     } finally {
       setUploading(false);
     }

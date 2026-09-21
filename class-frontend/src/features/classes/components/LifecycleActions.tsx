@@ -106,7 +106,8 @@ export const LifecycleActions = ({ item }: { item: ClassDetail }) => {
           {target === "Closed" ? (
             <>
               <p className="modal-description">
-                Khi đóng lớp, học sinh sẽ không còn xem được nội dung. Lịch sử ghi danh và tài chính vẫn được giữ nguyên.
+                Khi đóng lớp, học sinh sẽ không còn xem được nội dung. Lịch sử ghi danh và tài chính
+                vẫn được giữ nguyên.
               </p>
               {item.closeReadiness.warnings.length ? (
                 <div className="warning-stack" role="alert">
@@ -130,8 +131,8 @@ export const LifecycleActions = ({ item }: { item: ClassDetail }) => {
           ) : null}
           {target === "Cancelled" ? (
             <p className="modal-description">
-              {item.futureSessionCount} buổi chưa bắt đầu sẽ bị hủy. Buổi đang diễn ra, đã dạy,
-              lịch sử ghi danh và tài chính vẫn được giữ nguyên.
+              {item.futureSessionCount} buổi chưa bắt đầu sẽ bị hủy. Buổi đang diễn ra, đã dạy, lịch
+              sử ghi danh và tài chính vẫn được giữ nguyên.
             </p>
           ) : null}
           {requiresReason ? (

@@ -16,7 +16,12 @@ export const NotificationBell = ({ tenantSlug, base }: { tenantSlug: string; bas
   });
   const latest = useQuery({
     queryKey: ["notification-popover", tenantSlug],
-    queryFn: () => learningContentRepository.notifications(tenantSlug, { unreadOnly: true, page: 1, pageSize: 5 }),
+    queryFn: () =>
+      learningContentRepository.notifications(tenantSlug, {
+        unreadOnly: true,
+        page: 1,
+        pageSize: 5,
+      }),
     enabled: open,
   });
   const markAll = useMutation({
@@ -35,13 +40,19 @@ export const NotificationBell = ({ tenantSlug, base }: { tenantSlug: string; bas
         aria-label={`Thông báo, ${unread} thông báo chưa đọc`}
       >
         <Bell size={18} aria-hidden="true" />
-        {unread ? <span className="notification-count" aria-hidden="true">{unread}</span> : null}
+        {unread ? (
+          <span className="notification-count" aria-hidden="true">
+            {unread}
+          </span>
+        ) : null}
       </button>
       {open ? (
         <section className="notification-popover" aria-label="Thông báo mới">
           <header>
             <strong>Thông báo</strong>
-            <Button variant="ghost" onClick={() => markAll.mutate()}>Đánh dấu tất cả đã đọc</Button>
+            <Button variant="ghost" onClick={() => markAll.mutate()}>
+              Đánh dấu tất cả đã đọc
+            </Button>
           </header>
           {!latest.data?.items.length ? <p>Không có thông báo mới.</p> : null}
           {latest.data?.items.map((item) => (

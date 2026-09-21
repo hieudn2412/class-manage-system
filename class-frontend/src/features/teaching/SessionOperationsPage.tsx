@@ -945,6 +945,7 @@ const CheckInModal = ({
       title="Xác nhận buổi dạy"
       onClose={onClose}
       confirmLabel="Xác nhận buổi dạy"
+      confirmVariant="accent"
       onConfirm={() => void submit()}
       confirmLoading={mutation.isPending}
     >

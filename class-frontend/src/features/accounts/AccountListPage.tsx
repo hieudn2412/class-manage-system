@@ -169,7 +169,9 @@ export const AccountListPage = () => {
       ),
       ariaSort: ariaSort("createdAt", sort.column, sort.direction),
       className: "account-list-created-cell",
-      cell: (account) => <span className="account-list-created">{formatDate(account.createdAt)}</span>,
+      cell: (account) => (
+        <span className="account-list-created">{formatDate(account.createdAt)}</span>
+      ),
     },
     {
       id: "view",

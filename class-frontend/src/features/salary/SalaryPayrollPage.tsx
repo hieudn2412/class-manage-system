@@ -1,19 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowUpRight,
-  CheckCheck,
-  Download,
-  Eye,
-  Search,
-  Send,
-  WalletCards,
-} from "lucide-react";
+import { ArrowUpRight, CheckCheck, Download, Eye, Search, Send, WalletCards } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../app/providers/AuthProvider";
 import { useTenant } from "../../app/providers/TenantProvider";
 import { salaryRepository } from "../../services/repositories/salaryRepository";
-import { formatCurrency, formatDateTime, formatMonth, getCurrentMonth } from "../../shared/lib/format";
+import {
+  formatCurrency,
+  formatDateTime,
+  formatMonth,
+  getCurrentMonth,
+} from "../../shared/lib/format";
 import { hasPermission, PERMISSIONS } from "../../shared/lib/permissions";
 import { useMediaQuery } from "../../shared/lib/useMediaQuery";
 import type { PayrollTeacherRow, SalaryBalanceStatus } from "../../shared/types/domain";
@@ -34,9 +31,10 @@ const statusMeta: Record<SalaryBalanceStatus, { label: string; tone: BadgeTone }
   OVERPAID: { label: "Trả thừa", tone: "danger" },
 };
 
-const hours = (minutes: number) => new Intl.NumberFormat("vi-VN", {
-  maximumFractionDigits: 1,
-}).format(minutes / 60);
+const hours = (minutes: number) =>
+  new Intl.NumberFormat("vi-VN", {
+    maximumFractionDigits: 1,
+  }).format(minutes / 60);
 
 export const SalaryPayrollPage = () => {
   const tenant = useTenant();
@@ -52,7 +50,9 @@ export const SalaryPayrollPage = () => {
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("-outstanding");
   const [page, setPage] = useState(1);
-  const [selectedRecipients, setSelectedRecipients] = useState<Record<string, PayrollTeacherRow>>({});
+  const [selectedRecipients, setSelectedRecipients] = useState<Record<string, PayrollTeacherRow>>(
+    {},
+  );
   const [notificationRecipients, setNotificationRecipients] = useState<PayrollTeacherRow[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<PayrollTeacherRow | null>(null);
   const isMobile = useMediaQuery("(max-width: 767px)");
@@ -165,24 +165,64 @@ export const SalaryPayrollPage = () => {
           <p>Kỳ lương luôn mở; mọi thay đổi buổi cũ được phản ánh trực tiếp vào số dư.</p>
         </div>
         <div className="salary-header-actions">
-          <Button variant="secondary" loading={exportMutation.isPending} onClick={() => exportMutation.mutate()}>
+          <Button
+            variant="secondary"
+            loading={exportMutation.isPending}
+            onClick={() => exportMutation.mutate()}
+          >
             <Download size={17} aria-hidden="true" /> Xuất Excel
           </Button>
         </div>
       </header>
 
       <div className="salary-period-strip">
-        <div className="salary-period-mark"><WalletCards size={22} /><span>Kỳ đối soát</span></div>
-        <label><span className="sr-only">Chọn kỳ lương</span><input type="month" value={month} onChange={(event) => { const nextMonth = event.target.value; setMonth(nextMonth); setPage(1); clearSelection(); setSearchParams({ month: nextMonth }, { replace: true }); }} /></label>
-        <strong>{formatMonth(month)}</strong><small>Asia/Ho_Chi_Minh · Không khóa kỳ</small>
+        <div className="salary-period-mark">
+          <WalletCards size={22} />
+          <span>Kỳ đối soát</span>
+        </div>
+        <label>
+          <span className="sr-only">Chọn kỳ lương</span>
+          <input
+            type="month"
+            value={month}
+            onChange={(event) => {
+              const nextMonth = event.target.value;
+              setMonth(nextMonth);
+              setPage(1);
+              clearSelection();
+              setSearchParams({ month: nextMonth }, { replace: true });
+            }}
+          />
+        </label>
+        <strong>{formatMonth(month)}</strong>
+        <small>Không khóa kỳ</small>
       </div>
 
-      {data ? <div className="salary-metric-grid" aria-label="Tổng quan bảng lương">
-        <article><span>Tổng giờ</span><strong>{hours(data.metrics.totalMinutes)}</strong><small>{data.metrics.sessionCount} buổi đã hoàn tất</small></article>
-        <article><span>Lương phát sinh</span><strong>{formatCurrency(data.metrics.accrued)}</strong><small>{data.metrics.teacherCount} giáo viên</small></article>
-        <article><span>Đã trả</span><strong>{formatCurrency(data.metrics.paid)}</strong><small>Theo kỳ lương được chọn</small></article>
-        <article className={data.metrics.outstanding < 0 ? "metric-negative" : "metric-accent"}><span>Số dư</span><strong>{formatCurrency(data.metrics.outstanding)}</strong><small>{data.metrics.overpaidTeachers} trường hợp trả thừa</small></article>
-      </div> : null}
+      {data ? (
+        <div className="salary-metric-grid" aria-label="Tổng quan bảng lương">
+          <article>
+            <span>Tổng giờ</span>
+            <strong>{hours(data.metrics.totalMinutes)}</strong>
+            <small>{data.metrics.sessionCount} buổi đã hoàn tất</small>
+          </article>
+          <article>
+            <span>Lương phát sinh</span>
+            <strong>{formatCurrency(data.metrics.accrued)}</strong>
+            <small>{data.metrics.teacherCount} giáo viên</small>
+          </article>
+          <article>
+            <span>Đã trả</span>
+            <strong>{formatCurrency(data.metrics.paid)}</strong>
+          </article>
+          <article className={data.metrics.outstanding < 0 ? "metric-negative" : "metric-accent"}>
+            <span>Số dư</span>
+            <strong>{formatCurrency(data.metrics.outstanding)}</strong>
+            {data.metrics.overpaidTeachers > 0 ? (
+              <small>{data.metrics.overpaidTeachers} trường hợp trả thừa</small>
+            ) : null}
+          </article>
+        </div>
+      ) : null}
 
       <FilterDisclosure
         label="Bộ lọc"
@@ -270,15 +310,19 @@ export const SalaryPayrollPage = () => {
                 </Button>
                 <span
                   className="salary-notification-trigger"
-                  title={selectedRecipientCount
-                    ? undefined
-                    : "Chọn ít nhất một giáo viên có email trong bảng để gửi thông báo."}
+                  title={
+                    selectedRecipientCount
+                      ? undefined
+                      : "Chọn ít nhất một giáo viên có email trong bảng để gửi thông báo."
+                  }
                 >
                   <Button
                     disabled={!selectedRecipientCount}
-                    aria-label={selectedRecipientCount
-                      ? `Gửi thông báo lương cho ${selectedRecipientCount} giáo viên đã chọn`
-                      : "Gửi thông báo lương — hãy chọn ít nhất một giáo viên có email trong bảng"}
+                    aria-label={
+                      selectedRecipientCount
+                        ? `Gửi thông báo lương cho ${selectedRecipientCount} giáo viên đã chọn`
+                        : "Gửi thông báo lương — hãy chọn ít nhất một giáo viên có email trong bảng"
+                    }
                     onClick={() => setNotificationRecipients(Object.values(selectedRecipients))}
                   >
                     <Send size={16} aria-hidden="true" />
@@ -305,69 +349,69 @@ export const SalaryPayrollPage = () => {
           ) : (
             <div className="data-table-wrap responsive-table-wrap salary-table-wrap">
               <table className="data-table responsive-card-table salary-table">
-              <caption className="sr-only">Bảng lương giáo viên</caption>
-              <thead>
-                <tr>
-                  {canSendNotifications ? (
-                    <th scope="col" className="salary-select-column">
-                      Chọn
-                    </th>
-                  ) : null}
-                  <th scope="col">Giáo viên</th>
-                  <th scope="col">Giờ / buổi</th>
-                  <th scope="col">Tiền dạy</th>
-                  <th scope="col">Đã trả</th>
-                  <th scope="col">Trạng thái</th>
-                  <th scope="col">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.teachers.items.map((row) => {
-                  const meta = statusMeta[row.status];
-                  return (
-                    <tr key={row.teacherId}>
-                      {canSendNotifications ? (
-                        <td data-label="Chọn" className="salary-select-column">
-                          <input
-                            type="checkbox"
-                            aria-label={`Chọn ${row.teacherName} để gửi thông báo lương`}
-                            checked={Boolean(selectedRecipients[row.teacherId])}
-                            disabled={!row.emailAvailable}
-                            title={row.emailAvailable ? undefined : "Giáo viên chưa có email"}
-                            onChange={(event) => toggleRecipient(row, event.target.checked)}
-                          />
+                <caption className="sr-only">Bảng lương giáo viên</caption>
+                <thead>
+                  <tr>
+                    {canSendNotifications ? (
+                      <th scope="col" className="salary-select-column">
+                        Chọn
+                      </th>
+                    ) : null}
+                    <th scope="col">Giáo viên</th>
+                    <th scope="col">Giờ / buổi</th>
+                    <th scope="col">Tiền dạy</th>
+                    <th scope="col">Đã trả</th>
+                    <th scope="col">Trạng thái</th>
+                    <th scope="col">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.teachers.items.map((row) => {
+                    const meta = statusMeta[row.status];
+                    return (
+                      <tr key={row.teacherId}>
+                        {canSendNotifications ? (
+                          <td data-label="Chọn" className="salary-select-column">
+                            <input
+                              type="checkbox"
+                              aria-label={`Chọn ${row.teacherName} để gửi thông báo lương`}
+                              checked={Boolean(selectedRecipients[row.teacherId])}
+                              disabled={!row.emailAvailable}
+                              title={row.emailAvailable ? undefined : "Giáo viên chưa có email"}
+                              onChange={(event) => toggleRecipient(row, event.target.checked)}
+                            />
+                          </td>
+                        ) : null}
+                        <td data-label="Giáo viên">
+                          <strong>{row.teacherName}</strong>
                         </td>
-                      ) : null}
-                      <td data-label="Giáo viên">
-                        <strong>{row.teacherName}</strong>
-                      </td>
-                      <td data-label="Giờ / buổi">
-                        <strong>{hours(row.totalMinutes)} giờ</strong>
-                        <small>{row.sessionCount} buổi</small>
-                      </td>
-                      <td className="money-cell" data-label="Tiền dạy">
-                        {formatCurrency(row.accrued)}
-                      </td>
-                      <td className="money-cell" data-label="Đã trả">
-                        {formatCurrency(row.paid)}
-                      </td>
-                      <td data-label="Trạng thái">
-                        <Badge tone={meta.tone}>{meta.label}</Badge>
-                      </td>
-                      <td data-label="Thao tác">
-                        <div className="salary-row-actions">
-                          <Link
-                            className="table-action"
-                            to={`/t/${tenantSlug}/app/finance/salaries/${row.teacherId}?month=${month}`}
-                          >
-                            Xem chi tiết <ArrowUpRight size={14} aria-hidden="true" />
-                          </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
+                        <td data-label="Giờ / buổi">
+                          <strong>{hours(row.totalMinutes)} giờ</strong>
+                          <small>{row.sessionCount} buổi</small>
+                        </td>
+                        <td className="money-cell" data-label="Tiền dạy">
+                          {formatCurrency(row.accrued)}
+                        </td>
+                        <td className="money-cell" data-label="Đã trả">
+                          {formatCurrency(row.paid)}
+                        </td>
+                        <td data-label="Trạng thái">
+                          <Badge tone={meta.tone}>{meta.label}</Badge>
+                        </td>
+                        <td data-label="Thao tác">
+                          <div className="salary-row-actions">
+                            <Link
+                              className="table-action"
+                              to={`/t/${tenantSlug}/app/finance/salaries/${row.teacherId}?month=${month}`}
+                            >
+                              Xem chi tiết <ArrowUpRight size={14} aria-hidden="true" />
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
               </table>
             </div>
           )}
@@ -403,12 +447,38 @@ export const SalaryPayrollPage = () => {
               <strong>{formatCurrency(selectedTeacher.due)}</strong>
             </div>
             <dl className="salary-mobile-summary-grid">
-              <div><dt>Số buổi</dt><dd>{selectedTeacher.sessionCount}</dd></div>
-              <div><dt>Tổng giờ</dt><dd>{hours(selectedTeacher.totalMinutes)} giờ</dd></div>
-              <div><dt>Tiền dạy</dt><dd>{formatCurrency(selectedTeacher.accrued)}</dd></div>
-              <div><dt>Cộng hoặc trừ</dt><dd className={selectedTeacher.adjustments < 0 ? "amount-negative" : ""}>{formatCurrency(selectedTeacher.adjustments)}</dd></div>
-              <div><dt>Đã trả</dt><dd>{formatCurrency(selectedTeacher.paid)}</dd></div>
-              <div><dt>Còn lại</dt><dd className={selectedTeacher.outstanding < 0 ? "amount-negative" : "amount-positive"}>{formatCurrency(selectedTeacher.outstanding)}</dd></div>
+              <div>
+                <dt>Số buổi</dt>
+                <dd>{selectedTeacher.sessionCount}</dd>
+              </div>
+              <div>
+                <dt>Tổng giờ</dt>
+                <dd>{hours(selectedTeacher.totalMinutes)} giờ</dd>
+              </div>
+              <div>
+                <dt>Tiền dạy</dt>
+                <dd>{formatCurrency(selectedTeacher.accrued)}</dd>
+              </div>
+              <div>
+                <dt>Cộng hoặc trừ</dt>
+                <dd className={selectedTeacher.adjustments < 0 ? "amount-negative" : ""}>
+                  {formatCurrency(selectedTeacher.adjustments)}
+                </dd>
+              </div>
+              <div>
+                <dt>Đã trả</dt>
+                <dd>{formatCurrency(selectedTeacher.paid)}</dd>
+              </div>
+              <div>
+                <dt>Còn lại</dt>
+                <dd
+                  className={
+                    selectedTeacher.outstanding < 0 ? "amount-negative" : "amount-positive"
+                  }
+                >
+                  {formatCurrency(selectedTeacher.outstanding)}
+                </dd>
+              </div>
             </dl>
             <div className="salary-mobile-summary-email">
               <span>Email thông báo</span>
@@ -416,9 +486,14 @@ export const SalaryPayrollPage = () => {
                 <Badge tone="neutral">Chưa có email</Badge>
               ) : selectedTeacher.lastNotificationStatus ? (
                 <div>
-                  <Badge tone={selectedTeacher.lastNotificationStatus === "SENT"
-                    ? "success"
-                    : selectedTeacher.lastNotificationStatus === "FAILED" ? "danger" : "info"}
+                  <Badge
+                    tone={
+                      selectedTeacher.lastNotificationStatus === "SENT"
+                        ? "success"
+                        : selectedTeacher.lastNotificationStatus === "FAILED"
+                          ? "danger"
+                          : "info"
+                    }
                   >
                     {notificationLabel[selectedTeacher.lastNotificationStatus]}
                   </Badge>
