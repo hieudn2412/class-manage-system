@@ -47,6 +47,7 @@ import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { useToast } from "../../shared/ui/Toast";
 import { HomeworkCreateModal } from "../content/HomeworkCreateModal";
+import { SessionMutationModal } from "../schedules/components/SessionMutationModal";
 import { CompletionCorrectionModal } from "./CompletionCorrectionModal";
 
 const optionalUrl = z
