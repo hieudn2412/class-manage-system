@@ -304,7 +304,7 @@ public class SessionCompletionService {
                 JOIN teacher_profiles t
                   ON t.tenant_id=s.tenant_id AND t.id=s.actual_teacher_id
                 WHERE s.tenant_id=:tenantId AND s.id=:sessionId
-                FOR UPDATE
+                FOR UPDATE OF s
                 """)
             .param("tenantId", tenantId).param("sessionId", sessionId)
             .query((rs, row) -> new CompletionRow(
