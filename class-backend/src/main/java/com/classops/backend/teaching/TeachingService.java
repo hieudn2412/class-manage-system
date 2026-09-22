@@ -29,6 +29,7 @@ import com.classops.backend.teaching.TeachingDtos.TeacherDashboardMetrics;
 import com.classops.backend.teaching.TeachingDtos.TeacherSessionSummary;
 import com.classops.backend.teaching.TeachingDtos.TestResult;
 import com.classops.backend.teaching.TeachingDtos.TodayTeachingSession;
+import com.classops.backend.teaching.TeachingDtos.UnconfirmSessionInput;
 import com.classops.backend.teaching.TeachingDtos.VerificationDecision;
 import com.classops.backend.teaching.TeachingDtos.VerificationDecisionInput;
 import org.springframework.http.HttpStatus;
@@ -692,6 +693,27 @@ public class TeachingService {
         return response;
     }
 
+    @Transactional
+    public SessionOperationsDetail unconfirm(UUID sessionId, UnconfirmSessionInput input,
+                                            String idempotencyKey) {
+        support.requireIdempotencyKey(idempotencyKey);
+        UUID tenantId = actor.tenantId();
+        String operation = "UNCONFIRM_SESSION:" + sessionId;
+        String hash = support.requestHash(input);
+        SessionOperationsDetail repeated = support.repeated(
+            tenantId, operation, idempotencyKey, hash, SessionOperationsDetail.class);
+        if (repeated != null) {
+            return repeated;
+        }
+        SessionRow session = session(tenantId, sessionId, true);
+        requireVersion(session, input.version());
+        completion.unconfirmSession(tenantId, sessionId, actor.userId(), input.reason(), now());
+        SessionOperationsDetail response = detail(
+            session(tenantId, sessionId, false), teacherIdOrNull(), true);
+        support.remember(tenantId, operation, idempotencyKey, hash, 200, response);
+        return response;
+    }
+
     private SessionOperationsDetail detail(SessionRow session, UUID teacherId,
                                            boolean management) {
         OffsetDateTime now = now();
@@ -1142,9 +1164,12 @@ public class TeachingService {
         if (!canManageSchedule) {
             return List.of();
         }
-        if (("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))
-            && !checkedIn) {
-            return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION);
+        if ("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status())) {
+            if (!checkedIn) {
+                return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION,
+                    SessionAction.RESCHEDULE_SESSION);
+            }
+            return List.of(SessionAction.RESCHEDULE_SESSION);
         }
         if ("CANCELLED".equals(session.status()) && session.replacementSessionId() == null) {
             return List.of(SessionAction.CREATE_MAKEUP);

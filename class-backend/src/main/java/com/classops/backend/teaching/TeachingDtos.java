@@ -305,4 +305,13 @@ public final class TeachingDtos {
             reason = reason == null ? "" : reason.trim();
         }
     }
+
+    public record UnconfirmSessionInput(
+        String reason,
+        @NotNull Long version
+    ) {
+        public UnconfirmSessionInput {
+            reason = reason == null ? "" : reason.trim();
+        }
+    }
 }

@@ -8,6 +8,7 @@ import type {
   TeacherClassItem,
   TeacherClassSessions,
   TeacherDashboardData,
+  UnconfirmSessionInput,
   VerificationDecision,
 } from "../../shared/types/domain";
 
@@ -105,5 +106,13 @@ export const teachingRepository = {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey() },
       body: JSON.stringify({ decision, reason, version }),
+    }),
+
+  unconfirmSession: (tenantSlug: string, sessionId: string, input: UnconfirmSessionInput) =>
+    apiRequest<SessionOperationsDetail>(`sessions/${sessionId}/unconfirm`, {
+      tenantSlug,
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey() },
+      body: JSON.stringify(input),
     }),
 };

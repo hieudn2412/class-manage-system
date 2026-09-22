@@ -322,7 +322,7 @@ public class SessionMutationService {
             jdbc.sql("""
                     UPDATE class_sessions
                     SET start_at=:startAt, end_at=:endAt, pattern_key=:patternKey,
-                        session_key=:sessionKey, updated_at=now(), version=version+1
+                        session_key=:sessionKey, status='SCHEDULED', updated_at=now(), version=version+1
                     WHERE tenant_id=:tenantId AND id=:sessionId
                     """)
                 .param("startAt", newSlot.startAt()).param("endAt", newSlot.endAt())
@@ -657,10 +657,12 @@ public class SessionMutationService {
     }
 
     private List<SessionAction> allowedActions(MutationSession session) {
-        if (("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))
-            && !session.checkedIn()) {
-            return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION,
-                SessionAction.RESCHEDULE_SESSION);
+        if ("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status())) {
+            if (!session.checkedIn()) {
+                return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION,
+                    SessionAction.RESCHEDULE_SESSION);
+            }
+            return List.of(SessionAction.RESCHEDULE_SESSION);
         }
         if ("CANCELLED".equals(session.status()) && session.replacementSessionId() == null) {
             return List.of(SessionAction.CREATE_MAKEUP);
@@ -669,10 +671,9 @@ public class SessionMutationService {
     }
 
     private void requireMutableBeforeTeaching(MutationSession session) {
-        if (!("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))
-            || session.checkedIn()) {
+        if (!("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))) {
             throw new ApiException(HttpStatus.CONFLICT, "SESSION_STATE_CONFLICT",
-                "Chỉ buổi chưa dạy hoặc đang chờ xác nhận và chưa check-in mới có thể thao tác.");
+                "Chỉ buổi chưa hoàn tất mới có thể thao tác.");
         }
     }
 

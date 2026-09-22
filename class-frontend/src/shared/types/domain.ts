@@ -1119,3 +1119,8 @@ export interface SessionTestUpdateInput extends SessionTestInput {
 }
 
 export type VerificationDecision = "CONFIRM_TAUGHT" | "CANCEL";
+
+export interface UnconfirmSessionInput {
+  reason?: string;
+  version: number;
+}

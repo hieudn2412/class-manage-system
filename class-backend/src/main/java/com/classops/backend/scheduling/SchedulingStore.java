@@ -507,9 +507,12 @@ public class SchedulingStore {
         if (!canManage) {
             return List.of();
         }
-        if (("SCHEDULED".equals(status) || "PENDING_CONFIRMATION".equals(status)) && !checkedIn) {
-            return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION,
-                SessionAction.RESCHEDULE_SESSION);
+        if ("SCHEDULED".equals(status) || "PENDING_CONFIRMATION".equals(status)) {
+            if (!checkedIn) {
+                return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION,
+                    SessionAction.RESCHEDULE_SESSION);
+            }
+            return List.of(SessionAction.RESCHEDULE_SESSION);
         }
         if ("CANCELLED".equals(status) && replacementSessionId == null) {
             return List.of(SessionAction.CREATE_MAKEUP);
@@ -549,7 +552,7 @@ public class SchedulingStore {
                 LEFT JOIN rooms r ON r.tenant_id=s.tenant_id AND r.id=s.room_id
                 WHERE s.tenant_id=:tenantId AND s.class_id=:classId
                   AND s.ordinal >= :fromOrdinal
-                  AND s.status = 'SCHEDULED'
+                  AND s.status IN ('SCHEDULED', 'PENDING_CONFIRMATION')
                   AND s.replaces_session_id IS NULL
                 ORDER BY s.ordinal ASC
                 FOR UPDATE OF s

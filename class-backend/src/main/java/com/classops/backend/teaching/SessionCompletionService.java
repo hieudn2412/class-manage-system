@@ -157,6 +157,48 @@ public class SessionCompletionService {
         return missing;
     }
 
+    @Transactional
+    public void unconfirmSession(UUID tenantId, UUID sessionId, UUID actorId,
+                                 String reason, OffsetDateTime now) {
+        CompletionRow row = lock(tenantId, sessionId);
+        if ("PENDING_CONFIRMATION".equals(row.status())) {
+            return;
+        }
+        if (!"COMPLETED".equals(row.status())) {
+            throw new ApiException(HttpStatus.CONFLICT, "SESSION_STATE_CONFLICT",
+                "Chỉ buổi đã hoàn tất mới có thể hủy xác nhận.");
+        }
+        jdbc.sql("""
+                UPDATE class_sessions
+                SET status='PENDING_CONFIRMATION', completed_at=NULL, completion_source=NULL,
+                    updated_at=:now, version=version+1
+                WHERE tenant_id=:tenantId AND id=:sessionId
+                """)
+            .param("now", now)
+            .param("tenantId", tenantId)
+            .param("sessionId", sessionId)
+            .update();
+
+        String effectiveReason = (reason == null || reason.isBlank())
+            ? "Quản trị viên hủy xác nhận hoàn tất buổi học."
+            : reason;
+
+        salaryAccruals.reconcile(tenantId, sessionId, actorId, effectiveReason);
+        updateClassProgress(tenantId, row.classId());
+
+        support.audit(tenantId, actorId, actorId == null ? "SYSTEM" : "USER",
+            "SESSION_CONFIRMATION_REVOKED", "SESSION", sessionId,
+            Map.of("status", row.status()),
+            Map.of("status", "PENDING_CONFIRMATION", "reason", effectiveReason));
+
+        support.notifyUser(tenantId, row.teacherUserId(), "SESSION_CONFIRMATION_REVOKED",
+            "Buổi học đã bị hủy xác nhận",
+            "Buổi " + row.className() + " đã được chuyển về trạng thái chờ xác nhận và hủy phát sinh lương.");
+
+        support.outbox(tenantId, sessionId, "SESSION_CONFIRMATION_REVOKED",
+            Map.of("sessionId", sessionId, "classId", row.classId(), "reason", effectiveReason));
+    }
+
     private void completeLocked(CompletionRow row, String source, UUID actorId,
                                 OffsetDateTime now, String reason) {
         freezeRoster(row, now);
@@ -246,7 +288,7 @@ public class SessionCompletionService {
                 UPDATE classes
                 SET status=:status, updated_at=now(), version=version+1
                 WHERE tenant_id=:tenantId AND id=:classId
-                  AND status IN ('SCHEDULED', 'ACTIVE')
+                  AND status IN ('SCHEDULED', 'ACTIVE', 'AWAITING_CLOSE')
                 """)
             .param("status", nextStatus).param("tenantId", tenantId)
             .param("classId", classId).update();

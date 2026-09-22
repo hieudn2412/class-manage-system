@@ -6,6 +6,7 @@ import {
   BookOpenCheck,
   CalendarClock,
   CalendarPlus,
+  CalendarRange,
   CheckCircle2,
   ClipboardCheck,
   ClipboardPlus,
@@ -16,6 +17,7 @@ import {
   MonitorUp,
   Pencil,
   RefreshCw,
+  RotateCcw,
   Save,
   UserCheck,
   UserRoundCheck,
@@ -47,7 +49,9 @@ import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { useToast } from "../../shared/ui/Toast";
 import { HomeworkCreateModal } from "../content/HomeworkCreateModal";
+import { RescheduleModal } from "../schedules/components/RescheduleModal";
 import { SessionMutationModal } from "../schedules/components/SessionMutationModal";
+import { UnconfirmSessionModal } from "./UnconfirmSessionModal";
 import { CompletionCorrectionModal } from "./CompletionCorrectionModal";
 
 const optionalUrl = z
@@ -217,6 +221,8 @@ export const SessionOperationsPage = () => {
   const [testEditorOpen, setTestEditorOpen] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [unconfirmOpen, setUnconfirmOpen] = useState(false);
+  const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [sessionMutationAction, setSessionMutationAction] = useState<
     "SUBSTITUTE_TEACHER" | "CANCEL_SESSION" | "CREATE_MAKEUP" | null
   >(null);
@@ -369,7 +375,8 @@ export const SessionOperationsPage = () => {
     (detail.status === "COMPLETED" && canCorrectCompletion) ||
     detail.allowedActions.includes("SUBSTITUTE_TEACHER") ||
     detail.allowedActions.includes("CANCEL_SESSION") ||
-    detail.allowedActions.includes("CREATE_MAKEUP");
+    detail.allowedActions.includes("CREATE_MAKEUP") ||
+    detail.allowedActions.includes("RESCHEDULE_SESSION");
   const closeVerification = () => {
     setVerificationOpen(false);
     if (verificationRequested) {
@@ -401,10 +408,16 @@ export const SessionOperationsPage = () => {
               </Button>
             ) : null}
             {detail.status === "COMPLETED" && canCorrectCompletion ? (
-              <Button variant="secondary" onClick={() => setCorrectionOpen(true)}>
-                <Pencil size={18} aria-hidden="true" />
-                Sửa dữ liệu hoàn tất
-              </Button>
+              <>
+                <Button variant="secondary" onClick={() => setCorrectionOpen(true)}>
+                  <Pencil size={18} aria-hidden="true" />
+                  Sửa dữ liệu hoàn tất
+                </Button>
+                <Button variant="secondary" onClick={() => setUnconfirmOpen(true)}>
+                  <RotateCcw size={18} aria-hidden="true" />
+                  Hủy xác nhận
+                </Button>
+              </>
             ) : null}
             {detail.allowedActions.includes("SUBSTITUTE_TEACHER") ? (
               <Button
@@ -425,6 +438,12 @@ export const SessionOperationsPage = () => {
               <Button variant="secondary" onClick={() => setSessionMutationAction("CREATE_MAKEUP")}>
                 <CalendarPlus size={18} aria-hidden="true" />
                 Tạo buổi bù
+              </Button>
+            ) : null}
+            {detail.allowedActions.includes("RESCHEDULE_SESSION") ? (
+              <Button variant="secondary" onClick={() => setRescheduleOpen(true)}>
+                <CalendarRange size={18} aria-hidden="true" />
+                Dời lịch
               </Button>
             ) : null}
           </div>
@@ -896,6 +915,45 @@ export const SessionOperationsPage = () => {
             setCorrectionOpen(false);
             await invalidateRelated();
             showToast("Đã sửa buổi và tính lại lương.");
+          }}
+        />
+      ) : null}
+      {unconfirmOpen ? (
+        <UnconfirmSessionModal
+          key={`unconfirm-${detail.id}-${detail.version}`}
+          open={unconfirmOpen}
+          session={{
+            id: detail.id,
+            className: detail.className,
+            classCode: detail.classCode,
+            ordinal: detail.ordinal,
+            version: detail.version,
+          }}
+          tenantSlug={tenant.slug}
+          onClose={() => setUnconfirmOpen(false)}
+          onSuccess={async (updated) => {
+            setUnconfirmOpen(false);
+            await applyUpdatedDetail(updated, "Đã hủy xác nhận buổi học thành công.");
+          }}
+        />
+      ) : null}
+      {rescheduleOpen ? (
+        <RescheduleModal
+          key={`reschedule-${detail.id}-${detail.version}`}
+          session={{
+            id: detail.id,
+            className: detail.className,
+            classCode: detail.classCode,
+            ordinal: detail.ordinal,
+            startAt: detail.startAt,
+            endAt: detail.endAt,
+            version: detail.version,
+          }}
+          onClose={() => setRescheduleOpen(false)}
+          onSaved={async () => {
+            setRescheduleOpen(false);
+            await invalidateRelated();
+            showToast("Đã dời lịch các buổi học thành công.");
           }}
         />
       ) : null}
