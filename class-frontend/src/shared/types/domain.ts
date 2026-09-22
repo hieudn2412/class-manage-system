@@ -269,7 +269,11 @@ export interface ApplySessionScheduleInput extends SessionSchedulePreviewInput {
   acknowledgedWarningIds: string[];
 }
 
-export type SessionAction = "SUBSTITUTE_TEACHER" | "CANCEL_SESSION" | "CREATE_MAKEUP";
+export type SessionAction =
+  | "SUBSTITUTE_TEACHER"
+  | "CANCEL_SESSION"
+  | "CREATE_MAKEUP"
+  | "RESCHEDULE_SESSION";
 
 export interface SubstitutionPreviewInput {
   teacherId: string;
@@ -309,6 +313,22 @@ export interface CreateMakeupInput {
   previewId: string;
   makeup: MakeupScheduleInput;
   acknowledgedWarningIds: string[];
+}
+
+export interface ReschedulePreviewInput {
+  version: number;
+}
+
+export interface ApplyRescheduleInput {
+  version: number;
+  previewId: string;
+  acknowledgedWarningIds: string[];
+}
+
+export interface RescheduleResult {
+  affectedSessions: number;
+  rescheduledSessions: SchedulePreviewSession[];
+  conflicts: ScheduleConflict[];
 }
 
 export interface SessionMutationView {

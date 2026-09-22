@@ -47,7 +47,6 @@ import { PageSkeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { useToast } from "../../shared/ui/Toast";
 import { HomeworkCreateModal } from "../content/HomeworkCreateModal";
-import { SessionHomeworksPanel } from "../content/SessionHomeworksPanel";
 import { SessionMutationModal } from "../schedules/components/SessionMutationModal";
 import { CompletionCorrectionModal } from "./CompletionCorrectionModal";
 
@@ -478,22 +477,6 @@ export const SessionOperationsPage = () => {
               Xác nhận buổi dạy
             </Button>
           ) : null}
-          {detail.homework ? (
-            <Button
-              variant="secondary"
-              onClick={() =>
-                void navigate(`/t/${tenant.slug}/app/homeworks/${detail.homework?.id}`)
-              }
-            >
-              <ClipboardCheck size={18} aria-hidden="true" />
-              Xem và sửa bài tập
-            </Button>
-          ) : detail.canCreateHomework ? (
-            <Button variant="secondary" onClick={() => setHomeworkOpen(true)}>
-              <ClipboardPlus size={18} aria-hidden="true" />
-              Giao bài tập
-            </Button>
-          ) : null}
         </div>
       </section>
 
@@ -580,13 +563,6 @@ export const SessionOperationsPage = () => {
         </div>
       ) : null}
 
-      <SessionHomeworksPanel
-        tenantSlug={tenant.slug}
-        canCreate={detail.canCreateHomework}
-        homework={detail.homework}
-        onCreate={() => setHomeworkOpen(true)}
-      />
-
       <div className="session-record-form">
         <section className="panel-flat section-panel" aria-labelledby="lesson-report-title">
           <div className="section-heading-row">
@@ -598,7 +574,6 @@ export const SessionOperationsPage = () => {
                 <h2 className="section-title" id="lesson-report-title">
                   Nội dung đã dạy
                 </h2>
-                <p>Bạn vẫn có thể bổ sung bản ghi sau khi buổi học đã hoàn tất.</p>
               </span>
             </span>
           </div>
@@ -628,31 +603,54 @@ export const SessionOperationsPage = () => {
                 <h2 className="section-title" id="roster-title">
                   Điểm danh và nhận xét học sinh
                 </h2>
-                <p>Không mặc định Có mặt; giáo viên chọn trạng thái phù hợp cho từng học sinh.</p>
               </span>
             </span>
             <div className="roster-heading-actions">
               <Badge tone="neutral">{fields.length} học sinh</Badge>
-              {detail.sessionTest ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={!detail.canEdit}
-                  onClick={() => setTestEditorOpen(true)}
-                >
-                  <Pencil size={16} aria-hidden="true" />
-                  Sửa bài kiểm tra
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  disabled={!detail.canEdit || fields.length === 0}
-                  onClick={() => setTestEditorOpen(true)}
-                >
-                  <ClipboardPlus size={17} aria-hidden="true" />
-                  Tạo bài kiểm tra
-                </Button>
-              )}
+              <div className="roster-action-buttons">
+                {detail.homework ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() =>
+                      void navigate(`/t/${tenant.slug}/app/homeworks/${detail.homework?.id}`)
+                    }
+                  >
+                    <ClipboardCheck size={16} aria-hidden="true" />
+                    Xem và sửa bài tập
+                  </Button>
+                ) : detail.canCreateHomework ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!detail.canEdit}
+                    onClick={() => setHomeworkOpen(true)}
+                  >
+                    <ClipboardPlus size={16} aria-hidden="true" />
+                    Giao bài tập
+                  </Button>
+                ) : null}
+                {detail.sessionTest ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={!detail.canEdit}
+                    onClick={() => setTestEditorOpen(true)}
+                  >
+                    <Pencil size={16} aria-hidden="true" />
+                    Sửa bài kiểm tra
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    disabled={!detail.canEdit || fields.length === 0}
+                    onClick={() => setTestEditorOpen(true)}
+                  >
+                    <ClipboardPlus size={17} aria-hidden="true" />
+                    Tạo bài kiểm tra
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
           {detail.sessionTest ? (

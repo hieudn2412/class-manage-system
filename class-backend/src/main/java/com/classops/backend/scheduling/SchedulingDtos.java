@@ -31,7 +31,7 @@ public final class SchedulingDtos {
     }
 
     public enum SessionAction {
-        SUBSTITUTE_TEACHER, CANCEL_SESSION, CREATE_MAKEUP
+        SUBSTITUTE_TEACHER, CANCEL_SESSION, CREATE_MAKEUP, RESCHEDULE_SESSION
     }
 
     public record TeacherOption(UUID id, String name) {
@@ -252,6 +252,33 @@ public final class SchedulingDtos {
         public CreateMakeupInput {
             acknowledgedWarningIds = acknowledgedWarningIds == null
                 ? List.of() : List.copyOf(acknowledgedWarningIds);
+        }
+    }
+
+    public record ReschedulePreviewInput(
+        @NotNull Long version
+    ) {
+    }
+
+    public record ApplyRescheduleInput(
+        @NotNull Long version,
+        @NotNull UUID previewId,
+        List<String> acknowledgedWarningIds
+    ) {
+        public ApplyRescheduleInput {
+            acknowledgedWarningIds = acknowledgedWarningIds == null
+                ? List.of() : List.copyOf(acknowledgedWarningIds);
+        }
+    }
+
+    public record RescheduleResult(
+        int affectedSessions,
+        List<PreviewSession> rescheduledSessions,
+        List<ScheduleConflict> conflicts
+    ) {
+        public RescheduleResult {
+            rescheduledSessions = List.copyOf(rescheduledSessions);
+            conflicts = conflicts == null ? List.of() : List.copyOf(conflicts);
         }
     }
 

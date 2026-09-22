@@ -16,6 +16,7 @@ import { PageHeader } from "../../shared/ui/PageHeader";
 import { Skeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
 import { PublishedSessionOverrideModal } from "./components/PublishedSessionOverrideModal";
+import { RescheduleModal } from "./components/RescheduleModal";
 import { SessionDetailsModal } from "./components/SessionDetailsModal";
 import { SessionMutationModal } from "./components/SessionMutationModal";
 import { WeekNavigator } from "./components/WeekNavigator";
@@ -35,6 +36,7 @@ export const ManagementSchedulePage = () => {
     action: "SUBSTITUTE_TEACHER" | "CANCEL_SESSION" | "CREATE_MAKEUP";
     session: CalendarSession;
   } | null>(null);
+  const [reschedulingSession, setReschedulingSession] = useState<CalendarSession | null>(null);
   const canManage = Boolean(
     session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_SESSION_SCHEDULE),
   );
@@ -158,6 +160,10 @@ export const ManagementSchedulePage = () => {
           setSelectedSessions([]);
           setMutatingSession({ action: "CREATE_MAKEUP", session: selected });
         }}
+        onReschedule={(selected) => {
+          setSelectedSessions([]);
+          setReschedulingSession(selected);
+        }}
         onOpen={(selected) => {
           setSelectedSessions([]);
           void navigate(`/t/${tenant.slug}/app/sessions/${selected.id}`);
@@ -192,6 +198,22 @@ export const ManagementSchedulePage = () => {
           options={optionsQuery.data}
           onClose={() => setMutatingSession(null)}
           onSaved={() => setMutatingSession(null)}
+        />
+      ) : null}
+      {reschedulingSession ? (
+        <RescheduleModal
+          key={`reschedule-${reschedulingSession.id}-${reschedulingSession.version}`}
+          session={{
+            id: reschedulingSession.id,
+            className: reschedulingSession.className,
+            classCode: reschedulingSession.classCode,
+            ordinal: reschedulingSession.ordinal,
+            startAt: reschedulingSession.startAt,
+            endAt: reschedulingSession.endAt,
+            version: reschedulingSession.version,
+          }}
+          onClose={() => setReschedulingSession(null)}
+          onSaved={() => setReschedulingSession(null)}
         />
       ) : null}
     </>
