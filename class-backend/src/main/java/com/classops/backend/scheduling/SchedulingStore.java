@@ -507,8 +507,12 @@ public class SchedulingStore {
         if (!canManage) {
             return List.of();
         }
-        if (("SCHEDULED".equals(status) || "PENDING_CONFIRMATION".equals(status)) && !checkedIn) {
-            return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION);
+        if ("SCHEDULED".equals(status) || "PENDING_CONFIRMATION".equals(status)) {
+            if (!checkedIn) {
+                return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION,
+                    SessionAction.RESCHEDULE_SESSION);
+            }
+            return List.of(SessionAction.RESCHEDULE_SESSION);
         }
         if ("CANCELLED".equals(status) && replacementSessionId == null) {
             return List.of(SessionAction.CREATE_MAKEUP);
@@ -534,6 +538,44 @@ public class SchedulingStore {
                 """)
             .param("tenantId", tenantId).param("classId", classId)
             .query(UUID.class).list();
+    }
+
+    List<SessionRow> scheduledSessionsFrom(UUID tenantId, UUID classId, int fromOrdinal) {
+        return jdbc.sql("""
+                SELECT s.id, s.class_id, s.ordinal, s.session_key, s.start_at, s.end_at,
+                       s.planned_teacher_id, s.actual_teacher_id, s.mode, s.room_id, s.version,
+                       c.code, c.name, u.display_name AS teacher_name, r.name AS room_name
+                FROM class_sessions s
+                JOIN classes c ON c.tenant_id=s.tenant_id AND c.id=s.class_id
+                JOIN teacher_profiles t ON t.tenant_id=s.tenant_id AND t.id=s.actual_teacher_id
+                JOIN users u ON u.tenant_id=t.tenant_id AND u.id=t.user_id
+                LEFT JOIN rooms r ON r.tenant_id=s.tenant_id AND r.id=s.room_id
+                WHERE s.tenant_id=:tenantId AND s.class_id=:classId
+                  AND s.ordinal >= :fromOrdinal
+                  AND s.status IN ('SCHEDULED', 'PENDING_CONFIRMATION')
+                  AND s.replaces_session_id IS NULL
+                ORDER BY s.ordinal ASC
+                FOR UPDATE OF s
+                """)
+            .param("tenantId", tenantId).param("classId", classId)
+            .param("fromOrdinal", fromOrdinal)
+            .query(sessionMapper())
+            .list();
+    }
+
+    List<WeeklyPattern> classPatterns(UUID tenantId, UUID classId) {
+        return jdbc.sql("""
+                SELECT client_key, weekday, start_time, end_time, mode, room_id
+                FROM class_schedule_patterns
+                WHERE tenant_id=:tenantId AND class_id=:classId
+                ORDER BY weekday, start_time, client_key
+                """)
+            .param("tenantId", tenantId).param("classId", classId)
+            .query((rs, number) -> new WeeklyPattern(
+                rs.getString("client_key"), rs.getInt("weekday"),
+                rs.getObject("start_time", LocalTime.class), rs.getObject("end_time", LocalTime.class),
+                DeliveryMode.valueOf(rs.getString("mode")), rs.getObject("room_id", UUID.class)))
+            .list();
     }
 
     List<UUID> classParticipantUserIds(UUID tenantId, UUID classId) {

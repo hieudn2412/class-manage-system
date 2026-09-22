@@ -3,6 +3,7 @@ package com.classops.backend.scheduling;
 import com.classops.backend.common.ApiException;
 import com.classops.backend.security.CurrentActor;
 import com.classops.backend.salary.SalaryAccrualService;
+import com.classops.backend.scheduling.SchedulingDtos.ApplyRescheduleInput;
 import com.classops.backend.scheduling.SchedulingDtos.ApplySubstitutionInput;
 import com.classops.backend.scheduling.SchedulingDtos.CancelSessionInput;
 import com.classops.backend.scheduling.SchedulingDtos.CreateMakeupInput;
@@ -10,6 +11,8 @@ import com.classops.backend.scheduling.SchedulingDtos.DeliveryMode;
 import com.classops.backend.scheduling.SchedulingDtos.MakeupPreviewInput;
 import com.classops.backend.scheduling.SchedulingDtos.MakeupScheduleInput;
 import com.classops.backend.scheduling.SchedulingDtos.PreviewSession;
+import com.classops.backend.scheduling.SchedulingDtos.ReschedulePreviewInput;
+import com.classops.backend.scheduling.SchedulingDtos.RescheduleResult;
 import com.classops.backend.scheduling.SchedulingDtos.ScheduleConflict;
 import com.classops.backend.scheduling.SchedulingDtos.SchedulePreview;
 import com.classops.backend.scheduling.SchedulingDtos.SessionAction;
@@ -17,6 +20,7 @@ import com.classops.backend.scheduling.SchedulingDtos.SessionMutationResult;
 import com.classops.backend.scheduling.SchedulingDtos.SessionMutationView;
 import com.classops.backend.scheduling.SchedulingDtos.SessionOverride;
 import com.classops.backend.scheduling.SchedulingDtos.SubstitutionPreviewInput;
+import com.classops.backend.scheduling.SchedulingDtos.WeeklyPattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -27,6 +31,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -235,6 +240,198 @@ public class SessionMutationService {
             view(tenantId, sessionId), view(tenantId, makeupId), conflicts);
         remember(tenantId, operation, idempotencyKey, requestHash, response);
         return response;
+    }
+
+    @Transactional
+    public SchedulePreview previewReschedule(UUID sessionId, ReschedulePreviewInput input) {
+        UUID tenantId = actor.tenantId();
+        MutationSession session = lock(tenantId, sessionId);
+        requireVersion(session, input.version());
+        requireMutableBeforeTeaching(session);
+
+        List<SchedulingStore.SessionRow> sessions =
+            store.scheduledSessionsFrom(tenantId, session.classId(), session.ordinal());
+        if (sessions.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "NO_SESSIONS_TO_RESCHEDULE",
+                "Không có buổi nào để dời.");
+        }
+        List<WeeklyPattern> patterns = store.classPatterns(tenantId, session.classId());
+        if (patterns.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "NO_PATTERNS",
+                "Lớp không có lịch tuần. Không thể tính slot kế tiếp.");
+        }
+        List<SchedulingEngine.Holiday> holidays = store.holidays(tenantId);
+        List<PreviewSession> proposed = computeRescheduledSlots(sessions, patterns, holidays);
+
+        List<ScheduleConflict> conflicts = engine.conflicts(proposed,
+            store.activeStudentIds(tenantId, session.classId()),
+            store.occupied(tenantId, null, session.classId()));
+
+        return saveReschedulePreview(tenantId, session, input, proposed, conflicts);
+    }
+
+    @Transactional
+    public RescheduleResult reschedule(UUID sessionId, ApplyRescheduleInput input,
+                                       String idempotencyKey) {
+        classService.requireIdempotencyKey(idempotencyKey);
+        UUID tenantId = actor.tenantId();
+        String operation = "RESCHEDULE_SESSION:" + sessionId;
+        String requestHash = SchedulingEngine.sha256(store.json(input));
+        RescheduleResult repeated = repeated(tenantId, operation, idempotencyKey,
+            requestHash, RescheduleResult.class);
+        if (repeated != null) {
+            return repeated;
+        }
+        MutationSession session = lock(tenantId, sessionId);
+        requireVersion(session, input.version());
+        requireMutableBeforeTeaching(session);
+
+        ReschedulePreviewInput previewInput = new ReschedulePreviewInput(input.version());
+        classService.requirePreview(tenantId, input.previewId(), "SESSION", sessionId,
+            rescheduleHash(sessionId, previewInput));
+
+        List<SchedulingStore.SessionRow> sessions =
+            store.scheduledSessionsFrom(tenantId, session.classId(), session.ordinal());
+        List<WeeklyPattern> patterns = store.classPatterns(tenantId, session.classId());
+        List<SchedulingEngine.Holiday> holidays = store.holidays(tenantId);
+        List<PreviewSession> proposed = computeRescheduledSlots(sessions, patterns, holidays);
+
+        List<ScheduleConflict> conflicts = engine.conflicts(proposed,
+            store.activeStudentIds(tenantId, session.classId()),
+            store.occupied(tenantId, null, session.classId()));
+        classService.enforceConflicts(conflicts, input.acknowledgedWarningIds());
+
+        // Pass 1: Set temporary session_key to avoid UNIQUE(tenant_id, class_id, session_key) collision during cascade shift
+        for (SchedulingStore.SessionRow s : sessions) {
+            jdbc.sql("""
+                    UPDATE class_sessions
+                    SET session_key = 'TEMP:' || id::text
+                    WHERE tenant_id = :tenantId AND id = :sessionId
+                    """)
+                .param("tenantId", tenantId)
+                .param("sessionId", s.id())
+                .update();
+        }
+
+        // Pass 2: Update each session to its new schedule and final session_key
+        LinkedHashSet<UUID> affectedTeachers = new LinkedHashSet<>();
+        for (int i = 0; i < sessions.size(); i++) {
+            SchedulingStore.SessionRow original = sessions.get(i);
+            PreviewSession newSlot = proposed.get(i);
+            String patternKey = newSlot.key().split("@")[0];
+            jdbc.sql("""
+                    UPDATE class_sessions
+                    SET start_at=:startAt, end_at=:endAt, pattern_key=:patternKey,
+                        session_key=:sessionKey, status='SCHEDULED', updated_at=now(), version=version+1
+                    WHERE tenant_id=:tenantId AND id=:sessionId
+                    """)
+                .param("startAt", newSlot.startAt()).param("endAt", newSlot.endAt())
+                .param("patternKey", patternKey)
+                .param("sessionKey", newSlot.key())
+                .param("tenantId", tenantId).param("sessionId", original.id())
+                .update();
+            affectedTeachers.add(original.actualTeacherId());
+            classService.audit(tenantId, actor.userId(), "SESSION_RESCHEDULED", "SESSION",
+                original.id(),
+                Map.of("startAt", original.startAt(), "endAt", original.endAt()),
+                Map.of("startAt", newSlot.startAt(), "endAt", newSlot.endAt()));
+        }
+        refreshExpectedEndDate(tenantId, session.classId());
+        notifyTeachers(tenantId, List.copyOf(affectedTeachers), "SESSION_RESCHEDULED",
+            "Lịch dạy đã được dời",
+            "Lịch lớp " + session.className() + " đã được dời từ buổi " + session.ordinal() + ".");
+        classService.outbox(tenantId, "SESSION", sessionId, "SESSION_RESCHEDULED",
+            Map.of("sessionId", sessionId, "classId", session.classId(),
+                "affectedSessions", sessions.size()));
+        RescheduleResult response = new RescheduleResult(sessions.size(), proposed, conflicts);
+        remember(tenantId, operation, idempotencyKey, requestHash, response);
+        return response;
+    }
+
+    private List<PreviewSession> computeRescheduledSlots(
+        List<SchedulingStore.SessionRow> sessions,
+        List<WeeklyPattern> patterns,
+        List<SchedulingEngine.Holiday> holidays
+    ) {
+        List<PreviewSession> result = new ArrayList<>();
+        LocalDate cursor = sessions.get(0).startAt()
+            .atZoneSameInstant(properties.zoneId()).toLocalDate().plusDays(1);
+        int maxDays = properties.maxGenerationDays();
+        int scanned = 0;
+        for (SchedulingStore.SessionRow session : sessions) {
+            boolean slotFound = false;
+            while (!slotFound) {
+                if (scanned++ > maxDays) {
+                    throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "SCHEDULE_CANNOT_COMPLETE",
+                        "Không thể tìm đủ slot trong phạm vi lịch được hỗ trợ.");
+                }
+                final LocalDate candidateDate = cursor;
+                boolean isHoliday = holidays.stream().anyMatch(h ->
+                    !candidateDate.isBefore(h.startDate()) && !candidateDate.isAfter(h.endDate()));
+                if (!isHoliday) {
+                    WeeklyPattern matchedPattern = patterns.stream()
+                        .filter(p -> p.weekday() == candidateDate.getDayOfWeek().getValue())
+                        .findFirst()
+                        .orElse(null);
+                    if (matchedPattern != null) {
+                        OffsetDateTime originalStart = session.startAt()
+                            .atZoneSameInstant(properties.zoneId()).toOffsetDateTime();
+                        OffsetDateTime originalEnd = session.endAt()
+                            .atZoneSameInstant(properties.zoneId()).toOffsetDateTime();
+                        OffsetDateTime newStart = ZonedDateTime.of(
+                            candidateDate, originalStart.toLocalTime(), properties.zoneId())
+                            .toOffsetDateTime();
+                        OffsetDateTime newEnd = ZonedDateTime.of(
+                            candidateDate, originalEnd.toLocalTime(), properties.zoneId())
+                            .toOffsetDateTime();
+                        String sessionKey = matchedPattern.id() + "@" + candidateDate + "#rs-" + session.id();
+                        result.add(new PreviewSession(
+                            sessionKey, session.ordinal(), newStart, newEnd,
+                            session.actualTeacherId(), session.teacherName(),
+                            session.mode(), session.roomId(), session.roomName()));
+                        cursor = cursor.plusDays(1);
+                        slotFound = true;
+                    }
+                }
+                if (!slotFound) {
+                    cursor = cursor.plusDays(1);
+                }
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private SchedulePreview saveReschedulePreview(UUID tenantId, MutationSession session,
+                                                   ReschedulePreviewInput input,
+                                                   List<PreviewSession> proposed,
+                                                   List<ScheduleConflict> conflicts) {
+        Instant now = Instant.now();
+        LocalDate expectedEnd = proposed.get(proposed.size() - 1).startAt().toLocalDate();
+        SchedulePreview preview = new SchedulePreview(
+            UUID.randomUUID(), now, now.plus(properties.previewTtl()),
+            rescheduleHash(session.id(), input), proposed, List.of(), expectedEnd, conflicts);
+        jdbc.sql("""
+                INSERT INTO schedule_previews (
+                  id, tenant_id, owner_user_id, class_id, session_id, kind,
+                  input_hash, input_version, result_json, created_at, expires_at
+                ) VALUES (
+                  :id, :tenantId, :ownerId, :classId, :sessionId, 'SESSION',
+                  :hash, :hash, CAST(:result AS jsonb), :createdAt, :expiresAt
+                )
+                """)
+            .param("id", preview.previewId()).param("tenantId", tenantId)
+            .param("ownerId", actor.userId()).param("classId", session.classId())
+            .param("sessionId", session.id())
+            .param("hash", rescheduleHash(session.id(), input))
+            .param("result", store.json(preview))
+            .param("createdAt", OffsetDateTime.ofInstant(preview.generatedAt(), ZoneOffset.UTC))
+            .param("expiresAt", OffsetDateTime.ofInstant(preview.expiresAt(), ZoneOffset.UTC))
+            .update();
+        return preview;
+    }
+
+    private String rescheduleHash(UUID sessionId, ReschedulePreviewInput input) {
+        return SchedulingEngine.sha256("RESCHEDULE|" + sessionId + "|" + store.json(input));
     }
 
     @Transactional
@@ -460,9 +657,12 @@ public class SessionMutationService {
     }
 
     private List<SessionAction> allowedActions(MutationSession session) {
-        if (("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))
-            && !session.checkedIn()) {
-            return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION);
+        if ("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status())) {
+            if (!session.checkedIn()) {
+                return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION,
+                    SessionAction.RESCHEDULE_SESSION);
+            }
+            return List.of(SessionAction.RESCHEDULE_SESSION);
         }
         if ("CANCELLED".equals(session.status()) && session.replacementSessionId() == null) {
             return List.of(SessionAction.CREATE_MAKEUP);
@@ -471,10 +671,9 @@ public class SessionMutationService {
     }
 
     private void requireMutableBeforeTeaching(MutationSession session) {
-        if (!("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))
-            || session.checkedIn()) {
+        if (!("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))) {
             throw new ApiException(HttpStatus.CONFLICT, "SESSION_STATE_CONFLICT",
-                "Chỉ buổi chưa dạy hoặc đang chờ xác nhận và chưa check-in mới có thể thao tác.");
+                "Chỉ buổi chưa hoàn tất mới có thể thao tác.");
         }
     }
 

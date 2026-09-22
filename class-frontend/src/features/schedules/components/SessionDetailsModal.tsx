@@ -2,7 +2,9 @@ import {
   ArrowLeftRight,
   CalendarClock,
   CalendarPlus,
+  CalendarRange,
   MapPin,
+  RotateCcw,
   UserRound,
   UserRoundCheck,
   Video,
@@ -24,6 +26,8 @@ interface SessionDetailsModalProps {
   onSubstitute?: (session: CalendarSession) => void;
   onCancel?: (session: CalendarSession) => void;
   onCreateMakeup?: (session: CalendarSession) => void;
+  onReschedule?: (session: CalendarSession) => void;
+  onUnconfirm?: (session: CalendarSession) => void;
 }
 
 export const SessionDetailsModal = ({
@@ -35,6 +39,8 @@ export const SessionDetailsModal = ({
   onSubstitute,
   onCancel,
   onCreateMakeup,
+  onReschedule,
+  onUnconfirm,
 }: SessionDetailsModalProps) => (
   <Modal
     open={sessions.length > 0}
@@ -110,6 +116,18 @@ export const SessionDetailsModal = ({
                 <Button type="button" variant="secondary" onClick={() => onCreateMakeup(session)}>
                   <CalendarPlus size={17} aria-hidden="true" />
                   Tạo buổi bù
+                </Button>
+              ) : null}
+              {session.allowedActions.includes("RESCHEDULE_SESSION") && onReschedule ? (
+                <Button type="button" variant="secondary" onClick={() => onReschedule(session)}>
+                  <CalendarRange size={17} aria-hidden="true" />
+                  Dời lịch
+                </Button>
+              ) : null}
+              {session.status === "COMPLETED" && onUnconfirm ? (
+                <Button type="button" variant="secondary" onClick={() => onUnconfirm(session)}>
+                  <RotateCcw size={17} aria-hidden="true" />
+                  Hủy xác nhận
                 </Button>
               ) : null}
               <Button type="button" onClick={() => onOpen(session)}>

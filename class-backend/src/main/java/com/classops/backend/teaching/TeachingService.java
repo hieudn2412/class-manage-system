@@ -29,6 +29,7 @@ import com.classops.backend.teaching.TeachingDtos.TeacherDashboardMetrics;
 import com.classops.backend.teaching.TeachingDtos.TeacherSessionSummary;
 import com.classops.backend.teaching.TeachingDtos.TestResult;
 import com.classops.backend.teaching.TeachingDtos.TodayTeachingSession;
+import com.classops.backend.teaching.TeachingDtos.UnconfirmSessionInput;
 import com.classops.backend.teaching.TeachingDtos.VerificationDecision;
 import com.classops.backend.teaching.TeachingDtos.VerificationDecisionInput;
 import org.springframework.http.HttpStatus;
@@ -692,6 +693,27 @@ public class TeachingService {
         return response;
     }
 
+    @Transactional
+    public SessionOperationsDetail unconfirm(UUID sessionId, UnconfirmSessionInput input,
+                                            String idempotencyKey) {
+        support.requireIdempotencyKey(idempotencyKey);
+        UUID tenantId = actor.tenantId();
+        String operation = "UNCONFIRM_SESSION:" + sessionId;
+        String hash = support.requestHash(input);
+        SessionOperationsDetail repeated = support.repeated(
+            tenantId, operation, idempotencyKey, hash, SessionOperationsDetail.class);
+        if (repeated != null) {
+            return repeated;
+        }
+        SessionRow session = session(tenantId, sessionId, true);
+        requireVersion(session, input.version());
+        completion.unconfirmSession(tenantId, sessionId, actor.userId(), input.reason(), now());
+        SessionOperationsDetail response = detail(
+            session(tenantId, sessionId, false), teacherIdOrNull(), true);
+        support.remember(tenantId, operation, idempotencyKey, hash, 200, response);
+        return response;
+    }
+
     private SessionOperationsDetail detail(SessionRow session, UUID teacherId,
                                            boolean management) {
         OffsetDateTime now = now();
@@ -755,23 +777,31 @@ public class TeachingService {
 
     private void saveLessonReport(SessionRow session, LessonReportInput input) {
         String recordUrl = normalizeUrl(input.recordUrl(), "RECORD_URL_INVALID");
-        LessonReport old = lessonReport(session);
-        if (old.version() != input.version()) {
-            throw optimisticConflict();
-        }
-        if (old.version() == 0 && old.lessonName().isEmpty()
-            && old.lessonContent().isEmpty() && old.recordUrl() == null) {
+        LessonReport old = lessonReportRow(session);
+        if (old == null) {
+            if (input.version() != 0) {
+                throw optimisticConflict();
+            }
             jdbc.sql("""
                     INSERT INTO session_lesson_reports (
                       id, tenant_id, session_id, lesson_name, lesson_content, record_url
                     ) VALUES (
                       :id, :tenantId, :sessionId, :lessonName, :lessonContent, :recordUrl
                     )
+                    ON CONFLICT (tenant_id, session_id) DO UPDATE
+                    SET lesson_name=EXCLUDED.lesson_name,
+                        lesson_content=EXCLUDED.lesson_content,
+                        record_url=EXCLUDED.record_url,
+                        updated_at=now(),
+                        version=session_lesson_reports.version+1
                     """)
                 .param("id", UUID.randomUUID()).param("tenantId", session.tenantId())
                 .param("sessionId", session.id()).param("lessonName", input.lessonName())
                 .param("lessonContent", input.lessonContent()).param("recordUrl", recordUrl).update();
         } else {
+            if (old.version() != input.version()) {
+                throw optimisticConflict();
+            }
             int updated = jdbc.sql("""
                     UPDATE session_lesson_reports
                     SET lesson_name=:lessonName, lesson_content=:lessonContent,
@@ -788,7 +818,7 @@ public class TeachingService {
         }
         LessonReport next = lessonReport(session);
         support.audit(session.tenantId(), actor.userId(), "USER", "LESSON_REPORT_UPDATED",
-            "SESSION", session.id(), old, next);
+            "SESSION", session.id(), old != null ? old : new LessonReport("", "", null, 0), next);
     }
 
     private void saveAttendance(SessionRow session, StudentRecordInput input) {
@@ -806,6 +836,11 @@ public class TeachingService {
                     ) VALUES (
                       :id, :tenantId, :sessionId, :studentId, :status, :note
                     )
+                    ON CONFLICT (tenant_id, session_id, student_id) DO UPDATE
+                    SET status=EXCLUDED.status,
+                        note=EXCLUDED.note,
+                        updated_at=now(),
+                        version=session_attendances.version+1
                     """)
                 .param("id", UUID.randomUUID()).param("tenantId", session.tenantId())
                 .param("sessionId", session.id()).param("studentId", input.studentId())
@@ -845,6 +880,10 @@ public class TeachingService {
                     ) VALUES (
                       :id, :tenantId, :sessionId, :studentId, :comment
                     )
+                    ON CONFLICT (tenant_id, session_id, student_id) DO UPDATE
+                    SET comment_text=EXCLUDED.comment_text,
+                        updated_at=now(),
+                        version=session_student_comments.version+1
                     """)
                 .param("id", UUID.randomUUID()).param("tenantId", session.tenantId())
                 .param("sessionId", session.id()).param("studentId", input.studentId())
@@ -867,7 +906,7 @@ public class TeachingService {
             "SESSION", session.id(), old, commentRow(session, input.studentId()));
     }
 
-    private LessonReport lessonReport(SessionRow session) {
+    private LessonReport lessonReportRow(SessionRow session) {
         return jdbc.sql("""
                 SELECT lesson_name, lesson_content, record_url, version
                 FROM session_lesson_reports
@@ -877,7 +916,12 @@ public class TeachingService {
             .query((rs, row) -> new LessonReport(
                 rs.getString("lesson_name"), rs.getString("lesson_content"),
                 rs.getString("record_url"), rs.getLong("version")))
-            .optional().orElse(new LessonReport("", "", null, 0));
+            .optional().orElse(null);
+    }
+
+    private LessonReport lessonReport(SessionRow session) {
+        LessonReport row = lessonReportRow(session);
+        return row != null ? row : new LessonReport("", "", null, 0);
     }
 
     private List<RosterRow> rosterRows(SessionRow session) {
@@ -1142,9 +1186,12 @@ public class TeachingService {
         if (!canManageSchedule) {
             return List.of();
         }
-        if (("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status()))
-            && !checkedIn) {
-            return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION);
+        if ("SCHEDULED".equals(session.status()) || "PENDING_CONFIRMATION".equals(session.status())) {
+            if (!checkedIn) {
+                return List.of(SessionAction.SUBSTITUTE_TEACHER, SessionAction.CANCEL_SESSION,
+                    SessionAction.RESCHEDULE_SESSION);
+            }
+            return List.of(SessionAction.RESCHEDULE_SESSION);
         }
         if ("CANCELLED".equals(session.status()) && session.replacementSessionId() == null) {
             return List.of(SessionAction.CREATE_MAKEUP);

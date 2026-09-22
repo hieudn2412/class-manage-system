@@ -9,6 +9,7 @@ import com.classops.backend.teaching.TeachingDtos.TeacherClassSessions;
 import com.classops.backend.teaching.TeachingDtos.TeacherDashboardData;
 import com.classops.backend.teaching.TeachingDtos.SessionTestInput;
 import com.classops.backend.teaching.TeachingDtos.SessionTestUpdateInput;
+import com.classops.backend.teaching.TeachingDtos.UnconfirmSessionInput;
 import com.classops.backend.teaching.TeachingDtos.VerificationDecisionInput;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -135,6 +136,17 @@ public class TeachingController {
         @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
         return service.verify(sessionId, input, idempotencyKey);
+    }
+
+    @PostMapping("/sessions/{sessionId}/unconfirm")
+    @PreAuthorize("hasAuthority('MANAGE_SESSION_SCHEDULE')")
+    @Operation(summary = "Hủy xác nhận buổi học đã hoàn tất")
+    SessionOperationsDetail unconfirm(
+        @PathVariable UUID sessionId,
+        @Valid @RequestBody UnconfirmSessionInput input,
+        @RequestHeader("Idempotency-Key") String idempotencyKey
+    ) {
+        return service.unconfirm(sessionId, input, idempotencyKey);
     }
 
     private String clientIp(HttpServletRequest request) {

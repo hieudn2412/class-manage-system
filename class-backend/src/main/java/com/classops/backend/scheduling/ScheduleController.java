@@ -1,10 +1,13 @@
 package com.classops.backend.scheduling;
 
+import com.classops.backend.scheduling.SchedulingDtos.ApplyRescheduleInput;
 import com.classops.backend.scheduling.SchedulingDtos.ApplySessionScheduleInput;
 import com.classops.backend.scheduling.SchedulingDtos.ApplySubstitutionInput;
 import com.classops.backend.scheduling.SchedulingDtos.CancelSessionInput;
 import com.classops.backend.scheduling.SchedulingDtos.CreateMakeupInput;
 import com.classops.backend.scheduling.SchedulingDtos.MakeupPreviewInput;
+import com.classops.backend.scheduling.SchedulingDtos.ReschedulePreviewInput;
+import com.classops.backend.scheduling.SchedulingDtos.RescheduleResult;
 import com.classops.backend.scheduling.SchedulingDtos.SchedulePreview;
 import com.classops.backend.scheduling.SchedulingDtos.SessionMutationResult;
 import com.classops.backend.scheduling.SchedulingDtos.SessionScheduleInput;
@@ -129,5 +132,26 @@ public class ScheduleController {
         @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
         return mutationService.createMakeup(sessionId, input, idempotencyKey);
+    }
+
+    @PostMapping("/sessions/{sessionId}/reschedule-previews")
+    @PreAuthorize("hasAuthority('MANAGE_SESSION_SCHEDULE')")
+    @Operation(summary = "Preview cascade reschedule from a session onward")
+    SchedulePreview previewReschedule(
+        @PathVariable UUID sessionId,
+        @Valid @RequestBody ReschedulePreviewInput input
+    ) {
+        return mutationService.previewReschedule(sessionId, input);
+    }
+
+    @PostMapping("/sessions/{sessionId}/reschedules")
+    @PreAuthorize("hasAuthority('MANAGE_SESSION_SCHEDULE')")
+    @Operation(summary = "Apply cascade reschedule from a session onward")
+    RescheduleResult reschedule(
+        @PathVariable UUID sessionId,
+        @Valid @RequestBody ApplyRescheduleInput input,
+        @RequestHeader("Idempotency-Key") String idempotencyKey
+    ) {
+        return mutationService.reschedule(sessionId, input, idempotencyKey);
     }
 }

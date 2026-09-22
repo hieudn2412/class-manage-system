@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Printer } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -15,7 +15,10 @@ import { Select } from "../../shared/ui/FormField";
 import { PageHeader } from "../../shared/ui/PageHeader";
 import { Skeleton } from "../../shared/ui/Skeleton";
 import { StatePanel } from "../../shared/ui/StatePanel";
+import { useToast } from "../../shared/ui/Toast";
+import { UnconfirmSessionModal } from "../teaching/UnconfirmSessionModal";
 import { PublishedSessionOverrideModal } from "./components/PublishedSessionOverrideModal";
+import { RescheduleModal } from "./components/RescheduleModal";
 import { SessionDetailsModal } from "./components/SessionDetailsModal";
 import { SessionMutationModal } from "./components/SessionMutationModal";
 import { WeekNavigator } from "./components/WeekNavigator";
@@ -25,6 +28,8 @@ export const ManagementSchedulePage = () => {
   const tenant = useTenant();
   const navigate = useNavigate();
   const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const weekStart = searchParams.get("week") ?? getWeekStart(getTodayInBusinessTimezone());
   const teacherId = searchParams.get("teacherId") ?? "";
@@ -35,6 +40,8 @@ export const ManagementSchedulePage = () => {
     action: "SUBSTITUTE_TEACHER" | "CANCEL_SESSION" | "CREATE_MAKEUP";
     session: CalendarSession;
   } | null>(null);
+  const [reschedulingSession, setReschedulingSession] = useState<CalendarSession | null>(null);
+  const [unconfirmingSession, setUnconfirmingSession] = useState<CalendarSession | null>(null);
   const canManage = Boolean(
     session && hasPermission(session.user.roles, PERMISSIONS.MANAGE_SESSION_SCHEDULE),
   );
@@ -158,6 +165,14 @@ export const ManagementSchedulePage = () => {
           setSelectedSessions([]);
           setMutatingSession({ action: "CREATE_MAKEUP", session: selected });
         }}
+        onReschedule={(selected) => {
+          setSelectedSessions([]);
+          setReschedulingSession(selected);
+        }}
+        onUnconfirm={(selected) => {
+          setSelectedSessions([]);
+          setUnconfirmingSession(selected);
+        }}
         onOpen={(selected) => {
           setSelectedSessions([]);
           void navigate(`/t/${tenant.slug}/app/sessions/${selected.id}`);
@@ -192,6 +207,43 @@ export const ManagementSchedulePage = () => {
           options={optionsQuery.data}
           onClose={() => setMutatingSession(null)}
           onSaved={() => setMutatingSession(null)}
+        />
+      ) : null}
+      {reschedulingSession ? (
+        <RescheduleModal
+          key={`reschedule-${reschedulingSession.id}-${reschedulingSession.version}`}
+          session={{
+            id: reschedulingSession.id,
+            className: reschedulingSession.className,
+            classCode: reschedulingSession.classCode,
+            ordinal: reschedulingSession.ordinal,
+            startAt: reschedulingSession.startAt,
+            endAt: reschedulingSession.endAt,
+            version: reschedulingSession.version,
+          }}
+          onClose={() => setReschedulingSession(null)}
+          onSaved={() => setReschedulingSession(null)}
+        />
+      ) : null}
+      {unconfirmingSession ? (
+        <UnconfirmSessionModal
+          key={`unconfirm-${unconfirmingSession.id}-${unconfirmingSession.version}`}
+          open={Boolean(unconfirmingSession)}
+          session={{
+            id: unconfirmingSession.id,
+            className: unconfirmingSession.className,
+            classCode: unconfirmingSession.classCode,
+            ordinal: unconfirmingSession.ordinal,
+            version: unconfirmingSession.version,
+          }}
+          tenantSlug={tenant.slug}
+          onClose={() => setUnconfirmingSession(null)}
+          onSuccess={async () => {
+            setUnconfirmingSession(null);
+            await queryClient.invalidateQueries({ queryKey: ["management-schedule"] });
+            await queryClient.invalidateQueries({ queryKey: ["session-operations"] });
+            showToast("Đã hủy xác nhận buổi học thành công.");
+          }}
         />
       ) : null}
     </>

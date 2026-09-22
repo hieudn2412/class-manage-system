@@ -328,4 +328,110 @@ describe("WF-20 workspace buổi dạy", () => {
     );
     expect(save).toHaveBeenCalledTimes(2);
   });
+
+  it("hiển thị nút giao bài tập cạnh tạo bài kiểm tra và mở popup modal khi nhấn", async () => {
+    saveSession(createTestSession(), false);
+    vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
+    vi.spyOn(learningContentRepository, "classHomeworks").mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 50,
+      totalItems: 0,
+      totalPages: 0,
+    });
+    vi.spyOn(teachingRepository, "getSession").mockResolvedValue(detail);
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/t/:tenantSlug/app"
+          element={
+            <TenantProvider>
+              <Outlet />
+            </TenantProvider>
+          }
+        >
+          <Route path="sessions/:sessionId" element={<SessionOperationsPage />} />
+        </Route>
+      </Routes>,
+      ["/t/anh-duong/app/sessions/session-1"],
+    );
+
+    expect(screen.queryByRole("heading", { name: "Bài tập của buổi học" })).not.toBeInTheDocument();
+
+    const rosterSection = screen.getByRole("region", { name: "Điểm danh và nhận xét học sinh" });
+    const homeworkButton = within(rosterSection).getByRole("button", { name: "Giao bài tập" });
+    expect(homeworkButton).toBeInTheDocument();
+    expect(within(rosterSection).getByRole("button", { name: "Tạo bài kiểm tra" })).toBeInTheDocument();
+
+    await user.click(homeworkButton);
+    expect(screen.getByRole("dialog", { name: "Giao bài tập cho buổi học" })).toBeInTheDocument();
+  });
+
+  it("hiển thị nút Hủy xác nhận khi buổi học đã COMPLETED và gọi unconfirmSession thành công", async () => {
+    saveSession(createTestSession(), false);
+    vi.spyOn(authRepository, "getTenant").mockResolvedValue(tenantAnhDuong);
+    vi.spyOn(learningContentRepository, "classHomeworks").mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 50,
+      totalItems: 0,
+      totalPages: 0,
+    });
+    const completedDetail: SessionOperationsDetail = {
+      ...detail,
+      status: "COMPLETED",
+      canEdit: false,
+      canCreateHomework: true,
+      canVerify: false,
+      checkInState: "COMPLETED",
+    };
+    vi.spyOn(teachingRepository, "getSession").mockResolvedValue(completedDetail);
+    const unconfirmSpy = vi
+      .spyOn(teachingRepository, "unconfirmSession")
+      .mockResolvedValue({
+        ...completedDetail,
+        status: "PENDING_CONFIRMATION",
+        version: 2,
+      });
+
+    const user = userEvent.setup();
+
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/t/:tenantSlug/app"
+          element={
+            <TenantProvider>
+              <Outlet />
+            </TenantProvider>
+          }
+        >
+          <Route path="sessions/:sessionId" element={<SessionOperationsPage />} />
+        </Route>
+      </Routes>,
+      ["/t/anh-duong/app/sessions/session-1"],
+    );
+
+    const unconfirmButton = await screen.findByRole("button", { name: "Hủy xác nhận" });
+    expect(unconfirmButton).toBeInTheDocument();
+
+    await user.click(unconfirmButton);
+    const dialog = await screen.findByRole("dialog", { name: "Hủy xác nhận buổi học" });
+    expect(dialog).toBeInTheDocument();
+
+    const reasonInput = screen.getByLabelText("Lý do hủy xác nhận (tùy chọn)");
+    await user.type(reasonInput, "Cần sửa lại điểm danh");
+
+    const confirmSubmit = screen.getByRole("button", { name: "Xác nhận hủy hoàn tất" });
+    await user.click(confirmSubmit);
+
+    await waitFor(() =>
+      expect(unconfirmSpy).toHaveBeenCalledWith("anh-duong", "session-1", {
+        reason: "Cần sửa lại điểm danh",
+        version: 1,
+      }),
+    );
+  });
 });

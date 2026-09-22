@@ -6,6 +6,9 @@ import type {
   CancelSessionInput,
   CreateMakeupInput,
   MakeupPreviewInput,
+  ReschedulePreviewInput,
+  ApplyRescheduleInput,
+  RescheduleResult,
   SchedulePreview,
   SessionSchedulePreviewInput,
   SessionMutationResult,
@@ -62,6 +65,16 @@ export interface ScheduleRepository {
     sessionId: string,
     input: CreateMakeupInput,
   ): Promise<SessionMutationResult>;
+  previewReschedule(
+    tenantSlug: string,
+    sessionId: string,
+    input: ReschedulePreviewInput,
+  ): Promise<SchedulePreview>;
+  applyReschedule(
+    tenantSlug: string,
+    sessionId: string,
+    input: ApplyRescheduleInput,
+  ): Promise<RescheduleResult>;
 }
 
 const idempotencyKey = (): string =>
@@ -126,6 +139,19 @@ export const scheduleRepository: ScheduleRepository = {
     }),
   createMakeup: (tenantSlug, sessionId, input) =>
     apiRequest<SessionMutationResult>(`sessions/${sessionId}/makeups`, {
+      tenantSlug,
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey() },
+      body: JSON.stringify(input),
+    }),
+  previewReschedule: (tenantSlug, sessionId, input) =>
+    apiRequest<SchedulePreview>(`sessions/${sessionId}/reschedule-previews`, {
+      tenantSlug,
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  applyReschedule: (tenantSlug, sessionId, input) =>
+    apiRequest<RescheduleResult>(`sessions/${sessionId}/reschedules`, {
       tenantSlug,
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey() },

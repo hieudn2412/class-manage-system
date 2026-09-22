@@ -38,8 +38,10 @@ export interface SessionMutationTarget {
   version: number;
 }
 
+export type SessionMutationAction = "SUBSTITUTE_TEACHER" | "CANCEL_SESSION" | "CREATE_MAKEUP";
+
 interface SessionMutationModalProps {
-  action: SessionAction;
+  action: SessionMutationAction;
   session: SessionMutationTarget;
   options: ClassSchedulingOptions;
   onClose: () => void;
@@ -53,6 +55,7 @@ const actionTitle: Record<SessionAction, string> = {
   SUBSTITUTE_TEACHER: "Thay giáo viên",
   CANCEL_SESSION: "Hủy / xếp bù",
   CREATE_MAKEUP: "Tạo buổi bù",
+  RESCHEDULE_SESSION: "Dời lịch",
 };
 
 const firstActiveRoom = (options: ClassSchedulingOptions, fallback: string | null) =>
